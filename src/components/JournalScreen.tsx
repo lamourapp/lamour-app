@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { useJournal, useSpecialists } from "@/lib/hooks";
 import type { JournalEntry } from "@/lib/demo-data";
+import CalendarPicker from "./CalendarPicker";
 
 function TypeDot({ type }: { type: JournalEntry["type"] }) {
   const colors: Record<string, string> = {
@@ -107,9 +108,7 @@ export default function JournalScreen() {
   const [period, setPeriod] = useState("month");
   const [selectedSpecialist, setSelectedSpecialist] = useState("");
   const [selectedType, setSelectedType] = useState("");
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [showCalendar, setShowCalendar] = useState(false);
   const [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null);
 
   const { entries, loading, error } = useJournal(
@@ -145,15 +144,13 @@ export default function JournalScreen() {
   function selectPeriod(p: string) {
     setPeriod(p);
     setCustomRange(null);
-    setShowDatePicker(false);
+    setShowCalendar(false);
   }
 
-  function applyCustomRange() {
-    if (dateFrom && dateTo) {
-      setCustomRange({ from: dateFrom, to: dateTo });
-      setPeriod("");
-      setShowDatePicker(false);
-    }
+  function handleCalendarApply(from: string, to: string) {
+    setCustomRange({ from, to });
+    setPeriod("");
+    setShowCalendar(false);
   }
 
   const periodLabel = customRange
@@ -180,7 +177,7 @@ export default function JournalScreen() {
               </button>
             ))}
             <button
-              onClick={() => setShowDatePicker(!showDatePicker)}
+              onClick={() => setShowCalendar(!showCalendar)}
               className={`px-3 py-1.5 rounded-full text-[11px] font-medium cursor-pointer transition-all
                 ${customRange ? "bg-brand-600 text-white" : "bg-[#f5f5f7] text-gray-600 hover:bg-[#e5e5ea]"}`}
             >
@@ -209,31 +206,14 @@ export default function JournalScreen() {
           </select>
         </div>
 
-        {/* Date picker */}
-        {showDatePicker && (
-          <div className="mt-3 pt-3 border-t border-black/5 flex flex-wrap items-center gap-2">
-            <label className="text-[11px] text-gray-400">Від:</label>
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="text-[12px] border border-black/[0.08] rounded-lg px-2.5 py-1.5 text-gray-700 focus:border-brand-500 focus:outline-none"
-            />
-            <label className="text-[11px] text-gray-400">До:</label>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="text-[12px] border border-black/[0.08] rounded-lg px-2.5 py-1.5 text-gray-700 focus:border-brand-500 focus:outline-none"
-            />
-            <button
-              onClick={applyCustomRange}
-              disabled={!dateFrom || !dateTo}
-              className="bg-brand-600 text-white rounded-lg text-[11px] font-medium px-3 py-1.5 cursor-pointer hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              Застосувати
-            </button>
-          </div>
+        {/* Calendar picker */}
+        {showCalendar && (
+          <CalendarPicker
+            onApply={handleCalendarApply}
+            onClose={() => setShowCalendar(false)}
+            initialFrom={customRange?.from}
+            initialTo={customRange?.to}
+          />
         )}
       </div>
 
