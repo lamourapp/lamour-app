@@ -28,15 +28,28 @@ export function useSpecialists() {
   return { specialists: data, loading, error };
 }
 
-export function useJournal(period: string = "month", specialistId: string = "") {
+export function useJournal(
+  period: string = "month",
+  specialistId: string = "",
+  dateFrom?: string,
+  dateTo?: string,
+) {
   const [data, setData] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(() => {
     setLoading(true);
+    setError(null);
     const params = new URLSearchParams();
-    params.set("period", period);
+
+    if (dateFrom && dateTo) {
+      params.set("from", dateFrom);
+      params.set("to", dateTo);
+    } else {
+      params.set("period", period);
+    }
+
     if (specialistId) params.set("specialist", specialistId);
 
     fetch(`/api/journal?${params.toString()}`)
@@ -53,7 +66,7 @@ export function useJournal(period: string = "month", specialistId: string = "") 
         setError(err.message);
         setLoading(false);
       });
-  }, [period, specialistId]);
+  }, [period, specialistId, dateFrom, dateTo]);
 
   useEffect(() => {
     reload();

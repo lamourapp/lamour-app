@@ -59,7 +59,9 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json(specialists);
+    // Filter active only
+    const active = specialists.filter((s) => s.isActive);
+    return NextResponse.json(active);
   } catch (error) {
     console.error("Failed to fetch specialists:", error);
     return NextResponse.json({ error: "Failed to fetch specialists" }, { status: 500 });

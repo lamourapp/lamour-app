@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useJournal, useSpecialists } from "@/lib/hooks";
 import type { JournalEntry } from "@/lib/demo-data";
 
@@ -38,20 +38,19 @@ function TypeLabel({ type }: { type: JournalEntry["type"] }) {
 }
 
 function EntryCard({ entry }: { entry: JournalEntry }) {
-  const isExpense = entry.type === "expense";
   const isRental = entry.type === "rental";
 
   return (
     <div className="bg-white rounded-xl border border-black/[0.06] px-4 py-3 cursor-pointer transition-all hover:shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <TypeDot type={entry.type} />
-          <div>
-            <div className="text-[13px] font-medium text-gray-900">{entry.title || "—"}</div>
+          <div className="min-w-0">
+            <div className="text-[13px] font-medium text-gray-900 truncate">{entry.title || "—"}</div>
             <div className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1 flex-wrap">
               {entry.specialistName && <span>{entry.specialistName}</span>}
               {entry.time && <span>· {entry.time}</span>}
-              {!entry.specialistName && isExpense && <span>Витрата</span>}
+              {!entry.specialistName && entry.type === "expense" && <span>Витрата</span>}
               {entry.source === "bot" && <span className="text-brand-500">· бот</span>}
               {entry.supplement && entry.supplement > 0 && (
                 <span className="text-brand-400">· +{entry.supplement}</span>
@@ -62,9 +61,9 @@ function EntryCard({ entry }: { entry: JournalEntry }) {
             </div>
           </div>
         </div>
-        <div className="text-right shrink-0">
+        <div className="text-right shrink-0 ml-3">
           <div className={`text-[13px] font-semibold tabular-nums ${
-            isRental ? "text-green-600" : isExpense ? "text-gray-900" : "text-gray-900"
+            isRental ? "text-green-600" : "text-gray-900"
           }`}>
             {isRental && "+"}
             {entry.amount < 0 ? "−" : ""}
@@ -85,25 +84,50 @@ function formatDateHeader(dateStr: string): string {
     "липня", "серпня", "вересня", "жовтня", "листопада", "грудня",
   ];
   const weekdays = ["неділя", "понеділок", "вівторок", "середа", "четвер", "п'ятниця", "субота"];
-  const year = date.getFullYear();
-  return `${day} ${months[date.getMonth()]} ${year}, ${weekdays[date.getDay()]}`;
+  return `${day} ${months[date.getMonth()]} ${date.getFullYear()}, ${weekdays[date.getDay()]}`;
 }
 
-const periods = [
+const periodButtons = [
   { id: "yesterday", label: "Вчора" },
   { id: "today", label: "Сьогодні" },
   { id: "week", label: "Тиждень" },
   { id: "month", label: "Місяць" },
 ];
 
+const typeFilters = [
+  { id: "", label: "Всі типи" },
+  { id: "service", label: "Послуги" },
+  { id: "sale", label: "Продажі" },
+  { id: "expense", label: "Витрати" },
+  { id: "debt", label: "Борги" },
+  { id: "rental", label: "Оренда" },
+];
+
 export default function JournalScreen() {
   const [period, setPeriod] = useState("month");
   const [selectedSpecialist, setSelectedSpecialist] = useState("");
-  const { entries, loading, error } = useJournal(period, selectedSpecialist);
+  const [selectedType, setSelectedType] = useState("");
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null);
+
+  const { entries, loading, error } = useJournal(
+    customRange ? "custom" : period,
+    selectedSpecialist,
+    customRange?.from,
+    customRange?.to,
+  );
   const { specialists } = useSpecialists();
 
+  // Client-side type filter
+  const filtered = useMemo(() => {
+    if (!selectedType) return entries;
+    return entries.filter((e) => e.type === selectedType);
+  }, [entries, selectedType]);
+
   // Group entries by date
-  const grouped = entries.reduce<Record<string, JournalEntry[]>>((acc, entry) => {
+  const grouped = filtered.reduce<Record<string, JournalEntry[]>>((acc, entry) => {
     const date = entry.date || "unknown";
     if (!acc[date]) acc[date] = [];
     acc[date].push(entry);
@@ -113,10 +137,31 @@ export default function JournalScreen() {
   const dates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
 
   // Calculate totals
-  const totalIncome = entries
+  const totalIncome = filtered
     .filter((e) => e.amount > 0)
     .reduce((sum, e) => sum + e.amount, 0);
-  const totalRecords = entries.length;
+  const totalRecords = filtered.length;
+
+  function selectPeriod(p: string) {
+    setPeriod(p);
+    setCustomRange(null);
+    setShowDatePicker(false);
+  }
+
+  function applyCustomRange() {
+    if (dateFrom && dateTo) {
+      setCustomRange({ from: dateFrom, to: dateTo });
+      setPeriod("");
+      setShowDatePicker(false);
+    }
+  }
+
+  const periodLabel = customRange
+    ? `${customRange.from} — ${customRange.to}`
+    : period === "today" ? "Сьогодні"
+    : period === "yesterday" ? "Вчора"
+    : period === "week" ? "Цей тиждень"
+    : "Цей місяць";
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-5">
@@ -124,16 +169,23 @@ export default function JournalScreen() {
       <div className="bg-white rounded-xl border border-black/[0.06] p-3 mb-4">
         <div className="flex flex-wrap gap-2.5 items-center">
           <div className="flex gap-1">
-            {periods.map((p) => (
+            {periodButtons.map((p) => (
               <button
                 key={p.id}
-                onClick={() => setPeriod(p.id)}
+                onClick={() => selectPeriod(p.id)}
                 className={`px-3 py-1.5 rounded-full text-[11px] font-medium cursor-pointer transition-all
-                  ${period === p.id ? "bg-brand-600 text-white" : "bg-[#f5f5f7] text-gray-600 hover:bg-[#e5e5ea]"}`}
+                  ${period === p.id && !customRange ? "bg-brand-600 text-white" : "bg-[#f5f5f7] text-gray-600 hover:bg-[#e5e5ea]"}`}
               >
                 {p.label}
               </button>
             ))}
+            <button
+              onClick={() => setShowDatePicker(!showDatePicker)}
+              className={`px-3 py-1.5 rounded-full text-[11px] font-medium cursor-pointer transition-all
+                ${customRange ? "bg-brand-600 text-white" : "bg-[#f5f5f7] text-gray-600 hover:bg-[#e5e5ea]"}`}
+            >
+              📅
+            </button>
           </div>
           <div className="h-5 w-px bg-black/5 hidden sm:block" />
           <select
@@ -146,13 +198,49 @@ export default function JournalScreen() {
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
+          <select
+            value={selectedType}
+            onChange={(e) => setSelectedType(e.target.value)}
+            className="text-[11px] border border-black/[0.08] rounded-lg px-2.5 py-1.5 text-gray-600 bg-white cursor-pointer"
+          >
+            {typeFilters.map((t) => (
+              <option key={t.id} value={t.id}>{t.label}</option>
+            ))}
+          </select>
         </div>
+
+        {/* Date picker */}
+        {showDatePicker && (
+          <div className="mt-3 pt-3 border-t border-black/5 flex flex-wrap items-center gap-2">
+            <label className="text-[11px] text-gray-400">Від:</label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="text-[12px] border border-black/[0.08] rounded-lg px-2.5 py-1.5 text-gray-700 focus:border-brand-500 focus:outline-none"
+            />
+            <label className="text-[11px] text-gray-400">До:</label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="text-[12px] border border-black/[0.08] rounded-lg px-2.5 py-1.5 text-gray-700 focus:border-brand-500 focus:outline-none"
+            />
+            <button
+              onClick={applyCustomRange}
+              disabled={!dateFrom || !dateTo}
+              className="bg-brand-600 text-white rounded-lg text-[11px] font-medium px-3 py-1.5 cursor-pointer hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Застосувати
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Summary */}
       <div className="flex items-center justify-between mb-3 px-0.5">
         <h2 className="text-[13px] font-semibold text-gray-900 tracking-tight">
-          {period === "today" ? "Сьогодні" : period === "yesterday" ? "Вчора" : period === "week" ? "Цей тиждень" : "Цей місяць"}
+          {periodLabel}
         </h2>
         <div className="flex gap-3 text-[11px] text-gray-400">
           <span>Записів: <strong className="text-gray-600">{totalRecords}</strong></span>
@@ -167,29 +255,20 @@ export default function JournalScreen() {
       {error && (
         <div className="text-center py-12 text-red-500 text-[13px]">Помилка: {error}</div>
       )}
-      {!loading && !error && entries.length === 0 && (
+      {!loading && !error && filtered.length === 0 && (
         <div className="text-center py-12 text-gray-400 text-[13px]">Немає записів за цей період</div>
       )}
 
       {/* Journal entries grouped by date */}
       {!loading && dates.map((date, dateIdx) => (
         <div key={date}>
-          {dateIdx > 0 && (
-            <div className="flex items-center gap-3 pt-3 pb-1 px-0.5">
-              <h2 className="text-[13px] font-semibold text-gray-900 tracking-tight">
-                {formatDateHeader(date)}
-              </h2>
-              <div className="flex-1 h-px bg-black/5" />
-            </div>
-          )}
-          {dateIdx === 0 && dates.length > 1 && (
-            <div className="flex items-center gap-3 pb-1 px-0.5">
-              <h2 className="text-[13px] font-semibold text-gray-900 tracking-tight">
-                {formatDateHeader(date)}
-              </h2>
-              <div className="flex-1 h-px bg-black/5" />
-            </div>
-          )}
+          <div className={`flex items-center gap-3 px-0.5 ${dateIdx > 0 ? "pt-3" : ""} pb-1`}>
+            <h2 className="text-[13px] font-semibold text-gray-900 tracking-tight">
+              {formatDateHeader(date)}
+            </h2>
+            <div className="flex-1 h-px bg-black/5" />
+            <span className="text-[11px] text-gray-400">{grouped[date].length}</span>
+          </div>
           <div className="space-y-1.5 mb-1">
             {grouped[date].map((entry) => (
               <EntryCard key={entry.id} entry={entry} />

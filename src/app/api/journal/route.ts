@@ -4,83 +4,83 @@ import { fetchAllRecords, TABLES } from "@/lib/airtable";
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const period = searchParams.get("period") || "month"; // today, yesterday, week, month
+    const period = searchParams.get("period") || "month";
     const specialistId = searchParams.get("specialist") || "";
+    const dateFrom = searchParams.get("from") || ""; // YYYY-MM-DD
+    const dateTo = searchParams.get("to") || "";     // YYYY-MM-DD
 
     // Build date filter
-    const now = new Date();
     let dateFilter = "";
 
-    switch (period) {
-      case "today":
-        dateFilter = `IS_SAME({Дата}, TODAY(), 'day')`;
-        break;
-      case "yesterday":
-        dateFilter = `IS_SAME({Дата}, DATEADD(TODAY(), -1, 'day'), 'day')`;
-        break;
-      case "week":
-        dateFilter = `IS_AFTER({Дата}, DATEADD(TODAY(), -7, 'day'))`;
-        break;
-      case "month": {
-        const firstOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-        dateFilter = `IS_AFTER({Дата}, '${firstOfMonth}')`;
-        break;
+    if (dateFrom && dateTo) {
+      // Custom range
+      dateFilter = `AND(IS_AFTER({Дата}, DATEADD('${dateFrom}', -1, 'day')), IS_BEFORE({Дата}, DATEADD('${dateTo}', 1, 'day')))`;
+    } else {
+      switch (period) {
+        case "today":
+          dateFilter = `IS_SAME({Дата}, TODAY(), 'day')`;
+          break;
+        case "yesterday":
+          dateFilter = `IS_SAME({Дата}, DATEADD(TODAY(), -1, 'day'), 'day')`;
+          break;
+        case "week":
+          dateFilter = `IS_AFTER({Дата}, DATEADD(TODAY(), -7, 'day'))`;
+          break;
+        case "month": {
+          const now = new Date();
+          const firstOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+          dateFilter = `IS_AFTER({Дата}, DATEADD('${firstOfMonth}', -1, 'day'))`;
+          break;
+        }
+        default:
+          dateFilter = `IS_AFTER({Дата}, DATEADD(TODAY(), -30, 'day'))`;
       }
-      default:
-        dateFilter = `IS_AFTER({Дата}, DATEADD(TODAY(), -30, 'day'))`;
     }
 
-    // Build combined filter
+    // Build combined filter — specialist filter via linked record ID
     const filters = [dateFilter];
     if (specialistId) {
-      filters.push(`FIND("${specialistId}", ARRAYJOIN(RECORD_ID({Майстер})))`);
+      filters.push(`SEARCH("${specialistId}", ARRAYJOIN({Майстер}))`);
     }
 
     const filterFormula = filters.length > 1
       ? `AND(${filters.join(",")})`
       : filters[0];
 
-    const records = await fetchAllRecords(TABLES.services, {
-      filterByFormula: filterFormula,
-      sort: [{ field: "Дата", direction: "desc" }],
-      fields: [
-        "Дата",
-        "Майстер",
-        "Послуга",
-        "Всього вартість послуги",
-        "Доповнення",
-        "Салону за послугу",
-        "Оплата майстру - всього",
-        "Сума витрат",
-        "Вид витрати",
-        "Cума боргу",
-        "Продажі",
-        "Всього ціна продажі",
-        "Доповнення(продажі)",
-        "Created",
-        "Чатбот",
-        "вид оплати",
-        "Фікс. вартість матеріалів",
-      ],
-    });
+    // Fetch journal, specialists, and services catalog in parallel
+    const [records, specialistRecords, serviceCatalog] = await Promise.all([
+      fetchAllRecords(TABLES.services, {
+        filterByFormula: filterFormula,
+        sort: [{ field: "Дата", direction: "desc" }],
+        fields: [
+          "Дата",
+          "Майстер",
+          "Послуга",
+          "Всього вартість послуги",
+          "Доповнення",
+          "Салону за послугу",
+          "Оплата майстру - всього",
+          "Сума витрат",
+          "Вид витрати",
+          "Cума боргу",
+          "Продажі",
+          "Всього ціна продажі",
+          "Доповнення(продажі)",
+          "Created",
+          "Чатбот",
+          "вид оплати",
+        ],
+      }),
+      fetchAllRecords(TABLES.specialists, { fields: ["Ім'я"] }),
+      fetchAllRecords(TABLES.servicesCatalog, { fields: ["Назва"] }),
+    ]);
 
-    // We also need specialist names — fetch them separately and cache
-    const specialistRecords = await fetchAllRecords(TABLES.specialists, {
-      fields: ["Ім'я"],
-    });
+    // Build lookup maps
     const specialistMap = new Map<string, string>();
-    specialistRecords.forEach((r) => {
-      specialistMap.set(r.id, (r.fields["Ім'я"] as string) || "");
-    });
+    specialistRecords.forEach((r) => specialistMap.set(r.id, (r.fields["Ім'я"] as string) || ""));
 
-    // We also need service names
-    const serviceCatalog = await fetchAllRecords(TABLES.servicesCatalog, {
-      fields: ["Назва"],
-    });
     const serviceMap = new Map<string, string>();
-    serviceCatalog.forEach((r) => {
-      serviceMap.set(r.id, (r.fields["Назва"] as string) || "");
-    });
+    serviceCatalog.forEach((r) => serviceMap.set(r.id, (r.fields["Назва"] as string) || ""));
 
     const entries = records.map((r) => {
       const f = r.fields;
