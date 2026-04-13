@@ -143,6 +143,7 @@ export default function DashboardScreen() {
   const [selectedSpecialist, setSelectedSpecialist] = useState("");
   const [showCalendar, setShowCalendar] = useState(false);
   const [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null);
+  const [showDetailCols, setShowDetailCols] = useState(false);
 
   const { entries, loading, error } = useJournal(
     customRange ? "custom" : period,
@@ -364,18 +365,37 @@ export default function DashboardScreen() {
                   <table className="w-full text-[12px]">
                     <thead>
                       <tr className="border-b border-black/5">
-                        {["Дата", "Спеціаліст", "Послуга / продаж"].map((h) => (
+                        {["Дата", "Спеціаліст", "Послуга / Продаж / Витрата"].map((h) => (
                           <th key={h} className="text-left px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider">
                             {h}
                           </th>
                         ))}
-                        {["Вартість", "Допов.", "Калькул.", "Матер.", "% спец.", "% салону"].map((h) => (
-                          <th key={h} className="text-right px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider">
-                            {h}
-                          </th>
-                        ))}
-                        <th className="text-center px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider">
-                          Автор
+                        <th className="text-right px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider">
+                          Вартість
+                        </th>
+                        <th className="text-left px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider">
+                          Коментар
+                        </th>
+                        {showDetailCols && (
+                          <>
+                            {["Допов.", "Калькул.", "Матер.", "% спец.", "% салону"].map((h) => (
+                              <th key={h} className="text-right px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider">
+                                {h}
+                              </th>
+                            ))}
+                            <th className="text-center px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider">
+                              Автор
+                            </th>
+                          </>
+                        )}
+                        <th className="px-2 py-2.5">
+                          <button
+                            onClick={() => setShowDetailCols(!showDetailCols)}
+                            className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 text-[11px] font-bold cursor-pointer transition-colors flex items-center justify-center"
+                            title={showDetailCols ? "Сховати деталі" : "Показати деталі"}
+                          >
+                            {showDetailCols ? "−" : "+"}
+                          </button>
                         </th>
                       </tr>
                     </thead>
@@ -399,45 +419,53 @@ export default function DashboardScreen() {
                             <td className="px-3 py-2.5 text-right font-medium text-gray-900 tabular-nums">
                               {e.amount < 0 ? `−${Math.abs(e.amount).toLocaleString("uk-UA")}` : e.amount.toLocaleString("uk-UA")}
                             </td>
-                            <td className="px-3 py-2.5 text-right tabular-nums">
-                              {e.supplement ? (
-                                <span className="text-gray-900">
-                                  {e.supplement > 0 ? `+${e.supplement}` : e.supplement}
-                                </span>
-                              ) : (
-                                <span className="text-gray-300">—</span>
-                              )}
+                            <td className="px-3 py-2.5 text-left text-[11px] text-gray-500 max-w-[150px] truncate">
+                              {e.comment || <span className="text-gray-300">—</span>}
                             </td>
-                            <td className="px-3 py-2.5 text-right tabular-nums">
-                              {e.calculationCost ? (
-                                <span className="text-purple-600">{e.calculationCost.toLocaleString("uk-UA")}</span>
-                              ) : (
-                                <span className="text-gray-300">—</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2.5 text-right tabular-nums">
-                              {e.baseMaterialsCost ? (
-                                <span className="text-amber-600">{e.baseMaterialsCost.toLocaleString("uk-UA")}</span>
-                              ) : (
-                                <span className="text-gray-300">—</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2.5 text-right text-gray-500 tabular-nums">
-                              {e.specialistShare ? e.specialistShare.toLocaleString("uk-UA") : <span className="text-gray-300">—</span>}
-                            </td>
-                            <td className="px-3 py-2.5 text-right text-gray-500 tabular-nums">
-                              {(() => {
-                                const total = (e.salonShare || 0) + (e.salonMaterialShare || 0) + (e.salonSalesShare || 0);
-                                return total ? total.toLocaleString("uk-UA") : <span className="text-gray-300">—</span>;
-                              })()}
-                            </td>
-                            <td className="px-3 py-2.5 text-center">
-                              {e.source === "bot" ? (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-brand-50 text-brand-600">бот</span>
-                              ) : (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-gray-100 text-gray-500">адмін</span>
-                              )}
-                            </td>
+                            {showDetailCols && (
+                              <>
+                                <td className="px-3 py-2.5 text-right tabular-nums">
+                                  {e.supplement ? (
+                                    <span className="text-gray-900">
+                                      {e.supplement > 0 ? `+${e.supplement}` : e.supplement}
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-300">—</span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2.5 text-right tabular-nums">
+                                  {e.calculationCost ? (
+                                    <span className="text-purple-600">{e.calculationCost.toLocaleString("uk-UA")}</span>
+                                  ) : (
+                                    <span className="text-gray-300">—</span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2.5 text-right tabular-nums">
+                                  {e.baseMaterialsCost ? (
+                                    <span className="text-amber-600">{e.baseMaterialsCost.toLocaleString("uk-UA")}</span>
+                                  ) : (
+                                    <span className="text-gray-300">—</span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2.5 text-right text-gray-500 tabular-nums">
+                                  {e.specialistShare ? e.specialistShare.toLocaleString("uk-UA") : <span className="text-gray-300">—</span>}
+                                </td>
+                                <td className="px-3 py-2.5 text-right text-gray-500 tabular-nums">
+                                  {(() => {
+                                    const total = (e.salonShare || 0) + (e.salonMaterialShare || 0) + (e.salonSalesShare || 0);
+                                    return total ? total.toLocaleString("uk-UA") : <span className="text-gray-300">—</span>;
+                                  })()}
+                                </td>
+                                <td className="px-3 py-2.5 text-center">
+                                  {e.source === "bot" ? (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-brand-50 text-brand-600">бот</span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-gray-100 text-gray-500">адмін</span>
+                                  )}
+                                </td>
+                              </>
+                            )}
+                            <td className="px-2 py-2.5" />
                           </tr>
                         );
                       })}
