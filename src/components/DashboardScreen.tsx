@@ -361,15 +361,19 @@ export default function DashboardScreen() {
               <div className="text-center py-8 text-gray-400 text-[13px]">Немає записів за цей період</div>
             ) : (
               <div className="bg-white rounded-xl border border-black/[0.06] overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-[12px]">
-                    <thead>
+                <div className="overflow-x-auto max-h-[70vh] relative">
+                  <table className="w-full text-[12px] border-collapse">
+                    <thead className="sticky top-0 z-20 bg-white">
                       <tr className="border-b border-black/5">
-                        {["Дата", "Спеціаліст", "Послуга / Продаж / Витрата"].map((h) => (
-                          <th key={h} className="text-left px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider">
-                            {h}
-                          </th>
-                        ))}
+                        <th className="sticky left-0 z-30 bg-white text-left px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider min-w-[52px]">
+                          Дата
+                        </th>
+                        <th className="sticky left-[52px] z-30 bg-white text-left px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider min-w-[100px] border-r border-black/5">
+                          Спеціаліст
+                        </th>
+                        <th className="text-left px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider">
+                          Послуга / Продаж / Витрата
+                        </th>
                         <th className="text-right px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider">
                           Вартість
                         </th>
@@ -388,7 +392,7 @@ export default function DashboardScreen() {
                             </th>
                           </>
                         )}
-                        <th className="px-2 py-2.5">
+                        <th className="sticky right-0 z-30 bg-white px-2 py-2.5">
                           <button
                             onClick={() => setShowDetailCols(!showDetailCols)}
                             className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 text-[11px] font-bold cursor-pointer transition-colors flex items-center justify-center"
@@ -406,8 +410,8 @@ export default function DashboardScreen() {
 
                         return (
                           <tr key={e.id} className="border-b border-black/[0.03] hover:bg-gray-50/50">
-                            <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap tabular-nums">{dateStr}</td>
-                            <td className={`px-3 py-2.5 whitespace-nowrap font-medium ${e.specialistName ? "text-gray-900" : "text-gray-400"}`}>
+                            <td className="sticky left-0 z-10 bg-white px-3 py-2.5 text-gray-500 whitespace-nowrap tabular-nums">{dateStr}</td>
+                            <td className={`sticky left-[52px] z-10 bg-white px-3 py-2.5 whitespace-nowrap font-medium border-r border-black/5 ${e.specialistName ? "text-gray-900" : "text-gray-400"}`}>
                               {e.specialistName || "—"}
                             </td>
                             <td className="px-3 py-2.5 whitespace-nowrap">
@@ -465,7 +469,7 @@ export default function DashboardScreen() {
                                 </td>
                               </>
                             )}
-                            <td className="px-2 py-2.5" />
+                            <td className="sticky right-0 z-10 bg-white px-2 py-2.5" />
                           </tr>
                         );
                       })}

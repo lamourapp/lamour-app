@@ -198,7 +198,7 @@ export async function GET(request: NextRequest) {
         salonSalesShare: (f["% салону за продаж"] as number) || undefined,
         materialsCost,
         comment: (f["Коментарі"] as string) || undefined,
-        calculationCost: (f["Додаткові матеріали(Калькуляція)"] as number) || undefined,
+        calculationCost: type !== "rental" ? ((f["Додаткові матеріали(Калькуляція)"] as number) || undefined) : undefined,
         baseMaterialsCost: (f["Загальна вартість матеріалів"] as number) || undefined,
         source,
         time,
