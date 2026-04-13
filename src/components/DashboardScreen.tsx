@@ -68,6 +68,7 @@ const periodButtons = [
 ];
 
 function computeMetrics(entries: JournalEntry[]) {
+  // Sum ALL entries — same as Airtable rollups, no type filtering
   let salonServiceShare = 0;
   let salonMaterialShare = 0;
   let salonSalesShare = 0;
@@ -85,38 +86,26 @@ function computeMetrics(entries: JournalEntry[]) {
   let countRentals = 0;
 
   for (const e of entries) {
-    switch (e.type) {
-      case "service":
-        salonServiceShare += e.salonShare || 0;
-        salonMaterialShare += e.salonMaterialShare || 0;
-        salonSalesShare += e.salonSalesShare || 0;
-        specialistServiceShare += e.specialistServiceShare || 0;
-        specialistMaterialShare += e.specialistMaterialShare || 0;
-        specialistSalesShare += e.specialistSalesShare || 0;
-        countServices++;
-        break;
-      case "rental":
-        // Rental goes to salon as service share (it's salon income)
-        salonServiceShare += e.salonShare || 0;
-        salonMaterialShare += e.salonMaterialShare || 0;
-        salonSalesShare += e.salonSalesShare || 0;
-        specialistServiceShare += e.specialistServiceShare || 0;
-        specialistMaterialShare += e.specialistMaterialShare || 0;
-        specialistSalesShare += e.specialistSalesShare || 0;
-        countRentals++;
-        break;
-      case "sale":
-        salonSalesShare += e.salonSalesShare || 0;
-        specialistSalesShare += e.specialistSalesShare || 0;
-        countSales++;
-        break;
-      case "expense":
-        expenses += Math.abs(e.amount);
-        countExpenses++;
-        break;
-      case "debt":
-        debts += e.amount;
-        break;
+    // Sum financial fields from ALL entries (Airtable doesn't filter by type)
+    salonServiceShare += e.salonShare || 0;
+    salonMaterialShare += e.salonMaterialShare || 0;
+    salonSalesShare += e.salonSalesShare || 0;
+    specialistServiceShare += e.specialistServiceShare || 0;
+    specialistMaterialShare += e.specialistMaterialShare || 0;
+    specialistSalesShare += e.specialistSalesShare || 0;
+
+    // Type-specific
+    if (e.type === "expense") {
+      expenses += Math.abs(e.amount);
+      countExpenses++;
+    } else if (e.type === "debt") {
+      debts += e.amount;
+    } else if (e.type === "service") {
+      countServices++;
+    } else if (e.type === "sale") {
+      countSales++;
+    } else if (e.type === "rental") {
+      countRentals++;
     }
   }
 
