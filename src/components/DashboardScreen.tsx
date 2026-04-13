@@ -84,6 +84,7 @@ function computeMetrics(entries: JournalEntry[]) {
   let countSales = 0;
   let countExpenses = 0;
   let countRentals = 0;
+  let rentalSum = 0; // rent only, without materials
 
   for (const e of entries) {
     // Sum financial fields from ALL entries (Airtable doesn't filter by type)
@@ -106,6 +107,8 @@ function computeMetrics(entries: JournalEntry[]) {
       countSales++;
     } else if (e.type === "rental") {
       countRentals++;
+      // Rent only = total amount minus materials
+      rentalSum += e.amount - (e.materialsCost || 0);
     }
   }
 
@@ -125,6 +128,7 @@ function computeMetrics(entries: JournalEntry[]) {
     expenses,
     debts,
     cashInRegister,
+    rentalSum,
     countServices,
     countSales,
     countExpenses,
@@ -262,12 +266,12 @@ export default function DashboardScreen() {
               <MetricCard label="Всього оплата спеціалісту" value={Math.round(m.specialistTotal)} variant="green-light" />
             </div>
 
-            {/* Row 3: debts, expenses, cash */}
+            {/* Row 3: rental, debts, expenses, cash */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <div className="hidden sm:block" /> {/* empty cell */}
+              <MetricCard label="Оренда" sublabel="без матеріалів" value={Math.round(m.rentalSum)} variant="default" />
               <MetricCard
                 label="Борги"
-                sublabel="+(ми винні), −(нам винні)"
+                sublabel={m.debts > 0 ? "салон винен" : m.debts < 0 ? "нам винні" : "баланс"}
                 value={Math.round(m.debts)}
                 variant={m.debts !== 0 ? "negative" : "default"}
               />
