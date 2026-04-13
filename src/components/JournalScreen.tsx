@@ -40,6 +40,7 @@ function TypeLabel({ type }: { type: JournalEntry["type"] }) {
 
 function EntryCard({ entry }: { entry: JournalEntry }) {
   const isRental = entry.type === "rental";
+  const hasMaterials = isRental && entry.materialsCost && entry.materialsCost > 0;
 
   return (
     <div className="bg-white rounded-xl border border-black/[0.06] px-4 py-3 cursor-pointer transition-all hover:shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
@@ -70,7 +71,15 @@ function EntryCard({ entry }: { entry: JournalEntry }) {
             {entry.amount < 0 ? "−" : ""}
             {Math.abs(entry.amount).toLocaleString("uk-UA")} ₴
           </div>
-          <TypeLabel type={entry.type} />
+          {hasMaterials ? (
+            <div className="text-[10px] text-gray-400 tabular-nums leading-tight">
+              <span className="text-amber-500">оренда {(entry.amount - entry.materialsCost!).toLocaleString("uk-UA")}</span>
+              {" + "}
+              <span>матер. {entry.materialsCost!.toLocaleString("uk-UA")}</span>
+            </div>
+          ) : (
+            <TypeLabel type={entry.type} />
+          )}
         </div>
       </div>
     </div>

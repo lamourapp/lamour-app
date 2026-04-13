@@ -28,6 +28,7 @@ export interface JournalEntry {
   supplement?: number; // доповнення (+/-)
   specialistShare?: number;
   salonShare?: number;
+  materialsCost?: number; // вартість матеріалів (для оренди)
   source?: "bot" | "admin";
   time?: string;
 }

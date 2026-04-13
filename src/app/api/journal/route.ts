@@ -59,6 +59,8 @@ export async function GET(request: NextRequest) {
           "Created",
           "Чатбот",
           "вид оплати",
+          "Загальна вартість роботи",
+          "Загальна вартість матеріалів",
         ],
       }),
       fetchAllRecords(TABLES.specialists, { fields: ["Ім'я"] }),
@@ -139,12 +141,21 @@ export async function GET(request: NextRequest) {
 
       // Amount
       let amount = 0;
+      let materialsCost: number | undefined;
       if (type === "expense") {
         amount = -(Math.abs(expenseAmount || 0));
       } else if (type === "debt") {
         amount = debtAmount || 0;
       } else if (type === "sale") {
         amount = (f["Всього ціна продажі"] as number) || 0;
+      } else if (type === "rental") {
+        // For rental: show total but pass breakdown (rental fee + materials)
+        amount = (f["Всього вартість послуги"] as number) || 0;
+        const workCost = (f["Загальна вартість роботи"] as number) || 0;
+        const matCost = (f["Загальна вартість матеріалів"] as number) || 0;
+        if (matCost > 0) {
+          materialsCost = matCost;
+        }
       } else {
         amount = (f["Всього вартість послуги"] as number) || 0;
       }
@@ -172,6 +183,7 @@ export async function GET(request: NextRequest) {
         supplement: (f["Доповнення"] as number) || (f["Доповнення(продажі)"] as number) || undefined,
         specialistShare: (f["Оплата майстру - всього"] as number) || undefined,
         salonShare: (f["Салону за послугу"] as number) || undefined,
+        materialsCost,
         source,
         time,
         paymentType: (f["вид оплати"] as string) || undefined,
