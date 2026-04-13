@@ -1,6 +1,8 @@
 "use client";
 
-import { journalEntries, type JournalEntry } from "@/lib/demo-data";
+import { useState } from "react";
+import { useJournal, useSpecialists } from "@/lib/hooks";
+import type { JournalEntry } from "@/lib/demo-data";
 
 function TypeDot({ type }: { type: JournalEntry["type"] }) {
   const colors: Record<string, string> = {
@@ -35,22 +37,6 @@ function TypeLabel({ type }: { type: JournalEntry["type"] }) {
   );
 }
 
-function SourceBadge({ source }: { source?: string }) {
-  if (!source) return null;
-  if (source === "bot") return <span className="text-brand-500">бот</span>;
-  return null;
-}
-
-function SupplementBadge({ value }: { value?: number }) {
-  if (!value) return null;
-  const isPositive = value > 0;
-  return (
-    <span className={isPositive ? "text-brand-400" : "text-gray-400"}>
-      {isPositive ? `+${value}` : value}
-    </span>
-  );
-}
-
 function EntryCard({ entry }: { entry: JournalEntry }) {
   const isExpense = entry.type === "expense";
   const isRental = entry.type === "rental";
@@ -61,24 +47,27 @@ function EntryCard({ entry }: { entry: JournalEntry }) {
         <div className="flex items-center gap-3">
           <TypeDot type={entry.type} />
           <div>
-            <div className="text-[13px] font-medium text-gray-900">{entry.title}</div>
-            <div className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1">
+            <div className="text-[13px] font-medium text-gray-900">{entry.title || "—"}</div>
+            <div className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1 flex-wrap">
               {entry.specialistName && <span>{entry.specialistName}</span>}
               {entry.time && <span>· {entry.time}</span>}
-              {!entry.specialistName && !entry.time && entry.type === "expense" && (
-                <span>Витрата</span>
+              {!entry.specialistName && isExpense && <span>Витрата</span>}
+              {entry.source === "bot" && <span className="text-brand-500">· бот</span>}
+              {entry.supplement && entry.supplement > 0 && (
+                <span className="text-brand-400">· +{entry.supplement}</span>
               )}
-              {isRental && entry.specialistName && <span>· квітень</span>}
-              <SourceBadge source={entry.source} />
-              <SupplementBadge value={entry.supplement} />
+              {entry.supplement && entry.supplement < 0 && (
+                <span className="text-gray-400">· {entry.supplement}</span>
+              )}
             </div>
           </div>
         </div>
-        <div className="text-right">
+        <div className="text-right shrink-0">
           <div className={`text-[13px] font-semibold tabular-nums ${
-            isRental ? "text-green-600" : "text-gray-900"
+            isRental ? "text-green-600" : isExpense ? "text-gray-900" : "text-gray-900"
           }`}>
             {isRental && "+"}
+            {entry.amount < 0 ? "−" : ""}
             {Math.abs(entry.amount).toLocaleString("uk-UA")} ₴
           </div>
           <TypeLabel type={entry.type} />
@@ -88,33 +77,46 @@ function EntryCard({ entry }: { entry: JournalEntry }) {
   );
 }
 
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
+function formatDateHeader(dateStr: string): string {
+  const date = new Date(dateStr + "T00:00:00");
   const day = date.getDate();
   const months = [
     "січня", "лютого", "березня", "квітня", "травня", "червня",
     "липня", "серпня", "вересня", "жовтня", "листопада", "грудня",
   ];
   const weekdays = ["неділя", "понеділок", "вівторок", "середа", "четвер", "п'ятниця", "субота"];
-  return `${day} ${months[date.getMonth()]} 2026, ${weekdays[date.getDay()]}`;
+  const year = date.getFullYear();
+  return `${day} ${months[date.getMonth()]} ${year}, ${weekdays[date.getDay()]}`;
 }
 
+const periods = [
+  { id: "yesterday", label: "Вчора" },
+  { id: "today", label: "Сьогодні" },
+  { id: "week", label: "Тиждень" },
+  { id: "month", label: "Місяць" },
+];
+
 export default function JournalScreen() {
+  const [period, setPeriod] = useState("month");
+  const [selectedSpecialist, setSelectedSpecialist] = useState("");
+  const { entries, loading, error } = useJournal(period, selectedSpecialist);
+  const { specialists } = useSpecialists();
+
   // Group entries by date
-  const grouped = journalEntries.reduce<Record<string, JournalEntry[]>>((acc, entry) => {
-    if (!acc[entry.date]) acc[entry.date] = [];
-    acc[entry.date].push(entry);
+  const grouped = entries.reduce<Record<string, JournalEntry[]>>((acc, entry) => {
+    const date = entry.date || "unknown";
+    if (!acc[date]) acc[date] = [];
+    acc[date].push(entry);
     return acc;
   }, {});
 
   const dates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
-  const firstDate = dates[0];
 
-  // Calculate today's summary
-  const todayEntries = grouped[firstDate] || [];
-  const todayIncome = todayEntries
+  // Calculate totals
+  const totalIncome = entries
     .filter((e) => e.amount > 0)
     .reduce((sum, e) => sum + e.amount, 0);
+  const totalRecords = entries.length;
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-5">
@@ -122,65 +124,73 @@ export default function JournalScreen() {
       <div className="bg-white rounded-xl border border-black/[0.06] p-3 mb-4">
         <div className="flex flex-wrap gap-2.5 items-center">
           <div className="flex gap-1">
-            {["Вчора", "Сьогодні", "Тиждень", "Місяць", "📅"].map((label, i) => (
+            {periods.map((p) => (
               <button
-                key={label}
+                key={p.id}
+                onClick={() => setPeriod(p.id)}
                 className={`px-3 py-1.5 rounded-full text-[11px] font-medium cursor-pointer transition-all
-                  ${i === 1 ? "bg-brand-600 text-white" : "bg-[#f5f5f7] text-gray-600 hover:bg-[#e5e5ea]"}`}
+                  ${period === p.id ? "bg-brand-600 text-white" : "bg-[#f5f5f7] text-gray-600 hover:bg-[#e5e5ea]"}`}
               >
-                {label}
+                {p.label}
               </button>
             ))}
           </div>
           <div className="h-5 w-px bg-black/5 hidden sm:block" />
-          <select className="text-[11px] border border-black/[0.08] rounded-lg px-2.5 py-1.5 text-gray-600 bg-white cursor-pointer">
-            <option>Всі спеціалісти</option>
-            <option>Соломія</option>
-            <option>Леся Шевчук</option>
-            <option>Лєна Громик</option>
-            <option>Іра</option>
-            <option>Юля манікюр</option>
-            <option>Крістіна</option>
-            <option>Артур</option>
-            <option>Андрій</option>
-            <option>Антон</option>
-          </select>
-          <select className="text-[11px] border border-black/[0.08] rounded-lg px-2.5 py-1.5 text-gray-600 bg-white cursor-pointer">
-            <option>Всі типи</option>
-            <option>Послуги</option>
-            <option>Продажі</option>
-            <option>Витрати</option>
-            <option>Борги</option>
+          <select
+            value={selectedSpecialist}
+            onChange={(e) => setSelectedSpecialist(e.target.value)}
+            className="text-[11px] border border-black/[0.08] rounded-lg px-2.5 py-1.5 text-gray-600 bg-white cursor-pointer"
+          >
+            <option value="">Всі спеціалісти</option>
+            {specialists.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
           </select>
         </div>
       </div>
 
+      {/* Summary */}
+      <div className="flex items-center justify-between mb-3 px-0.5">
+        <h2 className="text-[13px] font-semibold text-gray-900 tracking-tight">
+          {period === "today" ? "Сьогодні" : period === "yesterday" ? "Вчора" : period === "week" ? "Цей тиждень" : "Цей місяць"}
+        </h2>
+        <div className="flex gap-3 text-[11px] text-gray-400">
+          <span>Записів: <strong className="text-gray-600">{totalRecords}</strong></span>
+          <span>Дохід: <strong className="text-gray-900">+{totalIncome.toLocaleString("uk-UA")} ₴</strong></span>
+        </div>
+      </div>
+
+      {/* Loading / Error / Empty */}
+      {loading && (
+        <div className="text-center py-12 text-gray-400 text-[13px]">Завантаження...</div>
+      )}
+      {error && (
+        <div className="text-center py-12 text-red-500 text-[13px]">Помилка: {error}</div>
+      )}
+      {!loading && !error && entries.length === 0 && (
+        <div className="text-center py-12 text-gray-400 text-[13px]">Немає записів за цей період</div>
+      )}
+
       {/* Journal entries grouped by date */}
-      {dates.map((date, dateIdx) => (
+      {!loading && dates.map((date, dateIdx) => (
         <div key={date}>
-          {dateIdx === 0 ? (
-            <div className="flex items-center justify-between mb-3 px-0.5">
-              <h2 className="text-[13px] font-semibold text-gray-900 tracking-tight">
-                {formatDate(date)}
-              </h2>
-              <div className="flex gap-3 text-[11px] text-gray-400">
-                <span>
-                  Записів: <strong className="text-gray-600">{todayEntries.length}</strong>
-                </span>
-                <span>
-                  Дохід: <strong className="text-gray-900">+{todayIncome.toLocaleString("uk-UA")} ₴</strong>
-                </span>
-              </div>
-            </div>
-          ) : (
+          {dateIdx > 0 && (
             <div className="flex items-center gap-3 pt-3 pb-1 px-0.5">
               <h2 className="text-[13px] font-semibold text-gray-900 tracking-tight">
-                {formatDate(date)}
+                {formatDateHeader(date)}
               </h2>
               <div className="flex-1 h-px bg-black/5" />
             </div>
           )}
-          <div className="space-y-1.5">
+          {dateIdx === 0 && dates.length > 1 && (
+            <div className="flex items-center gap-3 pb-1 px-0.5">
+              <h2 className="text-[13px] font-semibold text-gray-900 tracking-tight">
+                {formatDateHeader(date)}
+              </h2>
+              <div className="flex-1 h-px bg-black/5" />
+            </div>
+          )}
+          <div className="space-y-1.5 mb-1">
             {grouped[date].map((entry) => (
               <EntryCard key={entry.id} entry={entry} />
             ))}
@@ -188,7 +198,7 @@ export default function JournalScreen() {
         </div>
       ))}
 
-      {/* Bottom spacer for floating buttons */}
+      {/* Bottom spacer */}
       <div className="h-24" />
 
       {/* Quick Add Buttons */}

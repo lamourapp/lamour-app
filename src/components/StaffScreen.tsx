@@ -1,6 +1,7 @@
 "use client";
 
-import { specialists, type Specialist } from "@/lib/demo-data";
+import { useSpecialists } from "@/lib/hooks";
+import type { Specialist } from "@/lib/demo-data";
 
 function compensationLabel(s: Specialist): string {
   switch (s.compensationType) {
@@ -48,6 +49,8 @@ function BalanceDisplay({ balance }: { balance: number }) {
 }
 
 export default function StaffScreen() {
+  const { specialists, loading, error } = useSpecialists();
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-5">
       <div className="flex items-center justify-between mb-4">
@@ -56,6 +59,13 @@ export default function StaffScreen() {
           + Додати
         </button>
       </div>
+
+      {loading && (
+        <div className="text-center py-12 text-gray-400 text-[13px]">Завантаження...</div>
+      )}
+      {error && (
+        <div className="text-center py-12 text-red-500 text-[13px]">Помилка: {error}</div>
+      )}
 
       <div className="space-y-1.5">
         {specialists.map((s) => {
@@ -89,7 +99,7 @@ export default function StaffScreen() {
                 <div className="flex items-center gap-5">
                   <div className="text-right hidden sm:block">
                     <div className="text-[10px] text-gray-400 uppercase tracking-wider">Д.Н.</div>
-                    <div className="text-[12px] text-gray-500">{s.birthday}</div>
+                    <div className="text-[12px] text-gray-500">{s.birthday || "—"}</div>
                   </div>
                   <div className="text-right">
                     <div className="text-[10px] text-gray-400 uppercase tracking-wider">Баланс</div>
