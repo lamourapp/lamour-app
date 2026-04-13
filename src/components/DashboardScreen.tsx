@@ -1,16 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { dashboardMetrics, journalEntries } from "@/lib/demo-data";
+import { useState, useMemo } from "react";
+import { useJournal, useSpecialists } from "@/lib/hooks";
+import type { JournalEntry } from "@/lib/demo-data";
+import CalendarPicker from "./CalendarPicker";
 
 function MetricCard({
   label,
   value,
+  suffix = "₴",
   variant = "default",
 }: {
   label: string;
   value: number | string;
-  variant?: "default" | "brand-accent" | "brand-light" | "brand-dark";
+  suffix?: string;
+  variant?: "default" | "brand-accent" | "brand-light" | "brand-dark" | "negative";
 }) {
   const styles = {
     default: {
@@ -33,196 +37,373 @@ function MetricCard({
       label: "text-brand-500",
       value: "text-brand-700",
     },
+    negative: {
+      card: "bg-white border-red-100",
+      label: "text-red-400",
+      value: "text-red-600",
+    },
   };
   const s = styles[variant];
+
+  const formatted =
+    typeof value === "number"
+      ? `${value.toLocaleString("uk-UA")} ${suffix}`
+      : value;
 
   return (
     <div className={`rounded-xl border p-3.5 transition-transform hover:-translate-y-px ${s.card}`}>
       <div className={`text-[10px] uppercase tracking-wider mb-1.5 ${s.label}`}>{label}</div>
-      <div className={`text-lg font-semibold tabular-nums ${s.value}`}>
-        {typeof value === "number" ? value.toLocaleString("uk-UA") : value}
-      </div>
+      <div className={`text-lg font-semibold tabular-nums ${s.value}`}>{formatted}</div>
     </div>
   );
 }
 
+const periodButtons = [
+  { id: "today", label: "День" },
+  { id: "week", label: "Тиждень" },
+  { id: "month", label: "Місяць" },
+];
+
+function computeMetrics(entries: JournalEntry[]) {
+  let salonServiceShare = 0;
+  let specialistServiceShare = 0;
+  let rentalIncome = 0;
+  let salesIncome = 0;
+  let expenses = 0;
+  let debts = 0;
+  let totalServices = 0;
+  let totalAmount = 0;
+  let countServices = 0;
+  let countSales = 0;
+  let countExpenses = 0;
+  let countRentals = 0;
+
+  for (const e of entries) {
+    switch (e.type) {
+      case "service":
+        salonServiceShare += e.salonShare || 0;
+        specialistServiceShare += e.specialistShare || 0;
+        totalServices += e.amount;
+        countServices++;
+        break;
+      case "rental":
+        rentalIncome += e.amount;
+        countRentals++;
+        break;
+      case "sale":
+        salesIncome += e.amount;
+        countSales++;
+        break;
+      case "expense":
+        expenses += Math.abs(e.amount);
+        countExpenses++;
+        break;
+      case "debt":
+        debts += e.amount;
+        break;
+    }
+    totalAmount += e.amount;
+  }
+
+  const salonTotal = salonServiceShare + rentalIncome + salesIncome;
+  const cashInRegister = salonTotal - expenses;
+
+  return {
+    salonServiceShare,
+    specialistServiceShare,
+    rentalIncome,
+    salesIncome,
+    salonTotal,
+    expenses,
+    debts,
+    cashInRegister,
+    totalServices,
+    totalAmount,
+    countServices,
+    countSales,
+    countExpenses,
+    countRentals,
+    totalEntries: entries.length,
+  };
+}
+
 export default function DashboardScreen() {
   const [pinUnlocked, setPinUnlocked] = useState(false);
-  const m = dashboardMetrics;
+  const [period, setPeriod] = useState("month");
+  const [selectedSpecialist, setSelectedSpecialist] = useState("");
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null);
+
+  const { entries, loading, error } = useJournal(
+    customRange ? "custom" : period,
+    selectedSpecialist,
+    customRange?.from,
+    customRange?.to,
+  );
+  const { specialists } = useSpecialists();
+
+  const m = useMemo(() => computeMetrics(entries), [entries]);
+
+  function selectPeriod(p: string) {
+    setPeriod(p);
+    setCustomRange(null);
+    setShowCalendar(false);
+  }
+
+  function handleCalendarApply(from: string, to: string) {
+    setCustomRange({ from, to });
+    setPeriod("");
+    setShowCalendar(false);
+  }
+
+  const periodLabel = customRange
+    ? `${customRange.from.split("-").reverse().join(".")} — ${customRange.to.split("-").reverse().join(".")}`
+    : period === "today" ? "Сьогодні"
+    : period === "week" ? "Цей тиждень"
+    : "Цей місяць";
+
+  // Dot color helper
+  function dotColor(type: JournalEntry["type"]) {
+    switch (type) {
+      case "service": return "bg-brand-400";
+      case "sale": return "bg-emerald-400";
+      case "expense": return "bg-gray-300";
+      case "rental": return "bg-amber-400";
+      case "debt": return "bg-red-400";
+      default: return "bg-gray-300";
+    }
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-5">
-      {/* Filters */}
+      {/* Filters — same as JournalScreen */}
       <div className="bg-white rounded-xl border border-black/[0.06] p-3 mb-5">
         <div className="flex flex-wrap gap-2.5 items-center">
           <div className="flex gap-1">
-            {["День", "Тиждень", "Місяць", "Рік", "📅"].map((label, i) => (
+            {periodButtons.map((p) => (
               <button
-                key={label}
+                key={p.id}
+                onClick={() => selectPeriod(p.id)}
                 className={`px-3 py-1.5 rounded-full text-[11px] font-medium cursor-pointer transition-all
-                  ${i === 2 ? "bg-brand-600 text-white" : "bg-[#f5f5f7] text-gray-600 hover:bg-[#e5e5ea]"}`}
+                  ${period === p.id && !customRange ? "bg-brand-600 text-white" : "bg-[#f5f5f7] text-gray-600 hover:bg-[#e5e5ea]"}`}
               >
-                {label}
+                {p.label}
               </button>
             ))}
+            <button
+              onClick={() => setShowCalendar(!showCalendar)}
+              className={`px-3 py-1.5 rounded-full text-[11px] font-medium cursor-pointer transition-all
+                ${customRange ? "bg-brand-600 text-white" : "bg-[#f5f5f7] text-gray-600 hover:bg-[#e5e5ea]"}`}
+            >
+              📅
+            </button>
           </div>
           <div className="h-5 w-px bg-black/5 hidden sm:block" />
-          <select className="text-[11px] border border-black/[0.08] rounded-lg px-2.5 py-1.5 text-gray-600 bg-white cursor-pointer">
-            <option>Всі спеціалісти</option>
-          </select>
-          <select className="text-[11px] border border-black/[0.08] rounded-lg px-2.5 py-1.5 text-gray-600 bg-white cursor-pointer">
-            <option>Всі послуги</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Admin metrics */}
-      <div className="mb-6">
-        <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-3 px-0.5">
-          Показники · квітень 2026
-        </div>
-
-        {/* Row 1: salon share */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
-          <MetricCard label="% салону / послуги" value={m.salonServiceShare} />
-          <MetricCard label="% салону / матеріали" value={m.salonMaterialShare} />
-          <MetricCard label="% салону / продажі" value={m.salonSalesShare} />
-          <MetricCard label="Всього салону" value={m.salonTotal} variant="brand-accent" />
-        </div>
-
-        {/* Row 2: specialist share */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
-          <MetricCard label="% спеціалісту / послуги" value={m.specialistServiceShare} />
-          <MetricCard label="% спеціалісту / матеріали" value={m.specialistMaterialShare} />
-          <MetricCard label="% спеціалісту / продажі" value={m.specialistSalesShare} />
-          <MetricCard label="Всього спеціалісту" value={m.specialistTotal} variant="brand-light" />
-        </div>
-
-        {/* Row 3 */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <div className="sm:col-start-2">
-            <MetricCard label="Борги" value={m.debts} />
-          </div>
-          <MetricCard label="Витрати" value={m.expenses} />
-          <MetricCard label="Кошти в касі" value={m.cashInRegister} variant="brand-accent" />
-        </div>
-      </div>
-
-      {/* PIN block */}
-      {!pinUnlocked ? (
-        <div className="bg-white rounded-xl border border-black/[0.06] p-6 text-center mb-6">
-          <div className="text-gray-400 text-[12px] mb-3">🔒 Розширена аналітика для власника</div>
-          <div className="flex justify-center gap-2 mb-3">
-            {[1, 2, 3, 4].map((i) => (
-              <input
-                key={i}
-                type="password"
-                maxLength={1}
-                className="w-10 h-11 text-center text-lg border border-black/10 rounded-lg focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500/20 transition-colors"
-              />
-            ))}
-          </div>
-          <button
-            onClick={() => setPinUnlocked(true)}
-            className="bg-brand-600 text-white rounded-[10px] font-medium text-[13px] px-6 py-2 cursor-pointer hover:bg-brand-700 transition-colors"
+          <select
+            value={selectedSpecialist}
+            onChange={(e) => setSelectedSpecialist(e.target.value)}
+            className="text-[11px] border border-black/[0.08] rounded-lg px-2.5 py-1.5 text-gray-600 bg-white cursor-pointer"
           >
-            Ввести PIN
-          </button>
+            <option value="">Всі спеціалісти</option>
+            {specialists.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
         </div>
-      ) : (
-        <div className="mb-6">
-          <div className="text-[10px] font-semibold text-brand-600 uppercase tracking-widest mb-3 px-0.5">
-            🔓 Аналітика власника
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <MetricCard label="Чистий дохід" value={m.netIncome} variant="brand-dark" />
-            <MetricCard label="Маржа матеріали" value={m.materialMargin} />
-            <MetricCard label="Прибуток продажі" value={m.salesProfit} />
-            <MetricCard label="Собівартість" value="—" />
-          </div>
-        </div>
+
+        {/* Calendar picker */}
+        {showCalendar && (
+          <CalendarPicker
+            onApply={handleCalendarApply}
+            onClose={() => setShowCalendar(false)}
+            initialFrom={customRange?.from}
+            initialTo={customRange?.to}
+          />
+        )}
+      </div>
+
+      {/* Loading / Error */}
+      {loading && (
+        <div className="text-center py-12 text-gray-400 text-[13px]">Завантаження...</div>
+      )}
+      {error && (
+        <div className="text-center py-12 text-red-500 text-[13px]">Помилка: {error}</div>
       )}
 
-      {/* Journal table */}
-      <div>
-        <div className="flex items-center justify-between mb-3 px-0.5">
-          <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
-            Журнал за період
-          </div>
-          <span className="text-[11px] text-gray-400">{journalEntries.length} записів</span>
-        </div>
+      {!loading && !error && (
+        <>
+          {/* Admin metrics */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-3 px-0.5">
+              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+                Показники · {periodLabel}
+              </div>
+              <span className="text-[11px] text-gray-400">
+                {m.totalEntries} записів
+              </span>
+            </div>
 
-        <div className="bg-white rounded-xl border border-black/[0.06] overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-[12px]">
-              <thead>
-                <tr className="border-b border-black/5">
-                  {["Дата", "Спеціаліст", "Послуга / продаж"].map((h) => (
-                    <th key={h} className="text-left px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider">
-                      {h}
-                    </th>
-                  ))}
-                  {["Вартість", "Допов.", "% спец.", "% салону"].map((h) => (
-                    <th key={h} className="text-right px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider">
-                      {h}
-                    </th>
-                  ))}
-                  <th className="text-center px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider">
-                    Автор
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {journalEntries.map((e) => {
-                  const dotColor = e.type === "expense" ? "bg-gray-300" : e.type === "rental" ? "bg-amber-400" : "bg-brand-400";
-                  const textColor = e.type === "expense" ? "text-gray-500" : "text-gray-700";
-                  const dateStr = new Date(e.date).toLocaleDateString("uk-UA", { day: "2-digit", month: "2-digit" });
+            {/* Row 1: income */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
+              <MetricCard label="Послуги (салону)" value={m.salonServiceShare} />
+              <MetricCard label="Оренда" value={m.rentalIncome} />
+              <MetricCard label="Продажі" value={m.salesIncome} />
+              <MetricCard label="Всього салону" value={m.salonTotal} variant="brand-accent" />
+            </div>
 
-                  return (
-                    <tr key={e.id} className="border-b border-black/[0.03] hover:bg-gray-50/50">
-                      <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap tabular-nums">{dateStr}</td>
-                      <td className={`px-3 py-2.5 whitespace-nowrap font-medium ${e.specialistName ? "text-gray-900" : "text-gray-400"}`}>
-                        {e.specialistName || "—"}
-                      </td>
-                      <td className="px-3 py-2.5 whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1.5">
-                          <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
-                          <span className={textColor}>{e.title}</span>
-                        </span>
-                      </td>
-                      <td className="px-3 py-2.5 text-right font-medium text-gray-900 tabular-nums">
-                        {e.amount < 0 ? `−${Math.abs(e.amount).toLocaleString("uk-UA")}` : e.amount.toLocaleString("uk-UA")}
-                      </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums">
-                        {e.supplement ? (
-                          <span className="text-gray-900">
-                            {e.supplement > 0 ? `+${e.supplement}` : e.supplement}
-                          </span>
-                        ) : (
-                          <span className="text-gray-300">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 text-right text-gray-500 tabular-nums">
-                        {e.specialistShare ? e.specialistShare.toLocaleString("uk-UA") : <span className="text-gray-300">—</span>}
-                      </td>
-                      <td className="px-3 py-2.5 text-right text-gray-500 tabular-nums">
-                        {e.salonShare ? e.salonShare.toLocaleString("uk-UA") : <span className="text-gray-300">—</span>}
-                      </td>
-                      <td className="px-3 py-2.5 text-center">
-                        {e.source === "bot" ? (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-brand-50 text-brand-600">бот</span>
-                        ) : (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-gray-100 text-gray-500">адмін</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            {/* Row 2: outgoing */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
+              <MetricCard label="Оплата спеціалістам" value={m.specialistServiceShare} variant="brand-light" />
+              <MetricCard
+                label="Борги"
+                value={m.debts}
+                variant={m.debts !== 0 ? "negative" : "default"}
+              />
+              <MetricCard label="Витрати" value={m.expenses} />
+              <MetricCard label="В касі" value={m.cashInRegister} variant="brand-accent" />
+            </div>
+
+            {/* Row 3: counters */}
+            <div className="grid grid-cols-4 gap-2">
+              <MetricCard label="Послуг" value={m.countServices} suffix="" />
+              <MetricCard label="Продажів" value={m.countSales} suffix="" />
+              <MetricCard label="Оренд" value={m.countRentals} suffix="" />
+              <MetricCard label="Витрат" value={m.countExpenses} suffix="" />
+            </div>
           </div>
-        </div>
-      </div>
+
+          {/* PIN block */}
+          {!pinUnlocked ? (
+            <div className="bg-white rounded-xl border border-black/[0.06] p-6 text-center mb-6">
+              <div className="text-gray-400 text-[12px] mb-3">🔒 Розширена аналітика для власника</div>
+              <div className="flex justify-center gap-2 mb-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <input
+                    key={i}
+                    type="password"
+                    maxLength={1}
+                    className="w-10 h-11 text-center text-lg border border-black/10 rounded-lg focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500/20 transition-colors"
+                  />
+                ))}
+              </div>
+              <button
+                onClick={() => setPinUnlocked(true)}
+                className="bg-brand-600 text-white rounded-[10px] font-medium text-[13px] px-6 py-2 cursor-pointer hover:bg-brand-700 transition-colors"
+              >
+                Ввести PIN
+              </button>
+            </div>
+          ) : (
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3 px-0.5">
+                <div className="text-[10px] font-semibold text-brand-600 uppercase tracking-widest">
+                  🔓 Аналітика власника
+                </div>
+                <button
+                  onClick={() => setPinUnlocked(false)}
+                  className="text-[10px] text-gray-400 hover:text-gray-600 cursor-pointer"
+                >
+                  Заблокувати
+                </button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <MetricCard
+                  label="Загальний оборот"
+                  value={m.totalServices + m.rentalIncome + m.salesIncome}
+                  variant="brand-dark"
+                />
+                <MetricCard label="Чистий дохід салону" value={m.cashInRegister} variant="brand-dark" />
+                <MetricCard label="Середній чек послуги" value={m.countServices > 0 ? Math.round(m.totalServices / m.countServices) : 0} />
+                <MetricCard label="Середній чек продажу" value={m.countSales > 0 ? Math.round(m.salesIncome / m.countSales) : 0} />
+              </div>
+            </div>
+          )}
+
+          {/* Journal table */}
+          <div>
+            <div className="flex items-center justify-between mb-3 px-0.5">
+              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+                Журнал за період
+              </div>
+              <span className="text-[11px] text-gray-400">{entries.length} записів</span>
+            </div>
+
+            {entries.length === 0 ? (
+              <div className="text-center py-8 text-gray-400 text-[13px]">Немає записів за цей період</div>
+            ) : (
+              <div className="bg-white rounded-xl border border-black/[0.06] overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[12px]">
+                    <thead>
+                      <tr className="border-b border-black/5">
+                        {["Дата", "Спеціаліст", "Послуга / продаж"].map((h) => (
+                          <th key={h} className="text-left px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider">
+                            {h}
+                          </th>
+                        ))}
+                        {["Вартість", "Допов.", "% спец.", "% салону"].map((h) => (
+                          <th key={h} className="text-right px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider">
+                            {h}
+                          </th>
+                        ))}
+                        <th className="text-center px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider">
+                          Автор
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {entries.map((e) => {
+                        const textColor = e.type === "expense" ? "text-gray-500" : "text-gray-700";
+                        const dateStr = new Date(e.date + "T00:00:00").toLocaleDateString("uk-UA", { day: "2-digit", month: "2-digit" });
+
+                        return (
+                          <tr key={e.id} className="border-b border-black/[0.03] hover:bg-gray-50/50">
+                            <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap tabular-nums">{dateStr}</td>
+                            <td className={`px-3 py-2.5 whitespace-nowrap font-medium ${e.specialistName ? "text-gray-900" : "text-gray-400"}`}>
+                              {e.specialistName || "—"}
+                            </td>
+                            <td className="px-3 py-2.5 whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1.5">
+                                <span className={`w-1.5 h-1.5 rounded-full ${dotColor(e.type)}`} />
+                                <span className={textColor}>{e.title || "—"}</span>
+                              </span>
+                            </td>
+                            <td className="px-3 py-2.5 text-right font-medium text-gray-900 tabular-nums">
+                              {e.amount < 0 ? `−${Math.abs(e.amount).toLocaleString("uk-UA")}` : e.amount.toLocaleString("uk-UA")}
+                            </td>
+                            <td className="px-3 py-2.5 text-right tabular-nums">
+                              {e.supplement ? (
+                                <span className="text-gray-900">
+                                  {e.supplement > 0 ? `+${e.supplement}` : e.supplement}
+                                </span>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 text-right text-gray-500 tabular-nums">
+                              {e.specialistShare ? e.specialistShare.toLocaleString("uk-UA") : <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="px-3 py-2.5 text-right text-gray-500 tabular-nums">
+                              {e.salonShare ? e.salonShare.toLocaleString("uk-UA") : <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="px-3 py-2.5 text-center">
+                              {e.source === "bot" ? (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-brand-50 text-brand-600">бот</span>
+                              ) : (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-gray-100 text-gray-500">адмін</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
