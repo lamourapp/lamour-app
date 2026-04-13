@@ -28,6 +28,12 @@ export interface JournalEntry {
   supplement?: number; // доповнення (+/-)
   specialistShare?: number;
   salonShare?: number;
+  // Detailed breakdowns
+  specialistServiceShare?: number;
+  specialistMaterialShare?: number;
+  specialistSalesShare?: number;
+  salonMaterialShare?: number;
+  salonSalesShare?: number;
   materialsCost?: number; // вартість матеріалів (для оренди)
   source?: "bot" | "admin";
   time?: string;

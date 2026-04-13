@@ -7,14 +7,16 @@ import CalendarPicker from "./CalendarPicker";
 
 function MetricCard({
   label,
+  sublabel,
   value,
   suffix = "₴",
   variant = "default",
 }: {
   label: string;
+  sublabel?: string;
   value: number | string;
   suffix?: string;
-  variant?: "default" | "brand-accent" | "brand-light" | "brand-dark" | "negative";
+  variant?: "default" | "green" | "green-light" | "brand-dark" | "negative";
 }) {
   const styles = {
     default: {
@@ -22,15 +24,15 @@ function MetricCard({
       label: "text-gray-400",
       value: "text-gray-900",
     },
-    "brand-accent": {
-      card: "bg-brand-600 border-brand-600",
-      label: "text-brand-200",
-      value: "text-white",
+    green: {
+      card: "bg-green-50 border-green-200",
+      label: "text-green-700",
+      value: "text-green-900",
     },
-    "brand-light": {
-      card: "border-brand-200 bg-brand-50",
-      label: "text-brand-600",
-      value: "text-brand-700",
+    "green-light": {
+      card: "bg-green-50/50 border-green-100",
+      label: "text-green-600",
+      value: "text-green-800",
     },
     "brand-dark": {
       card: "border-brand-100 bg-brand-50/50",
@@ -47,12 +49,13 @@ function MetricCard({
 
   const formatted =
     typeof value === "number"
-      ? `${value.toLocaleString("uk-UA")} ${suffix}`
+      ? `${value.toLocaleString("uk-UA")}${suffix ? ` ${suffix}` : ""}`
       : value;
 
   return (
     <div className={`rounded-xl border p-3.5 transition-transform hover:-translate-y-px ${s.card}`}>
-      <div className={`text-[10px] uppercase tracking-wider mb-1.5 ${s.label}`}>{label}</div>
+      <div className={`text-[10px] uppercase tracking-wider mb-1 ${s.label}`}>{label}</div>
+      {sublabel && <div className="text-[9px] text-gray-400 -mt-0.5 mb-1">{sublabel}</div>}
       <div className={`text-lg font-semibold tabular-nums ${s.value}`}>{formatted}</div>
     </div>
   );
@@ -66,13 +69,16 @@ const periodButtons = [
 
 function computeMetrics(entries: JournalEntry[]) {
   let salonServiceShare = 0;
+  let salonMaterialShare = 0;
+  let salonSalesShare = 0;
+
   let specialistServiceShare = 0;
-  let rentalIncome = 0;
-  let salesIncome = 0;
+  let specialistMaterialShare = 0;
+  let specialistSalesShare = 0;
+
   let expenses = 0;
   let debts = 0;
-  let totalServices = 0;
-  let totalAmount = 0;
+
   let countServices = 0;
   let countSales = 0;
   let countExpenses = 0;
@@ -82,16 +88,26 @@ function computeMetrics(entries: JournalEntry[]) {
     switch (e.type) {
       case "service":
         salonServiceShare += e.salonShare || 0;
-        specialistServiceShare += e.specialistShare || 0;
-        totalServices += e.amount;
+        salonMaterialShare += e.salonMaterialShare || 0;
+        salonSalesShare += e.salonSalesShare || 0;
+        specialistServiceShare += e.specialistServiceShare || 0;
+        specialistMaterialShare += e.specialistMaterialShare || 0;
+        specialistSalesShare += e.specialistSalesShare || 0;
         countServices++;
         break;
       case "rental":
-        rentalIncome += e.amount;
+        // Rental goes to salon as service share (it's salon income)
+        salonServiceShare += e.salonShare || 0;
+        salonMaterialShare += e.salonMaterialShare || 0;
+        salonSalesShare += e.salonSalesShare || 0;
+        specialistServiceShare += e.specialistServiceShare || 0;
+        specialistMaterialShare += e.specialistMaterialShare || 0;
+        specialistSalesShare += e.specialistSalesShare || 0;
         countRentals++;
         break;
       case "sale":
-        salesIncome += e.amount;
+        salonSalesShare += e.salonSalesShare || 0;
+        specialistSalesShare += e.specialistSalesShare || 0;
         countSales++;
         break;
       case "expense":
@@ -102,23 +118,24 @@ function computeMetrics(entries: JournalEntry[]) {
         debts += e.amount;
         break;
     }
-    totalAmount += e.amount;
   }
 
-  const salonTotal = salonServiceShare + rentalIncome + salesIncome;
+  const salonTotal = salonServiceShare + salonMaterialShare + salonSalesShare;
+  const specialistTotal = specialistServiceShare + specialistMaterialShare + specialistSalesShare;
   const cashInRegister = salonTotal - expenses;
 
   return {
     salonServiceShare,
-    specialistServiceShare,
-    rentalIncome,
-    salesIncome,
+    salonMaterialShare,
+    salonSalesShare,
     salonTotal,
+    specialistServiceShare,
+    specialistMaterialShare,
+    specialistSalesShare,
+    specialistTotal,
     expenses,
     debts,
     cashInRegister,
-    totalServices,
-    totalAmount,
     countServices,
     countSales,
     countExpenses,
@@ -176,7 +193,7 @@ export default function DashboardScreen() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-5">
-      {/* Filters — same as JournalScreen */}
+      {/* Filters */}
       <div className="bg-white rounded-xl border border-black/[0.06] p-3 mb-5">
         <div className="flex flex-wrap gap-2.5 items-center">
           <div className="flex gap-1">
@@ -211,7 +228,6 @@ export default function DashboardScreen() {
           </select>
         </div>
 
-        {/* Calendar picker */}
         {showCalendar && (
           <CalendarPicker
             onApply={handleCalendarApply}
@@ -232,44 +248,51 @@ export default function DashboardScreen() {
 
       {!loading && !error && (
         <>
-          {/* Admin metrics */}
+          {/* Metrics */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3 px-0.5">
               <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
                 Показники · {periodLabel}
               </div>
-              <span className="text-[11px] text-gray-400">
-                {m.totalEntries} записів
-              </span>
+              <span className="text-[11px] text-gray-400">{m.totalEntries} записів</span>
             </div>
 
-            {/* Row 1: income */}
+            {/* Row 1: salon share — matches original layout */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
-              <MetricCard label="Послуги (салону)" value={m.salonServiceShare} />
-              <MetricCard label="Оренда" value={m.rentalIncome} />
-              <MetricCard label="Продажі" value={m.salesIncome} />
-              <MetricCard label="Всього салону" value={m.salonTotal} variant="brand-accent" />
+              <MetricCard label="% салону за послуги" value={Math.round(m.salonServiceShare)} />
+              <MetricCard label="% салону за матеріали" value={Math.round(m.salonMaterialShare)} />
+              <MetricCard label="% салону за продажі" value={Math.round(m.salonSalesShare)} />
+              <MetricCard label="Всього салону" value={Math.round(m.salonTotal)} variant="green" />
             </div>
 
-            {/* Row 2: outgoing */}
+            {/* Row 2: specialist share */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
-              <MetricCard label="Оплата спеціалістам" value={m.specialistServiceShare} variant="brand-light" />
+              <MetricCard label="% спеціалісту за послуги" value={Math.round(m.specialistServiceShare)} />
+              <MetricCard label="% спеціалісту за матеріали" value={Math.round(m.specialistMaterialShare)} />
+              <MetricCard label="% спеціалісту за продажі" value={Math.round(m.specialistSalesShare)} />
+              <MetricCard label="Всього оплата спеціалісту" value={Math.round(m.specialistTotal)} variant="green-light" />
+            </div>
+
+            {/* Row 3: debts, expenses, cash */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="hidden sm:block" /> {/* empty cell */}
               <MetricCard
                 label="Борги"
-                value={m.debts}
+                sublabel="+(ми винні), −(нам винні)"
+                value={Math.round(m.debts)}
                 variant={m.debts !== 0 ? "negative" : "default"}
               />
-              <MetricCard label="Витрати" value={m.expenses} />
-              <MetricCard label="В касі" value={m.cashInRegister} variant="brand-accent" />
+              <MetricCard label="Витрати" value={Math.round(m.expenses)} />
+              <MetricCard label="Кошти в касі" value={Math.round(m.cashInRegister)} />
             </div>
+          </div>
 
-            {/* Row 3: counters */}
-            <div className="grid grid-cols-4 gap-2">
-              <MetricCard label="Послуг" value={m.countServices} suffix="" />
-              <MetricCard label="Продажів" value={m.countSales} suffix="" />
-              <MetricCard label="Оренд" value={m.countRentals} suffix="" />
-              <MetricCard label="Витрат" value={m.countExpenses} suffix="" />
-            </div>
+          {/* Row 4: counters (extra) */}
+          <div className="grid grid-cols-4 gap-2 mb-6">
+            <MetricCard label="Послуг" value={m.countServices} suffix="" />
+            <MetricCard label="Продажів" value={m.countSales} suffix="" />
+            <MetricCard label="Оренд" value={m.countRentals} suffix="" />
+            <MetricCard label="Витрат" value={m.countExpenses} suffix="" />
           </div>
 
           {/* PIN block */}
@@ -309,12 +332,18 @@ export default function DashboardScreen() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <MetricCard
                   label="Загальний оборот"
-                  value={m.totalServices + m.rentalIncome + m.salesIncome}
+                  value={Math.round(m.salonTotal + m.specialistTotal)}
                   variant="brand-dark"
                 />
-                <MetricCard label="Чистий дохід салону" value={m.cashInRegister} variant="brand-dark" />
-                <MetricCard label="Середній чек послуги" value={m.countServices > 0 ? Math.round(m.totalServices / m.countServices) : 0} />
-                <MetricCard label="Середній чек продажу" value={m.countSales > 0 ? Math.round(m.salesIncome / m.countSales) : 0} />
+                <MetricCard label="Чистий дохід салону" value={Math.round(m.cashInRegister)} variant="brand-dark" />
+                <MetricCard
+                  label="Середній чек послуги"
+                  value={m.countServices > 0 ? Math.round((m.salonServiceShare + m.specialistServiceShare) / m.countServices) : 0}
+                />
+                <MetricCard
+                  label="Середній чек продажу"
+                  value={m.countSales > 0 ? Math.round((m.salonSalesShare + m.specialistSalesShare) / m.countSales) : 0}
+                />
               </div>
             </div>
           )}
