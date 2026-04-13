@@ -266,9 +266,8 @@ export default function DashboardScreen() {
               <MetricCard label="Всього оплата спеціалісту" value={Math.round(m.specialistTotal)} variant="green-light" />
             </div>
 
-            {/* Row 3: rental, debts, expenses, cash */}
+            {/* Row 3: debts, expenses, rental, cash */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <MetricCard label="Оренда" sublabel="без матеріалів" value={Math.round(m.rentalSum)} variant="default" />
               <MetricCard
                 label="Борги"
                 sublabel={m.debts > 0 ? "салон винен" : m.debts < 0 ? "нам винні" : "баланс"}
@@ -276,11 +275,12 @@ export default function DashboardScreen() {
                 variant={m.debts !== 0 ? "negative" : "default"}
               />
               <MetricCard label="Витрати" value={Math.round(m.expenses)} />
+              <MetricCard label="Оренда" sublabel="без матеріалів" value={Math.round(m.rentalSum)} />
               <MetricCard label="Кошти в касі" value={Math.round(m.cashInRegister)} />
             </div>
           </div>
 
-          {/* Row 4: counters (extra) */}
+          {/* Row 4: counters */}
           <div className="grid grid-cols-4 gap-2 mb-6">
             <MetricCard label="Послуг" value={m.countServices} suffix="" />
             <MetricCard label="Продажів" value={m.countSales} suffix="" />
