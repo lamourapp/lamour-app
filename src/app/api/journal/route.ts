@@ -6,14 +6,14 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const period = searchParams.get("period") || "month";
     const specialistId = searchParams.get("specialist") || "";
-    const dateFrom = searchParams.get("from") || ""; // YYYY-MM-DD
-    const dateTo = searchParams.get("to") || "";     // YYYY-MM-DD
+    const dateFrom = searchParams.get("from") || "";
+    const dateTo = searchParams.get("to") || "";
 
-    // Build date filter
+    // Build date filter only — specialist filtering is done client-side
+    // because Airtable linked record formula is unreliable with IDs
     let dateFilter = "";
 
     if (dateFrom && dateTo) {
-      // Custom range
       dateFilter = `AND(IS_AFTER({Дата}, DATEADD('${dateFrom}', -1, 'day')), IS_BEFORE({Дата}, DATEADD('${dateTo}', 1, 'day')))`;
     } else {
       switch (period) {
@@ -37,20 +37,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Build combined filter — specialist filter via linked record ID
-    const filters = [dateFilter];
-    if (specialistId) {
-      filters.push(`SEARCH("${specialistId}", ARRAYJOIN({Майстер}))`);
-    }
-
-    const filterFormula = filters.length > 1
-      ? `AND(${filters.join(",")})`
-      : filters[0];
-
-    // Fetch journal, specialists, and services catalog in parallel
-    const [records, specialistRecords, serviceCatalog] = await Promise.all([
+    // Fetch journal, specialists, services, and price list in parallel
+    const [records, specialistRecords, serviceCatalog, priceList] = await Promise.all([
       fetchAllRecords(TABLES.services, {
-        filterByFormula: filterFormula,
+        filterByFormula: dateFilter,
         sort: [{ field: "Дата", direction: "desc" }],
         fields: [
           "Дата",
@@ -73,6 +63,7 @@ export async function GET(request: NextRequest) {
       }),
       fetchAllRecords(TABLES.specialists, { fields: ["Ім'я"] }),
       fetchAllRecords(TABLES.servicesCatalog, { fields: ["Назва"] }),
+      fetchAllRecords(TABLES.priceList, { fields: ["Назва"] }),
     ]);
 
     // Build lookup maps
@@ -82,7 +73,10 @@ export async function GET(request: NextRequest) {
     const serviceMap = new Map<string, string>();
     serviceCatalog.forEach((r) => serviceMap.set(r.id, (r.fields["Назва"] as string) || ""));
 
-    const entries = records.map((r) => {
+    const priceMap = new Map<string, string>();
+    priceList.forEach((r) => priceMap.set(r.id, (r.fields["Назва"] as string) || ""));
+
+    let entries = records.map((r) => {
       const f = r.fields;
 
       // Determine type
@@ -90,16 +84,17 @@ export async function GET(request: NextRequest) {
       const expenseAmount = f["Сума витрат"] as number | undefined;
       const debtAmount = f["Cума боргу"] as number | undefined;
       const salesLinks = f["Продажі"] as string[] | undefined;
+      const serviceLinks = f["Послуга"] as string[] | undefined;
 
       if (expenseAmount && expenseAmount !== 0) {
         type = "expense";
       } else if (debtAmount && debtAmount !== 0) {
         type = "debt";
-      } else if (salesLinks && salesLinks.length > 0 && !f["Послуга"]) {
+      } else if (salesLinks && salesLinks.length > 0 && (!serviceLinks || serviceLinks.length === 0)) {
         type = "sale";
       }
 
-      // Get specialist name
+      // Get specialist
       const masterLinks = f["Майстер"] as string[] | undefined;
       let specialistName = "";
       let specialistRecId = "";
@@ -109,10 +104,22 @@ export async function GET(request: NextRequest) {
       }
 
       // Get service name
-      const serviceLinks = f["Послуга"] as string[] | undefined;
       let title = "";
       if (serviceLinks && serviceLinks.length > 0) {
         title = serviceMap.get(serviceLinks[0]) || "";
+      }
+
+      // Get product name for sales
+      if (type === "sale" && salesLinks && salesLinks.length > 0) {
+        title = priceMap.get(salesLinks[0]) || "Продаж";
+      }
+
+      // Also show product alongside service if both exist
+      if (type === "service" && salesLinks && salesLinks.length > 0) {
+        const productName = priceMap.get(salesLinks[0]) || "";
+        if (productName && title) {
+          title = `${title} + ${productName}`;
+        }
       }
 
       // Check if rental
@@ -136,7 +143,7 @@ export async function GET(request: NextRequest) {
         amount = -(Math.abs(expenseAmount || 0));
       } else if (type === "debt") {
         amount = debtAmount || 0;
-      } else if (type === "sale" && !f["Послуга"]) {
+      } else if (type === "sale") {
         amount = (f["Всього ціна продажі"] as number) || 0;
       } else {
         amount = (f["Всього вартість послуги"] as number) || 0;
@@ -170,6 +177,11 @@ export async function GET(request: NextRequest) {
         paymentType: (f["вид оплати"] as string) || undefined,
       };
     });
+
+    // Client-side specialist filter (Airtable formula doesn't work with record IDs in linked fields)
+    if (specialistId) {
+      entries = entries.filter((e) => e.specialistId === specialistId);
+    }
 
     return NextResponse.json(entries);
   } catch (error) {
