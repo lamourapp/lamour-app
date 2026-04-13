@@ -414,10 +414,10 @@ export default function DashboardScreen() {
                             <td className={`sticky left-[52px] z-10 bg-white px-3 py-2.5 whitespace-nowrap font-medium border-r border-black/5 ${e.specialistName ? "text-gray-900" : "text-gray-400"}`}>
                               {e.specialistName || "—"}
                             </td>
-                            <td className="px-3 py-2.5 whitespace-nowrap">
-                              <span className="inline-flex items-center gap-1.5">
-                                <span className={`w-1.5 h-1.5 rounded-full ${dotColor(e.type)}`} />
-                                <span className={textColor}>{e.title || "—"}</span>
+                            <td className="px-3 py-2.5 min-w-[120px] max-w-[220px]">
+                              <span className="inline-flex items-start gap-1.5">
+                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1 ${dotColor(e.type)}`} />
+                                <span className={`${textColor} break-words`}>{e.title || "—"}</span>
                               </span>
                             </td>
                             <td className="px-3 py-2.5 text-right font-medium text-gray-900 tabular-nums">
