@@ -4,13 +4,14 @@ import { useSpecialists } from "@/lib/hooks";
 import type { Specialist } from "@/lib/demo-data";
 
 function compensationLabel(s: Specialist): string {
+  const materialsLabel = s.salesCommission > 0 ? ` · матеріали ${s.salesCommission}%` : "";
   switch (s.compensationType) {
     case "commission":
-      return `комісія ${s.serviceCommission}% · продажі ${s.salesCommission}%`;
+      return `комісія ${s.serviceCommission}%${materialsLabel}`;
     case "rental":
-      return `оренда · продажі ${s.salesCommission}%`;
+      return `оренда${materialsLabel}`;
     case "salary":
-      return `ставка ${s.salaryRate} ₴/день · продажі ${s.salesCommission}%`;
+      return `ставка ${s.salaryRate} ₴/день${materialsLabel}`;
   }
 }
 

@@ -9,7 +9,7 @@ export interface Specialist {
   role: string;
   compensationType: CompensationType;
   serviceCommission: number; // % salon takes from services
-  salesCommission: number;   // % specialist gets from product sales
+  salesCommission: number;   // % specialist gets from materials used in services
   rentalRate?: number;       // daily rental rate (for rental type)
   salaryRate?: number;       // daily salary (for salary type)
   balance: number;
