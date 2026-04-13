@@ -154,6 +154,12 @@ export default function DashboardScreen() {
 
   const m = useMemo(() => computeMetrics(entries), [entries]);
 
+  // Борги = сума балансів всіх спеціалістів (rollup з Airtable)
+  const totalDebt = useMemo(
+    () => specialists.reduce((sum, s) => sum + (s.balance || 0), 0),
+    [specialists],
+  );
+
   function selectPeriod(p: string) {
     setPeriod(p);
     setCustomRange(null);
@@ -270,9 +276,9 @@ export default function DashboardScreen() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <MetricCard
                 label="Борги"
-                sublabel={m.debts > 0 ? "салон винен" : m.debts < 0 ? "нам винні" : "баланс"}
-                value={Math.round(m.debts)}
-                variant={m.debts !== 0 ? "negative" : "default"}
+                sublabel={totalDebt > 0 ? "салон винен · актуально" : totalDebt < 0 ? "нам винні · актуально" : "баланс · актуально"}
+                value={Math.round(totalDebt)}
+                variant={totalDebt !== 0 ? "negative" : "default"}
               />
               <MetricCard label="Витрати" value={Math.round(m.expenses)} />
               <MetricCard label="Оренда" sublabel="без матеріалів" value={Math.round(m.rentalSum)} />
