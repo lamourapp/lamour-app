@@ -35,6 +35,8 @@ export interface JournalEntry {
   salonMaterialShare?: number;
   salonSalesShare?: number;
   materialsCost?: number; // вартість матеріалів (для оренди)
+  calculationCost?: number; // додаткова калькуляція
+  baseMaterialsCost?: number; // базові матеріали послуги
   source?: "bot" | "admin";
   time?: string;
 }

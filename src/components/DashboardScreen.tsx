@@ -369,7 +369,7 @@ export default function DashboardScreen() {
                             {h}
                           </th>
                         ))}
-                        {["Вартість", "Допов.", "% спец.", "% салону"].map((h) => (
+                        {["Вартість", "Допов.", "Калькул.", "Матер.", "% спец.", "% салону"].map((h) => (
                           <th key={h} className="text-right px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider">
                             {h}
                           </th>
@@ -404,6 +404,20 @@ export default function DashboardScreen() {
                                 <span className="text-gray-900">
                                   {e.supplement > 0 ? `+${e.supplement}` : e.supplement}
                                 </span>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 text-right tabular-nums">
+                              {e.calculationCost ? (
+                                <span className="text-purple-600">{e.calculationCost.toLocaleString("uk-UA")}</span>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 text-right tabular-nums">
+                              {e.baseMaterialsCost ? (
+                                <span className="text-amber-600">{e.baseMaterialsCost.toLocaleString("uk-UA")}</span>
                               ) : (
                                 <span className="text-gray-300">—</span>
                               )}
