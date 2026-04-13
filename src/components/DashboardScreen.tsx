@@ -426,7 +426,10 @@ export default function DashboardScreen() {
                               {e.specialistShare ? e.specialistShare.toLocaleString("uk-UA") : <span className="text-gray-300">—</span>}
                             </td>
                             <td className="px-3 py-2.5 text-right text-gray-500 tabular-nums">
-                              {e.salonShare ? e.salonShare.toLocaleString("uk-UA") : <span className="text-gray-300">—</span>}
+                              {(() => {
+                                const total = (e.salonShare || 0) + (e.salonMaterialShare || 0) + (e.salonSalesShare || 0);
+                                return total ? total.toLocaleString("uk-UA") : <span className="text-gray-300">—</span>;
+                              })()}
                             </td>
                             <td className="px-3 py-2.5 text-center">
                               {e.source === "bot" ? (
