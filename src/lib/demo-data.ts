@@ -15,6 +15,7 @@ export interface Specialist {
   balance: number;
   birthday: string;
   avatarColor: "brand" | "amber" | "gray";
+  isActive?: boolean;
 }
 
 export interface JournalEntry {

@@ -1,8 +1,55 @@
-import { NextResponse } from "next/server";
-import { fetchAllRecords, TABLES } from "@/lib/airtable";
+import { NextRequest, NextResponse } from "next/server";
+import { fetchAllRecords, createRecord, updateRecord, TABLES } from "@/lib/airtable";
 
-export async function GET() {
+function mapSpecialist(r: { id: string; fields: Record<string, unknown> }) {
+  const f = r.fields;
+  const compensationType = (f["Тип оплати"] as string) || "комісія";
+  const salonPercent = (f["% cалону за послугу"] as number) || 0;
+  const salesPercent = (f["% майстру за продаж матеріалів"] as number) || 0;
+
+  let type: "commission" | "rental" | "salary" = "commission";
+  if (compensationType === "оренда") type = "rental";
+  else if (compensationType === "зарплата") type = "salary";
+
+  let avatarColor: "brand" | "amber" | "gray" = "brand";
+  if (type === "rental") avatarColor = "amber";
+  else if (type === "salary") avatarColor = "gray";
+
+  // Format birthday
+  let birthday = "";
+  if (f["Дата народження"]) {
+    const date = new Date(f["Дата народження"] as string);
+    const months = [
+      "січня", "лютого", "березня", "квітня", "травня", "червня",
+      "липня", "серпня", "вересня", "жовтня", "листопада", "грудня",
+    ];
+    birthday = `${date.getDate()} ${months[date.getMonth()]}`;
+  }
+
+  const isActive = f["is_active"] === true || f["is_active"] === undefined;
+
+  return {
+    id: r.id,
+    name: (f["Ім'я"] as string) || "",
+    role: (f["Вид діяльності"] as string) || "",
+    compensationType: type,
+    serviceCommission: salonPercent,
+    salesCommission: salesPercent,
+    rentalRate: type === "rental" ? (f["Умови співпраці"] as number) || 0 : undefined,
+    salaryRate: type === "salary" ? (f["Умови співпраці"] as number) || 0 : undefined,
+    conditions: (f["Умови співпраці"] as number) || 0,
+    balance: (f["Баланс"] as number) || 0,
+    birthday,
+    birthdayRaw: (f["Дата народження"] as string) || "",
+    avatarColor,
+    isActive,
+  };
+}
+
+export async function GET(request: NextRequest) {
   try {
+    const showAll = request.nextUrl.searchParams.get("all") === "1";
+
     const records = await fetchAllRecords(TABLES.specialists, {
       fields: [
         "Ім'я",
@@ -18,52 +65,92 @@ export async function GET() {
       sort: [{ field: "Ім'я", direction: "asc" }],
     });
 
-    const specialists = records.map((r) => {
-      const f = r.fields;
-      const compensationType = (f["Тип оплати"] as string) || "комісія";
-      const salonPercent = (f["% cалону за послугу"] as number) || 0;
-      const salesPercent = (f["% майстру за продаж матеріалів"] as number) || 0;
+    let specialists = records.map(mapSpecialist);
 
-      let type: "commission" | "rental" | "salary" = "commission";
-      if (compensationType === "оренда") type = "rental";
-      else if (compensationType === "зарплата") type = "salary";
+    if (!showAll) {
+      specialists = specialists.filter((s) => s.isActive);
+    }
 
-      let avatarColor: "brand" | "amber" | "gray" = "brand";
-      if (type === "rental") avatarColor = "amber";
-      else if (type === "salary") avatarColor = "gray";
-
-      // Format birthday
-      let birthday = "";
-      if (f["Дата народження"]) {
-        const date = new Date(f["Дата народження"] as string);
-        const months = [
-          "січня", "лютого", "березня", "квітня", "травня", "червня",
-          "липня", "серпня", "вересня", "жовтня", "листопада", "грудня",
-        ];
-        birthday = `${date.getDate()} ${months[date.getMonth()]}`;
-      }
-
-      return {
-        id: r.id,
-        name: (f["Ім'я"] as string) || "",
-        role: (f["Вид діяльності"] as string) || "",
-        compensationType: type,
-        serviceCommission: salonPercent,
-        salesCommission: salesPercent,
-        rentalRate: type === "rental" ? (f["Умови співпраці"] as number) || 0 : undefined,
-        salaryRate: type === "salary" ? (f["Умови співпраці"] as number) || 0 : undefined,
-        balance: (f["Баланс"] as number) || 0,
-        birthday,
-        avatarColor,
-        isActive: f["is_active"] === true || f["is_active"] === undefined,
-      };
-    });
-
-    // Filter active only
-    const active = specialists.filter((s) => s.isActive);
-    return NextResponse.json(active);
+    return NextResponse.json(specialists);
   } catch (error) {
     console.error("Failed to fetch specialists:", error);
     return NextResponse.json({ error: "Failed to fetch specialists" }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { name, role, compensationType, serviceCommission, salesCommission, conditions, birthday } = body;
+
+    if (!name) {
+      return NextResponse.json({ error: "name is required" }, { status: 400 });
+    }
+
+    const fields: Record<string, unknown> = {
+      "Ім'я": name,
+      "is_active": true,
+    };
+
+    if (role) fields["Вид діяльності"] = role;
+    if (birthday) fields["Дата народження"] = birthday;
+
+    // Compensation type
+    const typeMap: Record<string, string> = {
+      commission: "комісія",
+      rental: "оренда",
+      salary: "зарплата",
+    };
+    fields["Тип оплати"] = typeMap[compensationType] || "комісія";
+
+    // Percentages
+    if (serviceCommission !== undefined) fields["% cалону за послугу"] = serviceCommission;
+    if (salesCommission !== undefined) fields["% майстру за продаж матеріалів"] = salesCommission;
+    if (conditions !== undefined) fields["Умови співпраці"] = conditions;
+
+    const result = await createRecord(TABLES.specialists, fields);
+    return NextResponse.json({ success: true, id: result.id });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    console.error("Failed to create specialist:", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id, ...updates } = body;
+
+    if (!id || typeof id !== "string" || !id.startsWith("rec")) {
+      return NextResponse.json({ error: "Invalid record ID" }, { status: 400 });
+    }
+
+    const fields: Record<string, unknown> = {};
+
+    if (updates.name !== undefined) fields["Ім'я"] = updates.name;
+    if (updates.role !== undefined) fields["Вид діяльності"] = updates.role;
+    if (updates.birthday !== undefined) fields["Дата народження"] = updates.birthday || null;
+    if (updates.isActive !== undefined) fields["is_active"] = updates.isActive;
+
+    if (updates.compensationType !== undefined) {
+      const typeMap: Record<string, string> = {
+        commission: "комісія",
+        rental: "оренда",
+        salary: "зарплата",
+      };
+      fields["Тип оплати"] = typeMap[updates.compensationType] || "комісія";
+    }
+
+    if (updates.serviceCommission !== undefined) fields["% cалону за послугу"] = updates.serviceCommission;
+    if (updates.salesCommission !== undefined) fields["% майстру за продаж матеріалів"] = updates.salesCommission;
+    if (updates.conditions !== undefined) fields["Умови співпраці"] = updates.conditions;
+
+    await updateRecord(TABLES.specialists, id, fields);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    console.error("Failed to update specialist:", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

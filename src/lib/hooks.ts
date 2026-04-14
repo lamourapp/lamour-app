@@ -3,13 +3,18 @@
 import { useState, useEffect, useCallback } from "react";
 import type { Specialist, JournalEntry } from "./demo-data";
 
-export function useSpecialists() {
+export function useSpecialists(includeInactive = false) {
   const [data, setData] = useState<Specialist[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch("/api/specialists")
+  const reload = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    const params = new URLSearchParams();
+    if (includeInactive) params.set("all", "1");
+    params.set("_t", String(Date.now()));
+    fetch(`/api/specialists?${params.toString()}`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch");
         return res.json();
@@ -23,9 +28,13 @@ export function useSpecialists() {
         setError(err.message);
         setLoading(false);
       });
-  }, []);
+  }, [includeInactive]);
 
-  return { specialists: data, loading, error };
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  return { specialists: data, loading, error, reload };
 }
 
 export function useJournal(

@@ -125,6 +125,30 @@ export async function createRecord(
   return res.json();
 }
 
+// Update a record
+export async function updateRecord(
+  tableId: string,
+  recordId: string,
+  fields: Record<string, unknown>,
+): Promise<{ id: string; fields: Record<string, unknown> }> {
+  const url = `${API_URL}/${BASE_ID}/${tableId}/${recordId}`;
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${getToken()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ fields }),
+  });
+
+  if (!res.ok) {
+    const error = await res.text();
+    throw new Error(`Airtable update error ${res.status}: ${error}`);
+  }
+
+  return res.json();
+}
+
 // Delete a record
 export async function deleteRecord(tableId: string, recordId: string): Promise<void> {
   // Airtable API: batch delete format with records[] query param
