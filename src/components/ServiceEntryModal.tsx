@@ -5,7 +5,15 @@ import { useState, useEffect, useRef, useMemo } from "react";
 interface Specialist {
   id: string;
   name: string;
+  role?: string;
 }
+
+// Mapping: specialist role → allowed service categories
+const ROLE_CATEGORIES: Record<string, string[]> = {
+  "Перукарі": ["Фарбування", "Стрижки", "Лікування", "Зачіски, укладки"],
+  "Візажисти, бровісти": ["Брови", "Мейкап"],
+  "Нігтьовий сервіс": ["Нігтьовий сервіс"],
+};
 
 interface ServiceCatalogItem {
   id: string;
@@ -314,6 +322,17 @@ export default function ServiceEntryModal({
 
   const selectedService = services.find((s) => s.id === serviceId);
 
+  // Filter services by specialist's specialization
+  const selectedSpecialist = specialists.find((s) => s.id === specialistId);
+  const [showAllServices, setShowAllServices] = useState(false);
+
+  const filteredServices = useMemo(() => {
+    if (!selectedSpecialist?.role || showAllServices) return services;
+    const allowedCategories = ROLE_CATEGORIES[selectedSpecialist.role];
+    if (!allowedCategories) return services;
+    return services.filter((s) => allowedCategories.includes(s.category));
+  }, [services, selectedSpecialist, showAllServices]);
+
   // Calculate preview
   const preview = useMemo(() => {
     if (!selectedService) return null;
@@ -417,7 +436,11 @@ export default function ServiceEntryModal({
             {/* Specialist */}
             <label className="block mb-4">
               <span className={LABEL_CLS}>Спеціаліст</span>
-              <select value={specialistId} onChange={(e) => setSpecialistId(e.target.value)} className={`mt-1 ${SELECT_CLS}`}>
+              <select
+                value={specialistId}
+                onChange={(e) => { setSpecialistId(e.target.value); setServiceId(""); setShowAllServices(false); }}
+                className={`mt-1 ${SELECT_CLS}`}
+              >
                 <option value="">Оберіть спеціаліста</option>
                 {specialists.map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
@@ -427,9 +450,20 @@ export default function ServiceEntryModal({
 
             {/* Service */}
             <div className="mb-4">
-              <span className={LABEL_CLS}>Послуга</span>
+              <div className="flex items-center justify-between">
+                <span className={LABEL_CLS}>Послуга</span>
+                {selectedSpecialist?.role && ROLE_CATEGORIES[selectedSpecialist.role] && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllServices(!showAllServices)}
+                    className="text-[11px] text-brand-500 hover:text-brand-700 cursor-pointer"
+                  >
+                    {showAllServices ? "Тільки мої" : "Показати всі"}
+                  </button>
+                )}
+              </div>
               <SearchablePicker
-                items={services}
+                items={filteredServices}
                 selectedId={serviceId}
                 onSelect={setServiceId}
                 placeholder="Пошук послуги..."

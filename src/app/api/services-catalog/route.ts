@@ -19,12 +19,16 @@ export async function GET() {
     const services = records.map((r) => {
       const f = r.fields;
       const types = f["Вид послуги"] as { name: string }[] | undefined;
+      const workPrice = (f["ціна роботи"] as number) || 0;
+      const catalogHourlyRate = (f["ціна за годину"] as number) || 0;
+      // Use catalog hourly rate if set, otherwise workPrice IS the hourly rate
+      const effectiveHourlyRate = catalogHourlyRate || workPrice;
       return {
         id: r.id,
         name: (f["Назва"] as string) || "",
-        workPrice: (f["ціна роботи"] as number) || 0,
+        workPrice,
         materialsCost: (f["вартість матеріалів продажа"] as number) || 0,
-        hourlyRate: (f["ціна за годину"] as number) || 0,
+        hourlyRate: effectiveHourlyRate,
         hours: (f["К-сть годин"] as number) || 0,
         totalPrice: (f["вартість послуги"] as number) || 0,
         category: types?.[0]?.name || "",

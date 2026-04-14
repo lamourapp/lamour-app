@@ -438,15 +438,15 @@ export default function DashboardScreen() {
                                   )}
                                 </td>
                                 <td className="px-3 py-2.5 text-right tabular-nums">
-                                  {e.calculationCost ? (
-                                    <span className="text-purple-600">{e.calculationCost.toLocaleString("uk-UA")}</span>
+                                  {e.baseMaterialsCost ? (
+                                    <span className="text-purple-600">{e.baseMaterialsCost.toLocaleString("uk-UA")}</span>
                                   ) : (
                                     <span className="text-gray-300">—</span>
                                   )}
                                 </td>
                                 <td className="px-3 py-2.5 text-right tabular-nums">
-                                  {e.baseMaterialsCost ? (
-                                    <span className="text-amber-600">{e.baseMaterialsCost.toLocaleString("uk-UA")}</span>
+                                  {e.calculationCost ? (
+                                    <span className="text-amber-600">{e.calculationCost.toLocaleString("uk-UA")}</span>
                                   ) : (
                                     <span className="text-gray-300">—</span>
                                   )}
