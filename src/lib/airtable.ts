@@ -127,12 +127,15 @@ export async function createRecord(
 
 // Delete a record
 export async function deleteRecord(tableId: string, recordId: string): Promise<void> {
-  const url = `${API_URL}/${BASE_ID}/${tableId}/${recordId}`;
+  // Airtable API: batch delete format with records[] query param
+  const url = `${API_URL}/${BASE_ID}/${tableId}?records[]=${recordId}`;
   const res = await fetch(url, {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${getToken()}`,
+      "Content-Type": "application/json",
     },
+    cache: "no-store",
   });
 
   if (!res.ok) {
