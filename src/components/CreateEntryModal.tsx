@@ -18,8 +18,8 @@ interface Product {
 type EntryType = "expense" | "debt" | "sale";
 
 const EXPENSE_TYPES = [
-  "Прибирання",
   "ЗП Адмін",
+  "Прибирання",
   "Вода",
   "Газ",
   "Електрика",
@@ -231,6 +231,7 @@ export default function CreateEntryModal({
       if (type === "expense") {
         body.amount = parseFloat(amount);
         body.expenseType = expenseType || undefined;
+        if (specialistId) body.specialistId = specialistId;
       } else if (type === "debt") {
         const val = parseFloat(amount);
         body.amount = debtSign === "+" ? Math.abs(val) : -Math.abs(val);
@@ -302,16 +303,18 @@ export default function CreateEntryModal({
           />
         </label>
 
-        {/* Specialist (for debt & sale) */}
-        {(type === "debt" || type === "sale") && (
+        {/* Specialist (for debt, sale, expense) */}
+        {(type === "debt" || type === "sale" || type === "expense") && (
           <label className="block mb-4">
-            <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Спеціаліст</span>
+            <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">
+              Спеціаліст {type === "expense" && <span className="text-gray-400 normal-case">(опціонально, для ЗП)</span>}
+            </span>
             <select
               value={specialistId}
               onChange={(e) => setSpecialistId(e.target.value)}
               className={SELECT_CLS}
             >
-              <option value="">Оберіть спеціаліста</option>
+              <option value="">{type === "expense" ? "Не прив'язано" : "Оберіть спеціаліста"}</option>
               {specialists.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
