@@ -1,7 +1,124 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import type { Specialist, JournalEntry } from "./demo-data";
+import type { Settings } from "@/app/api/settings/route";
+
+/* ─── Settings (tenant-wide, shared cache) ─── */
+
+type SettingsStore = {
+  data: Settings | null;
+  loading: boolean;
+  error: string | null;
+};
+
+const LS_KEY = "servico.settings";
+
+function readLS(): Settings | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? (JSON.parse(raw) as Settings) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLS(s: Settings | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (s) localStorage.setItem(LS_KEY, JSON.stringify(s));
+    else localStorage.removeItem(LS_KEY);
+  } catch {
+    /* ignore quota */
+  }
+}
+
+let settingsStore: SettingsStore = {
+  data: null,
+  loading: true,
+  error: null,
+};
+const listeners = new Set<() => void>();
+
+function setStore(next: Partial<SettingsStore>) {
+  settingsStore = { ...settingsStore, ...next };
+  listeners.forEach((fn) => fn());
+}
+
+let inflight: Promise<void> | null = null;
+
+async function refetchSettings(): Promise<void> {
+  if (inflight) return inflight;
+  inflight = (async () => {
+    try {
+      const res = await fetch("/api/settings", { cache: "no-store" });
+      if (!res.ok) throw new Error((await res.json()).error || "Failed");
+      const data = (await res.json()) as Settings;
+      writeLS(data);
+      setStore({ data, loading: false, error: null });
+    } catch (err) {
+      setStore({ loading: false, error: err instanceof Error ? err.message : "Error" });
+    } finally {
+      inflight = null;
+    }
+  })();
+  return inflight;
+}
+
+function subscribeSettings(cb: () => void) {
+  listeners.add(cb);
+  return () => {
+    listeners.delete(cb);
+  };
+}
+
+function getSnapshot() {
+  return settingsStore;
+}
+
+// SSR needs a stable snapshot too — always return the initial null store.
+const SSR_SNAPSHOT: SettingsStore = { data: null, loading: true, error: null };
+function getServerSnapshot() {
+  return SSR_SNAPSHOT;
+}
+
+export function useSettings() {
+  const store = useSyncExternalStore(subscribeSettings, getSnapshot, getServerSnapshot);
+
+  useEffect(() => {
+    // Hydrate from LS immediately (no flash) if we haven't yet.
+    if (!settingsStore.data) {
+      const cached = readLS();
+      if (cached) setStore({ data: cached });
+    }
+    // Always revalidate from the server on mount.
+    if (!settingsStore.data || settingsStore.loading) {
+      refetchSettings();
+    }
+  }, []);
+
+  const update = useCallback(async (patch: Partial<Settings>) => {
+    const res = await fetch("/api/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || "Failed");
+    const data = (await res.json()) as Settings;
+    writeLS(data);
+    setStore({ data, error: null });
+    return data;
+  }, []);
+
+  return {
+    settings: store.data,
+    loading: store.loading,
+    error: store.error,
+    reload: refetchSettings,
+    update,
+  };
+}
 
 export function useSpecialists(includeInactive = false) {
   const [data, setData] = useState<Specialist[]>([]);

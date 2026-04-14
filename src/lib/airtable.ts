@@ -20,6 +20,7 @@ export const TABLES = {
   orders: "tbl6WADNSFGrw6abz",          // Замовлення
   products: "tblthnCZzNrs9gJ1I",        // Товари
   clients: "tblhwRZKJeduhN7vE",         // Клієнти
+  settings: "tblSTSjnEbV37pWRP",        // Settings (single row "current")
 } as const;
 
 interface AirtableRecord {
