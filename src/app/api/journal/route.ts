@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchAllRecords, deleteRecord, TABLES } from "@/lib/airtable";
+import { fetchAllRecords, createRecord, deleteRecord, TABLES } from "@/lib/airtable";
 
 export async function GET(request: NextRequest) {
   try {
@@ -215,6 +215,67 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Failed to fetch journal:", error);
     return NextResponse.json({ error: "Failed to fetch journal" }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { type, date, amount, specialistId, comment } = body;
+
+    if (!type || !date) {
+      return NextResponse.json({ error: "type and date are required" }, { status: 400 });
+    }
+
+    // Airtable field IDs
+    const F = {
+      date: "fld53Q3e9wodEeHFp",
+      master: "fldRwmpFStXqfWkIl",
+      expense: "fld7SKutca0WJCeV9",
+      expenseType: "fldlMaASQeOKpgTnl",
+      debt: "fldaoal0O398zUPNH",
+      sales: "fldrLpOsQhWXovhuo",
+      salesSupplement: "fldN29Z5aJzEMCWLN",
+      comment: "fldgBPdAQvgNI1eIx",
+      products: "fldYIxiSe3sd3o315",
+    };
+
+    const fields: Record<string, unknown> = {
+      [F.date]: date,
+    };
+
+    if (comment) fields[F.comment] = comment;
+    if (specialistId) fields[F.master] = [specialistId];
+
+    switch (type) {
+      case "expense":
+        if (!amount) return NextResponse.json({ error: "amount is required" }, { status: 400 });
+        fields[F.expense] = Math.abs(amount);
+        if (body.expenseType) fields[F.expenseType] = body.expenseType;
+        break;
+
+      case "debt":
+        if (amount === undefined) return NextResponse.json({ error: "amount is required" }, { status: 400 });
+        if (!specialistId) return NextResponse.json({ error: "specialistId is required" }, { status: 400 });
+        fields[F.debt] = amount; // + ми винні, - нам винні
+        break;
+
+      case "sale":
+        if (!body.productId) return NextResponse.json({ error: "productId is required" }, { status: 400 });
+        if (!specialistId) return NextResponse.json({ error: "specialistId is required" }, { status: 400 });
+        fields[F.sales] = [body.productId];
+        if (body.supplement) fields[F.salesSupplement] = body.supplement;
+        break;
+
+      default:
+        return NextResponse.json({ error: "Invalid type" }, { status: 400 });
+    }
+
+    const result = await createRecord(TABLES.services, fields);
+    return NextResponse.json({ success: true, id: result.id });
+  } catch (error) {
+    console.error("Failed to create record:", error);
+    return NextResponse.json({ error: "Failed to create record" }, { status: 500 });
   }
 }
 

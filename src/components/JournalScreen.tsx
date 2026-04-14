@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { useJournal, useSpecialists } from "@/lib/hooks";
 import type { JournalEntry } from "@/lib/demo-data";
 import CalendarPicker from "./CalendarPicker";
+import CreateEntryModal from "./CreateEntryModal";
 
 function TypeDot({ type }: { type: JournalEntry["type"] }) {
   const colors: Record<string, string> = {
@@ -158,6 +159,7 @@ export default function JournalScreen() {
     customRange?.to,
   );
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [createType, setCreateType] = useState<"expense" | "debt" | "sale" | null>(null);
 
   async function handleDelete(id: string) {
     setDeleting(id);
@@ -323,19 +325,38 @@ export default function JournalScreen() {
 
       {/* Quick Add Buttons */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex gap-1.5 bg-white/90 backdrop-blur-xl rounded-2xl shadow-lg shadow-black/[0.08] p-1.5 border border-black/5 z-40">
-        <button className="bg-brand-600 text-white rounded-[10px] font-medium text-[13px] px-4 py-2.5 cursor-pointer hover:bg-brand-700 transition-colors">
+        <button className="bg-brand-600 text-white rounded-[10px] font-medium text-[13px] px-4 py-2.5 cursor-pointer hover:bg-brand-700 transition-colors opacity-50" title="Скоро">
           + Послуга
         </button>
-        <button className="bg-[#f5f5f7] text-[#3f3f46] rounded-[10px] font-medium text-[13px] px-4 py-2.5 border border-black/[0.1] cursor-pointer hover:bg-[#e5e5ea] transition-colors">
+        <button
+          onClick={() => setCreateType("sale")}
+          className="bg-[#f5f5f7] text-[#3f3f46] rounded-[10px] font-medium text-[13px] px-4 py-2.5 border border-black/[0.1] cursor-pointer hover:bg-[#e5e5ea] transition-colors"
+        >
           + Продаж
         </button>
-        <button className="bg-[#f5f5f7] text-[#3f3f46] rounded-[10px] font-medium text-[13px] px-4 py-2.5 border border-black/[0.1] cursor-pointer hover:bg-[#e5e5ea] transition-colors">
+        <button
+          onClick={() => setCreateType("expense")}
+          className="bg-[#f5f5f7] text-[#3f3f46] rounded-[10px] font-medium text-[13px] px-4 py-2.5 border border-black/[0.1] cursor-pointer hover:bg-[#e5e5ea] transition-colors"
+        >
           + Витрата
         </button>
-        <button className="bg-[#f5f5f7] text-[#3f3f46] rounded-[10px] font-medium text-[13px] px-4 py-2.5 border border-black/[0.1] cursor-pointer hover:bg-[#e5e5ea] transition-colors hidden sm:block">
+        <button
+          onClick={() => setCreateType("debt")}
+          className="bg-[#f5f5f7] text-[#3f3f46] rounded-[10px] font-medium text-[13px] px-4 py-2.5 border border-black/[0.1] cursor-pointer hover:bg-[#e5e5ea] transition-colors hidden sm:block"
+        >
           + Борг
         </button>
       </div>
+
+      {/* Create Entry Modal */}
+      {createType && (
+        <CreateEntryModal
+          type={createType}
+          specialists={specialists}
+          onClose={() => setCreateType(null)}
+          onCreated={reload}
+        />
+      )}
     </div>
   );
 }

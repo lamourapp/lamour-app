@@ -102,6 +102,29 @@ export async function fetchAllRecords(
   return all;
 }
 
+// Create a record
+export async function createRecord(
+  tableId: string,
+  fields: Record<string, unknown>,
+): Promise<{ id: string; fields: Record<string, unknown> }> {
+  const url = `${API_URL}/${BASE_ID}/${tableId}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${getToken()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ fields }),
+  });
+
+  if (!res.ok) {
+    const error = await res.text();
+    throw new Error(`Airtable create error ${res.status}: ${error}`);
+  }
+
+  return res.json();
+}
+
 // Delete a record
 export async function deleteRecord(tableId: string, recordId: string): Promise<void> {
   const url = `${API_URL}/${BASE_ID}/${tableId}/${recordId}`;
