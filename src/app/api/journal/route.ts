@@ -227,44 +227,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "type and date are required" }, { status: 400 });
     }
 
-    // Airtable field IDs
-    const F = {
-      date: "fld53Q3e9wodEeHFp",
-      master: "fldRwmpFStXqfWkIl",
-      expense: "fld7SKutca0WJCeV9",
-      expenseType: "fldlMaASQeOKpgTnl",
-      debt: "fldaoal0O398zUPNH",
-      sales: "fldrLpOsQhWXovhuo",
-      salesSupplement: "fldN29Z5aJzEMCWLN",
-      comment: "fldgBPdAQvgNI1eIx",
-      products: "fldYIxiSe3sd3o315",
-    };
-
     const fields: Record<string, unknown> = {
-      [F.date]: date,
+      "Дата": date,
     };
 
-    if (comment) fields[F.comment] = comment;
-    if (specialistId) fields[F.master] = [specialistId];
+    if (comment) fields["Коментарі"] = comment;
+    if (specialistId) fields["Майстер"] = [specialistId];
 
     switch (type) {
       case "expense":
         if (!amount) return NextResponse.json({ error: "amount is required" }, { status: 400 });
-        fields[F.expense] = Math.abs(amount);
-        if (body.expenseType) fields[F.expenseType] = body.expenseType;
+        fields["Сума витрат"] = Math.abs(amount);
+        if (body.expenseType) fields["Вид витрати"] = body.expenseType;
         break;
 
       case "debt":
         if (amount === undefined) return NextResponse.json({ error: "amount is required" }, { status: 400 });
         if (!specialistId) return NextResponse.json({ error: "specialistId is required" }, { status: 400 });
-        fields[F.debt] = amount; // + ми винні, - нам винні
+        fields["Cума боргу"] = amount; // + ми винні, - нам винні
         break;
 
       case "sale":
         if (!body.productId) return NextResponse.json({ error: "productId is required" }, { status: 400 });
         if (!specialistId) return NextResponse.json({ error: "specialistId is required" }, { status: 400 });
-        fields[F.sales] = [body.productId];
-        if (body.supplement) fields[F.salesSupplement] = body.supplement;
+        fields["Продажі"] = [body.productId];
+        if (body.supplement) fields["Доповнення(продажі)"] = body.supplement;
         break;
 
       default:
@@ -274,8 +261,9 @@ export async function POST(request: NextRequest) {
     const result = await createRecord(TABLES.services, fields);
     return NextResponse.json({ success: true, id: result.id });
   } catch (error) {
-    console.error("Failed to create record:", error);
-    return NextResponse.json({ error: "Failed to create record" }, { status: 500 });
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    console.error("Failed to create record:", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
