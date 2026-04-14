@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 
 interface Specialist {
   id: string;
@@ -33,6 +33,145 @@ const EXPENSE_TYPES = [
   "Інше",
 ];
 
+// iOS-safe input class: font-size 16px prevents zoom on focus
+const INPUT_CLS =
+  "mt-1 w-full border border-black/10 rounded-lg px-3 py-2.5 text-[16px] text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500/20";
+const SELECT_CLS =
+  "mt-1 w-full border border-black/10 rounded-lg px-3 py-2.5 text-[16px] text-gray-900 bg-white focus:border-brand-500 focus:outline-none cursor-pointer";
+
+/* ─── Searchable Product Picker ─── */
+function ProductPicker({
+  products,
+  productId,
+  onSelect,
+}: {
+  products: Product[];
+  productId: string;
+  onSelect: (id: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selected = products.find((p) => p.id === productId);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  // Filter products by query
+  const filtered = useMemo(() => {
+    if (!query.trim()) return products;
+    const q = query.toLowerCase();
+    return products.filter(
+      (p) => p.name.toLowerCase().includes(q) || p.group.toLowerCase().includes(q)
+    );
+  }, [products, query]);
+
+  // Group filtered products
+  const grouped = useMemo(() => {
+    const groups = new Map<string, Product[]>();
+    filtered.forEach((p) => {
+      const g = p.group || "Інше";
+      if (!groups.has(g)) groups.set(g, []);
+      groups.get(g)!.push(p);
+    });
+    return groups;
+  }, [filtered]);
+
+  function handleSelect(p: Product) {
+    onSelect(p.id);
+    setQuery("");
+    setOpen(false);
+  }
+
+  function handleClear() {
+    onSelect("");
+    setQuery("");
+    setOpen(false);
+  }
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      {/* Show selected product or search input */}
+      {selected && !open ? (
+        <div
+          className="mt-1 w-full border border-brand-200 bg-brand-50/50 rounded-lg px-3 py-2.5 flex items-center justify-between cursor-pointer"
+          onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 50); }}
+        >
+          <div>
+            <div className="text-[14px] text-gray-900 font-medium">{selected.name}</div>
+            <div className="text-[12px] text-gray-500 mt-0.5">
+              {selected.price} ₴{selected.group ? ` · ${selected.group}` : ""}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); handleClear(); }}
+            className="text-gray-400 hover:text-gray-600 text-[18px] ml-2 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      ) : (
+        <div className="relative mt-1">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+            🔍
+          </div>
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+            onFocus={() => setOpen(true)}
+            placeholder="Пошук товару..."
+            className={`${INPUT_CLS} pl-9`}
+          />
+        </div>
+      )}
+
+      {/* Dropdown */}
+      {open && (
+        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-black/10 rounded-xl shadow-xl max-h-[240px] overflow-y-auto z-50">
+          {filtered.length === 0 ? (
+            <div className="px-4 py-3 text-[13px] text-gray-400">Нічого не знайдено</div>
+          ) : (
+            Array.from(grouped.entries()).map(([group, items]) => (
+              <div key={group}>
+                <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider bg-gray-50 sticky top-0">
+                  {group}
+                </div>
+                {items.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => handleSelect(p)}
+                    className={`w-full text-left px-3 py-2 hover:bg-brand-50 cursor-pointer transition-colors flex items-center justify-between ${
+                      p.id === productId ? "bg-brand-50" : ""
+                    }`}
+                  >
+                    <span className="text-[14px] text-gray-900 truncate mr-2">{p.name}</span>
+                    <span className="text-[13px] text-gray-500 whitespace-nowrap">{p.price} ₴</span>
+                  </button>
+                ))}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Main Modal ─── */
 export default function CreateEntryModal({
   type,
   specialists,
@@ -159,7 +298,7 @@ export default function CreateEntryModal({
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="mt-1 w-full border border-black/10 rounded-lg px-3 py-2.5 text-[13px] text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500/20"
+            className={INPUT_CLS}
           />
         </label>
 
@@ -170,7 +309,7 @@ export default function CreateEntryModal({
             <select
               value={specialistId}
               onChange={(e) => setSpecialistId(e.target.value)}
-              className="mt-1 w-full border border-black/10 rounded-lg px-3 py-2.5 text-[13px] text-gray-900 bg-white focus:border-brand-500 focus:outline-none cursor-pointer"
+              className={SELECT_CLS}
             >
               <option value="">Оберіть спеціаліста</option>
               {specialists.map((s) => (
@@ -214,7 +353,7 @@ export default function CreateEntryModal({
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0"
-              className="mt-1 w-full border border-black/10 rounded-lg px-3 py-2.5 text-[13px] text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500/20 tabular-nums"
+              className={`${INPUT_CLS} tabular-nums`}
             />
           </label>
         )}
@@ -226,7 +365,7 @@ export default function CreateEntryModal({
             <select
               value={expenseType}
               onChange={(e) => setExpenseType(e.target.value)}
-              className="mt-1 w-full border border-black/10 rounded-lg px-3 py-2.5 text-[13px] text-gray-900 bg-white focus:border-brand-500 focus:outline-none cursor-pointer"
+              className={SELECT_CLS}
             >
               <option value="">Без категорії</option>
               {EXPENSE_TYPES.map((t) => (
@@ -236,29 +375,22 @@ export default function CreateEntryModal({
           </label>
         )}
 
-        {/* Product (for sale) */}
+        {/* Product (for sale) — searchable picker */}
         {type === "sale" && (
-          <label className="block mb-4">
+          <div className="block mb-4">
             <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Товар</span>
-            <select
-              value={productId}
-              onChange={(e) => setProductId(e.target.value)}
-              className="mt-1 w-full border border-black/10 rounded-lg px-3 py-2.5 text-[13px] text-gray-900 bg-white focus:border-brand-500 focus:outline-none cursor-pointer"
-            >
-              <option value="">Оберіть товар</option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} — {p.price} ₴
-                </option>
-              ))}
-            </select>
+            <ProductPicker
+              products={products}
+              productId={productId}
+              onSelect={setProductId}
+            />
             {selectedProduct && (
-              <div className="mt-2 text-[11px] text-gray-400">
+              <div className="mt-2 text-[12px] text-gray-400">
                 Ціна: {selectedProduct.price} ₴
                 {selectedProduct.group && <span> · {selectedProduct.group}</span>}
               </div>
             )}
-          </label>
+          </div>
         )}
 
         {/* Supplement (for sale) */}
@@ -271,7 +403,7 @@ export default function CreateEntryModal({
               value={supplement}
               onChange={(e) => setSupplement(e.target.value)}
               placeholder="0"
-              className="mt-1 w-full border border-black/10 rounded-lg px-3 py-2.5 text-[13px] text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500/20 tabular-nums"
+              className={`${INPUT_CLS} tabular-nums`}
             />
           </label>
         )}
@@ -284,7 +416,7 @@ export default function CreateEntryModal({
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             placeholder="Необов'язково"
-            className="mt-1 w-full border border-black/10 rounded-lg px-3 py-2.5 text-[13px] text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500/20"
+            className={INPUT_CLS}
           />
         </label>
 
@@ -297,7 +429,7 @@ export default function CreateEntryModal({
         <button
           onClick={handleSubmit}
           disabled={saving}
-          className="w-full bg-brand-600 text-white rounded-xl font-medium text-[14px] py-3 cursor-pointer hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-brand-600 text-white rounded-xl font-medium text-[16px] py-3 cursor-pointer hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {saving ? "Збереження..." : "Зберегти"}
         </button>
