@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
+import { Button, Field, Input, Modal, Select, inputCls } from "./ui";
 
 interface Specialist {
   id: string;
@@ -33,12 +34,6 @@ const EXPENSE_TYPES = [
   "Інше",
 ];
 
-// iOS-safe input class: font-size 16px prevents zoom on focus
-const INPUT_CLS =
-  "mt-1 w-full border border-black/10 rounded-lg px-3 py-2.5 text-[16px] text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500/20";
-const SELECT_CLS =
-  "mt-1 w-full border border-black/10 rounded-lg px-3 py-2.5 text-[16px] text-gray-900 bg-white focus:border-brand-500 focus:outline-none cursor-pointer";
-
 /* ─── Searchable Product Picker ─── */
 function ProductPicker({
   products,
@@ -56,7 +51,6 @@ function ProductPicker({
 
   const selected = products.find((p) => p.id === productId);
 
-  // Close dropdown on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
@@ -67,7 +61,6 @@ function ProductPicker({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  // Filter products by query
   const filtered = useMemo(() => {
     if (!query.trim()) return products;
     const q = query.toLowerCase();
@@ -76,7 +69,6 @@ function ProductPicker({
     );
   }, [products, query]);
 
-  // Group filtered products
   const grouped = useMemo(() => {
     const groups = new Map<string, Product[]>();
     filtered.forEach((p) => {
@@ -101,15 +93,14 @@ function ProductPicker({
 
   return (
     <div ref={wrapperRef} className="relative">
-      {/* Show selected product or search input */}
       {selected && !open ? (
         <div
-          className="mt-1 w-full border border-brand-200 bg-brand-50/50 rounded-lg px-3 py-2.5 flex items-center justify-between cursor-pointer"
+          className="w-full h-[44px] border border-brand-200 bg-brand-50/50 rounded-xl px-3.5 flex items-center justify-between cursor-pointer"
           onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 50); }}
         >
-          <div>
-            <div className="text-[14px] text-gray-900 font-medium">{selected.name}</div>
-            <div className="text-[12px] text-gray-500 mt-0.5">
+          <div className="min-w-0">
+            <div className="text-[14px] text-gray-900 font-medium truncate">{selected.name}</div>
+            <div className="text-[11px] text-gray-500 mt-0.5">
               {selected.price} ₴{selected.group ? ` · ${selected.group}` : ""}
             </div>
           </div>
@@ -117,12 +108,13 @@ function ProductPicker({
             type="button"
             onClick={(e) => { e.stopPropagation(); handleClear(); }}
             className="text-gray-400 hover:text-gray-600 text-[18px] ml-2 cursor-pointer"
+            aria-label="Очистити"
           >
             ✕
           </button>
         </div>
       ) : (
-        <div className="relative mt-1">
+        <div className="relative">
           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
             🔍
           </div>
@@ -133,12 +125,11 @@ function ProductPicker({
             onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
             onFocus={() => setOpen(true)}
             placeholder="Пошук товару..."
-            className={`${INPUT_CLS} pl-9`}
+            className={`${inputCls} pl-9`}
           />
         </div>
       )}
 
-      {/* Dropdown */}
       {open && (
         <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-black/10 rounded-xl shadow-xl max-h-[240px] overflow-y-auto z-50">
           {filtered.length === 0 ? (
@@ -193,9 +184,8 @@ export default function CreateEntryModal({
   const [supplement, setSupplement] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [debtSign, setDebtSign] = useState<"+" | "-">("+"); // + ми винні, - нам винні
+  const [debtSign, setDebtSign] = useState<"+" | "-">("+");
 
-  // Fetch products for sale type
   useEffect(() => {
     if (type === "sale") {
       fetch("/api/products")
@@ -210,11 +200,7 @@ export default function CreateEntryModal({
   async function handleSubmit() {
     setError("");
 
-    // Validate
-    if (type === "expense" && !amount) {
-      setError("Вкажіть суму");
-      return;
-    }
+    if (type === "expense" && !amount) { setError("Вкажіть суму"); return; }
     if (type === "debt") {
       if (!amount) { setError("Вкажіть суму"); return; }
       if (!specialistId) { setError("Оберіть спеціаліста"); return; }
@@ -240,7 +226,6 @@ export default function CreateEntryModal({
         body.productId = productId;
         body.specialistId = specialistId;
         if (supplement) body.supplement = parseFloat(supplement);
-        // Pass prices so server can set fixed price fields for Airtable formulas
         if (selectedProduct) {
           body.salePrice = selectedProduct.price;
           body.costPrice = selectedProduct.costPrice;
@@ -258,7 +243,6 @@ export default function CreateEntryModal({
         throw new Error(data.error || "Failed");
       }
 
-      // Small delay so Airtable computes formula fields (price, percentages)
       await new Promise((resolve) => setTimeout(resolve, 800));
       onCreated();
       onClose();
@@ -276,167 +260,112 @@ export default function CreateEntryModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
-      <div
-        className="bg-white w-full sm:w-[420px] sm:rounded-2xl rounded-t-2xl p-5 max-h-[85vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-[15px] font-semibold text-gray-900">{titles[type]}</h2>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 cursor-pointer transition-colors"
-          >
-            ✕
-          </button>
-        </div>
+    <Modal title={titles[type]} onClose={onClose}>
+      <Field label="Дата">
+        <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+      </Field>
 
-        {/* Date */}
-        <label className="block mb-4">
-          <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Дата</span>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className={INPUT_CLS}
-          />
-        </label>
-
-        {/* Specialist (for debt, sale, expense) */}
-        {(type === "debt" || type === "sale" || type === "expense") && (
-          <label className="block mb-4">
-            <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">
-              Спеціаліст {type === "expense" && <span className="text-gray-400 normal-case">(опціонально, для ЗП)</span>}
-            </span>
-            <select
-              value={specialistId}
-              onChange={(e) => setSpecialistId(e.target.value)}
-              className={SELECT_CLS}
-            >
-              <option value="">{type === "expense" ? "Не прив'язано" : "Оберіть спеціаліста"}</option>
-              {specialists.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          </label>
-        )}
-
-        {/* Amount (for expense & debt) */}
-        {(type === "expense" || type === "debt") && (
-          <label className="block mb-4">
-            <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">
-              {type === "debt" ? "Сума боргу" : "Сума"}
-            </span>
-            {type === "debt" && (
-              <div className="flex gap-2 mt-1 mb-2">
-                <button
-                  type="button"
-                  onClick={() => setDebtSign("+")}
-                  className={`flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
-                    debtSign === "+" ? "bg-red-50 text-red-600 border border-red-200" : "bg-gray-50 text-gray-500 border border-black/5"
-                  }`}
-                >
-                  + ми винні
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDebtSign("-")}
-                  className={`flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
-                    debtSign === "-" ? "bg-green-50 text-green-600 border border-green-200" : "bg-gray-50 text-gray-500 border border-black/5"
-                  }`}
-                >
-                  − нам винні
-                </button>
-              </div>
-            )}
-            <input
-              type="number"
-              inputMode="decimal"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0"
-              className={`${INPUT_CLS} tabular-nums`}
-            />
-          </label>
-        )}
-
-        {/* Expense type */}
-        {type === "expense" && (
-          <label className="block mb-4">
-            <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Вид витрати</span>
-            <select
-              value={expenseType}
-              onChange={(e) => setExpenseType(e.target.value)}
-              className={SELECT_CLS}
-            >
-              <option value="">Без категорії</option>
-              {EXPENSE_TYPES.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </label>
-        )}
-
-        {/* Product (for sale) — searchable picker */}
-        {type === "sale" && (
-          <div className="block mb-4">
-            <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Товар</span>
-            <ProductPicker
-              products={products}
-              productId={productId}
-              onSelect={setProductId}
-            />
-            {selectedProduct && (
-              <div className="mt-2 text-[12px] text-gray-400">
-                Ціна: {selectedProduct.price} ₴
-                {selectedProduct.group && <span> · {selectedProduct.group}</span>}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Supplement (for sale) */}
-        {type === "sale" && (
-          <label className="block mb-4">
-            <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Доповнення (±)</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              value={supplement}
-              onChange={(e) => setSupplement(e.target.value)}
-              placeholder="0"
-              className={`${INPUT_CLS} tabular-nums`}
-            />
-          </label>
-        )}
-
-        {/* Comment */}
-        <label className="block mb-5">
-          <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Коментар</span>
-          <input
-            type="text"
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            placeholder="Необов'язково"
-            className={INPUT_CLS}
-          />
-        </label>
-
-        {/* Error */}
-        {error && (
-          <div className="mb-4 text-[12px] text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</div>
-        )}
-
-        {/* Submit */}
-        <button
-          onClick={handleSubmit}
-          disabled={saving}
-          className="w-full bg-brand-600 text-white rounded-xl font-medium text-[16px] py-3 cursor-pointer hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      {(type === "debt" || type === "sale" || type === "expense") && (
+        <Field
+          label="Спеціаліст"
+          hint={type === "expense" ? "(опціонально, для ЗП)" : undefined}
         >
-          {saving ? "Збереження..." : "Зберегти"}
-        </button>
-      </div>
-    </div>
+          <Select value={specialistId} onChange={(e) => setSpecialistId(e.target.value)}>
+            <option value="">{type === "expense" ? "Не прив'язано" : "Оберіть спеціаліста"}</option>
+            {specialists.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </Select>
+        </Field>
+      )}
+
+      {(type === "expense" || type === "debt") && (
+        <Field label={type === "debt" ? "Сума боргу" : "Сума"}>
+          {type === "debt" && (
+            <div className="flex gap-2 mb-2">
+              <button
+                type="button"
+                onClick={() => setDebtSign("+")}
+                className={`flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
+                  debtSign === "+" ? "bg-red-50 text-red-600 border border-red-200" : "bg-gray-50 text-gray-500 border border-black/5"
+                }`}
+              >
+                + ми винні
+              </button>
+              <button
+                type="button"
+                onClick={() => setDebtSign("-")}
+                className={`flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
+                  debtSign === "-" ? "bg-green-50 text-green-600 border border-green-200" : "bg-gray-50 text-gray-500 border border-black/5"
+                }`}
+              >
+                − нам винні
+              </button>
+            </div>
+          )}
+          <Input
+            type="number"
+            inputMode="decimal"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0"
+            className="tabular-nums"
+          />
+        </Field>
+      )}
+
+      {type === "expense" && (
+        <Field label="Вид витрати">
+          <Select value={expenseType} onChange={(e) => setExpenseType(e.target.value)}>
+            <option value="">Без категорії</option>
+            {EXPENSE_TYPES.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </Select>
+        </Field>
+      )}
+
+      {type === "sale" && (
+        <Field label="Товар">
+          <ProductPicker products={products} productId={productId} onSelect={setProductId} />
+          {selectedProduct && (
+            <div className="mt-2 text-[12px] text-gray-400">
+              Ціна: {selectedProduct.price} ₴
+              {selectedProduct.group && <span> · {selectedProduct.group}</span>}
+            </div>
+          )}
+        </Field>
+      )}
+
+      {type === "sale" && (
+        <Field label="Доповнення (±)">
+          <Input
+            type="number"
+            inputMode="numeric"
+            value={supplement}
+            onChange={(e) => setSupplement(e.target.value)}
+            placeholder="0"
+            className="tabular-nums"
+          />
+        </Field>
+      )}
+
+      <Field label="Коментар">
+        <Input
+          type="text"
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder="Необов'язково"
+        />
+      </Field>
+
+      {error && (
+        <div className="text-[12px] text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</div>
+      )}
+
+      <Button onClick={handleSubmit} disabled={saving} fullWidth size="lg">
+        {saving ? "Збереження..." : "Зберегти"}
+      </Button>
+    </Modal>
   );
 }
