@@ -40,11 +40,21 @@ function BusinessSettingsModal({ onClose }: { onClose: () => void }) {
   const [draft, setDraft] = useState<Settings | null>(settings);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [savedOk, setSavedOk] = useState(false);
 
   // Keep local draft in sync when store hydrates.
   useEffect(() => {
     if (settings && !draft) setDraft(settings);
   }, [settings, draft]);
+
+  // Roll back live color preview if modal closes without saving.
+  useEffect(() => {
+    return () => {
+      if (!savedOk && settings?.brandColor) {
+        document.documentElement.style.setProperty("--brand-600", settings.brandColor);
+      }
+    };
+  }, [savedOk, settings?.brandColor]);
 
   if (!draft) {
     return (
@@ -56,6 +66,11 @@ function BusinessSettingsModal({ onClose }: { onClose: () => void }) {
 
   function patch(p: Partial<Settings>) {
     setDraft((d) => (d ? { ...d, ...p } : d));
+    // Live preview of brand color: apply immediately so the modal itself
+    // reflects the new accent. On cancel we roll back in the cleanup below.
+    if (typeof p.brandColor === "string" && /^#[0-9a-fA-F]{6}$/.test(p.brandColor)) {
+      document.documentElement.style.setProperty("--brand-600", p.brandColor);
+    }
   }
 
   function selectPreset(key: Settings["businessType"]) {
@@ -90,6 +105,7 @@ function BusinessSettingsModal({ onClose }: { onClose: () => void }) {
         locationTerm: d.locationTerm.trim(),
         brandColor: d.brandColor,
       });
+      setSavedOk(true);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Помилка збереження");
@@ -173,7 +189,7 @@ function BusinessSettingsModal({ onClose }: { onClose: () => void }) {
           Акцентний колір
         </div>
         <p className="text-[11px] text-gray-400 mb-2.5">
-          Збережеться для всіх пристроїв. Візуальне оновлення підключимо на наступному кроці.
+          Кнопки, виділення, логотип — все підлаштується. Зберігається в акаунті.
         </p>
         <div className="flex gap-2 flex-wrap">
           {accentColors.map((c) => (

@@ -13,6 +13,23 @@ export const viewport = {
   userScalable: false,
 };
 
+/*
+ * Applies the cached brand color before React hydrates. Without this there is
+ * a brief flash of the default purple while useSettings loads from Airtable.
+ * The cached value is written by useSettings on every successful fetch.
+ */
+const THEME_INIT = `
+try {
+  var raw = localStorage.getItem('servico.settings');
+  if (raw) {
+    var c = JSON.parse(raw).brandColor;
+    if (typeof c === 'string' && /^#[0-9a-fA-F]{6}$/.test(c)) {
+      document.documentElement.style.setProperty('--brand-600', c);
+    }
+  }
+} catch (e) {}
+`.trim();
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -20,6 +37,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="uk" className="h-full antialiased">
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
+      </head>
       <body className="min-h-full">{children}</body>
     </html>
   );

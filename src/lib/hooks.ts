@@ -34,6 +34,16 @@ function writeLS(s: Settings | null) {
   }
 }
 
+/**
+ * Apply brand color to the CSS variable so every brand-* Tailwind class
+ * re-derives (all shades are color-mix'd from --brand-600).
+ */
+function applyBrandColor(hex: string | undefined) {
+  if (typeof document === "undefined") return;
+  if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) return;
+  document.documentElement.style.setProperty("--brand-600", hex);
+}
+
 let settingsStore: SettingsStore = {
   data: null,
   loading: true,
@@ -56,6 +66,7 @@ async function refetchSettings(): Promise<void> {
       if (!res.ok) throw new Error((await res.json()).error || "Failed");
       const data = (await res.json()) as Settings;
       writeLS(data);
+      applyBrandColor(data.brandColor);
       setStore({ data, loading: false, error: null });
     } catch (err) {
       setStore({ loading: false, error: err instanceof Error ? err.message : "Error" });
@@ -107,6 +118,7 @@ export function useSettings() {
     if (!res.ok) throw new Error((await res.json()).error || "Failed");
     const data = (await res.json()) as Settings;
     writeLS(data);
+    applyBrandColor(data.brandColor);
     setStore({ data, error: null });
     return data;
   }, []);

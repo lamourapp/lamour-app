@@ -1,16 +1,26 @@
 @import "tailwindcss";
 
+/*
+ * Brand palette is derived from a single hex var (--brand-600) via color-mix.
+ * That means the theme picker in Settings only needs to update ONE value and
+ * every shade follows. Works in all evergreen browsers (Chrome 111+, Safari
+ * 16.4+, Firefox 113+).
+ */
+:root {
+  --brand-600: #9333ea; /* default purple; overridden at runtime from Settings.brandColor */
+}
+
 @theme inline {
-  --color-brand-50: #faf5ff;
-  --color-brand-100: #f3e8ff;
-  --color-brand-200: #e9d5ff;
-  --color-brand-300: #d8b4fe;
-  --color-brand-400: #c084fc;
-  --color-brand-500: #a855f7;
-  --color-brand-600: #9333ea;
-  --color-brand-700: #7e22ce;
-  --color-brand-800: #6b21a8;
-  --color-brand-900: #581c87;
+  --color-brand-50: color-mix(in srgb, var(--brand-600) 8%, white);
+  --color-brand-100: color-mix(in srgb, var(--brand-600) 16%, white);
+  --color-brand-200: color-mix(in srgb, var(--brand-600) 32%, white);
+  --color-brand-300: color-mix(in srgb, var(--brand-600) 50%, white);
+  --color-brand-400: color-mix(in srgb, var(--brand-600) 70%, white);
+  --color-brand-500: color-mix(in srgb, var(--brand-600) 85%, white);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: color-mix(in srgb, var(--brand-600) 80%, black);
+  --color-brand-800: color-mix(in srgb, var(--brand-600) 60%, black);
+  --color-brand-900: color-mix(in srgb, var(--brand-600) 40%, black);
 }
 
 * { -webkit-font-smoothing: antialiased; }
