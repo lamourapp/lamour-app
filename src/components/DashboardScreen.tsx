@@ -139,7 +139,7 @@ function computeMetrics(entries: JournalEntry[]) {
 
 export default function DashboardScreen() {
   const [pinUnlocked, setPinUnlocked] = useState(false);
-  const [period, setPeriod] = useState("month");
+  const [period, setPeriod] = useState("today");
   const [selectedSpecialist, setSelectedSpecialist] = useState("");
   const [showCalendar, setShowCalendar] = useState(false);
   const [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null);
