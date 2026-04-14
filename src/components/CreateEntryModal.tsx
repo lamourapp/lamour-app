@@ -55,14 +55,15 @@ function ProductPicker({
 
   const selected = products.find((p) => p.id === productId);
 
+  // Close on Escape; outside-click handled via onBlur on the input below
+  // (document-level mousedown used to race with product button clicks on
+  // some touch devices and swallowed selection).
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
     }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
   }, []);
 
   const filtered = useMemo(() => {
@@ -128,6 +129,14 @@ function ProductPicker({
             value={query}
             onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
             onFocus={() => setOpen(true)}
+            onBlur={(e) => {
+              // Close dropdown only if focus moved outside the picker.
+              // Product buttons inside wrapperRef receive focus on mousedown,
+              // so onBlur fires AFTER button's onClick — selection is safe.
+              if (!wrapperRef.current?.contains(e.relatedTarget as Node)) {
+                setTimeout(() => setOpen(false), 150);
+              }
+            }}
             placeholder="Пошук товару..."
             className={`${inputCls} pl-9`}
           />
@@ -148,6 +157,9 @@ function ProductPicker({
                   <button
                     key={p.id}
                     type="button"
+                    // Prevent input blur before click registers on mobile —
+                    // this was the most likely cause of "product won't select".
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => handleSelect(p)}
                     className={`w-full text-left px-3 py-2 hover:bg-brand-50 cursor-pointer transition-colors flex items-center justify-between ${
                       p.id === productId ? "bg-brand-50" : ""
