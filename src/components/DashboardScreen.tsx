@@ -195,13 +195,14 @@ export default function DashboardScreen() {
     <div className="max-w-6xl mx-auto px-4 py-5">
       {/* Filters */}
       <div className="bg-white rounded-2xl border border-black/[0.06] p-3 mb-5">
-        <div className="flex flex-wrap gap-2 items-center">
-          <div className="flex gap-1 bg-[#f5f5f7] rounded-xl p-0.5">
+        {/* Row 1: period buttons */}
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1 bg-[#f5f5f7] rounded-xl p-0.5 flex-1 min-w-0">
             {periodButtons.map((p) => (
               <button
                 key={p.id}
                 onClick={() => selectPeriod(p.id)}
-                className={`px-3 py-2 rounded-[10px] text-[13px] font-medium cursor-pointer transition-all
+                className={`flex-1 px-1 sm:px-3 py-2 rounded-[10px] text-[13px] font-medium cursor-pointer transition-all truncate
                   ${period === p.id && !customRange ? "bg-brand-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
               >
                 {p.label}
@@ -209,17 +210,20 @@ export default function DashboardScreen() {
             ))}
             <button
               onClick={() => setShowCalendar(!showCalendar)}
-              className={`px-2.5 py-2 rounded-[10px] text-[13px] cursor-pointer transition-all
+              className={`px-2.5 py-2 rounded-[10px] text-[13px] cursor-pointer transition-all shrink-0
                 ${customRange ? "bg-brand-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
             >
               📅
             </button>
           </div>
-          <div className="relative">
+        </div>
+        {/* Row 2: specialist select */}
+        <div className="mt-2">
+          <div className="relative inline-block w-full sm:w-auto">
             <select
               value={selectedSpecialist}
               onChange={(e) => setSelectedSpecialist(e.target.value)}
-              className="appearance-none text-[13px] border border-black/[0.08] rounded-xl pl-3 pr-8 py-2 text-gray-700 bg-white cursor-pointer hover:border-brand-300 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400"
+              className="appearance-none w-full sm:w-auto text-[13px] border border-black/[0.08] rounded-xl pl-3 pr-8 py-2 text-gray-700 bg-white cursor-pointer hover:border-brand-300 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400"
             >
               <option value="">Всі спеціалісти</option>
               {specialists.map((s) => (

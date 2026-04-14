@@ -46,11 +46,20 @@ function EntryCard({ entry, onDelete }: { entry: JournalEntry; onDelete: (id: st
   const hasMaterials = isRental && entry.materialsCost && entry.materialsCost > 0;
 
   return (
-    <div className="bg-white rounded-xl border border-black/[0.06] px-4 py-3 transition-all hover:shadow-[0_2px_12px_rgba(0,0,0,0.06)] group relative">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 min-w-0">
+    <div
+      className="bg-white rounded-xl border border-black/[0.06] px-4 py-3 transition-all hover:shadow-[0_2px_12px_rgba(0,0,0,0.06)] group relative"
+      onClick={(e) => {
+        // On mobile: tap card to show delete confirm (only if not already showing)
+        if (window.innerWidth < 640 && !confirmDelete) {
+          e.preventDefault();
+          setConfirmDelete(true);
+        }
+      }}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           <TypeDot type={entry.type} />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="text-[13px] font-medium text-gray-900 truncate">{entry.title || "—"}</div>
             <div className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1 flex-wrap">
               {entry.specialistName && <span>{entry.specialistName}</span>}
@@ -69,8 +78,8 @@ function EntryCard({ entry, onDelete }: { entry: JournalEntry; onDelete: (id: st
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="text-right shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="text-right">
             <div className={`text-[13px] font-semibold tabular-nums ${
               isRental ? "text-green-600" : "text-gray-900"
             }`}>
@@ -88,9 +97,10 @@ function EntryCard({ entry, onDelete }: { entry: JournalEntry; onDelete: (id: st
               <TypeLabel type={entry.type} />
             )}
           </div>
+          {/* Desktop only: hover trash icon */}
           <button
-            onClick={() => setConfirmDelete(true)}
-            className="opacity-0 group-hover:opacity-100 sm:opacity-0 max-sm:opacity-30 transition-opacity p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 cursor-pointer"
+            onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }}
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 cursor-pointer hidden sm:block"
             title="Видалити запис"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -102,19 +112,22 @@ function EntryCard({ entry, onDelete }: { entry: JournalEntry; onDelete: (id: st
 
       {/* Confirm delete dialog */}
       {confirmDelete && (
-        <div className="absolute inset-0 bg-white/95 rounded-xl flex items-center justify-center gap-3 z-10 border border-red-200">
-          <span className="text-[12px] text-gray-600">Видалити запис?</span>
+        <div
+          className="absolute inset-0 bg-white/95 rounded-xl flex items-center justify-center gap-3 z-10 border border-red-200"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <span className="text-[12px] text-gray-600">Видалити?</span>
           <button
             onClick={() => { onDelete(entry.id); setConfirmDelete(false); }}
             className="px-3 py-1.5 rounded-lg bg-red-500 text-white text-[11px] font-medium cursor-pointer hover:bg-red-600 transition-colors"
           >
-            Видалити
+            Так
           </button>
           <button
             onClick={() => setConfirmDelete(false)}
             className="px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 text-[11px] font-medium cursor-pointer hover:bg-gray-200 transition-colors"
           >
-            Скасувати
+            Ні
           </button>
         </div>
       )}
@@ -229,13 +242,14 @@ export default function JournalScreen() {
     <div className="max-w-6xl mx-auto px-4 py-5">
       {/* Filters */}
       <div className="bg-white rounded-2xl border border-black/[0.06] p-3 mb-4">
-        <div className="flex flex-wrap gap-2 items-center">
-          <div className="flex gap-1 bg-[#f5f5f7] rounded-xl p-0.5">
+        {/* Row 1: period buttons */}
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1 bg-[#f5f5f7] rounded-xl p-0.5 flex-1 min-w-0">
             {periodButtons.map((p) => (
               <button
                 key={p.id}
                 onClick={() => selectPeriod(p.id)}
-                className={`px-3 py-2 rounded-[10px] text-[13px] font-medium cursor-pointer transition-all
+                className={`flex-1 px-1 sm:px-3 py-2 rounded-[10px] text-[13px] font-medium cursor-pointer transition-all truncate
                   ${period === p.id && !customRange ? "bg-brand-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
               >
                 {p.label}
@@ -243,38 +257,39 @@ export default function JournalScreen() {
             ))}
             <button
               onClick={() => setShowCalendar(!showCalendar)}
-              className={`px-2.5 py-2 rounded-[10px] text-[13px] cursor-pointer transition-all
+              className={`px-2.5 py-2 rounded-[10px] text-[13px] cursor-pointer transition-all shrink-0
                 ${customRange ? "bg-brand-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
             >
               📅
             </button>
           </div>
-          <div className="flex gap-2 items-center flex-1 min-w-0">
-            <div className="relative">
-              <select
-                value={selectedSpecialist}
-                onChange={(e) => setSelectedSpecialist(e.target.value)}
-                className="appearance-none text-[13px] border border-black/[0.08] rounded-xl pl-3 pr-8 py-2 text-gray-700 bg-white cursor-pointer hover:border-brand-300 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400"
-              >
-                <option value="">Всі спеціалісти</option>
-                {specialists.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-              <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
-            </div>
-            <div className="relative">
-              <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="appearance-none text-[13px] border border-black/[0.08] rounded-xl pl-3 pr-8 py-2 text-gray-700 bg-white cursor-pointer hover:border-brand-300 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400"
-              >
-                {typeFilters.map((t) => (
-                  <option key={t.id} value={t.id}>{t.label}</option>
-                ))}
-              </select>
-              <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
-            </div>
+        </div>
+        {/* Row 2: specialist + type selects */}
+        <div className="flex gap-2 mt-2">
+          <div className="relative flex-1 min-w-0">
+            <select
+              value={selectedSpecialist}
+              onChange={(e) => setSelectedSpecialist(e.target.value)}
+              className="appearance-none w-full text-[13px] border border-black/[0.08] rounded-xl pl-3 pr-8 py-2 text-gray-700 bg-white cursor-pointer hover:border-brand-300 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 truncate"
+            >
+              <option value="">Всі спеціалісти</option>
+              {specialists.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+            <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+          </div>
+          <div className="relative flex-1 min-w-0">
+            <select
+              value={selectedType}
+              onChange={(e) => setSelectedType(e.target.value)}
+              className="appearance-none w-full text-[13px] border border-black/[0.08] rounded-xl pl-3 pr-8 py-2 text-gray-700 bg-white cursor-pointer hover:border-brand-300 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 truncate"
+            >
+              {typeFilters.map((t) => (
+                <option key={t.id} value={t.id}>{t.label}</option>
+              ))}
+            </select>
+            <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
           </div>
         </div>
 
