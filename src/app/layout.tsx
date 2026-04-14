@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Lamour — CRM для сервісного бізнесу",
-  description: "Облік послуг, розподіл доходу, аналітика",
+  title: "Servico — Від калькуляції послуги до виплати майстру",
+  description: "Від калькуляції послуги — до виплати майстру. Облік послуг, продажів і ЗП для салонів, барбершопів і косметологів.",
 };
 
 export const viewport = {

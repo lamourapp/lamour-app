@@ -22,10 +22,10 @@ export default function Nav({ active, onNavigate, locationName }: NavProps) {
         <div className="flex items-center justify-between h-12">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 bg-brand-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-semibold text-xs">L</span>
+              <span className="text-white font-semibold text-xs">S</span>
             </div>
             <span className="font-semibold text-[15px] text-gray-900 hidden sm:block tracking-tight">
-              Lamour
+              Servico
             </span>
           </div>
           <div className="flex gap-0.5 sm:gap-5">
