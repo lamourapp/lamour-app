@@ -3,6 +3,8 @@
 import { useState } from "react";
 import type { Specialist, CompensationType } from "@/lib/demo-data";
 import { Button, Field, Input, Modal, Segmented, Select, type SegmentedOption } from "./ui";
+import { useSettings } from "@/lib/hooks";
+import { currencySymbol } from "@/lib/format";
 
 interface SpecialistModalProps {
   specialist?: Specialist & { conditions?: number; birthdayRaw?: string };
@@ -25,6 +27,8 @@ const COMP_TYPES: SegmentedOption<CompensationType>[] = [
 
 export default function SpecialistModal({ specialist, onClose, onSaved }: SpecialistModalProps) {
   const isEdit = !!specialist;
+  const { settings } = useSettings();
+  const sym = currencySymbol(settings?.currency);
 
   const [name, setName] = useState(specialist?.name || "");
   const [role, setRole] = useState(specialist?.role || ROLES[0]);
@@ -148,7 +152,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
 
       {compensationType === "rental" && (
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Ставка оренди, ₴">
+          <Field label={`Ставка оренди, ${sym}`}>
             <Input
               type="number"
               value={conditions}
@@ -171,7 +175,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
       {compensationType === "salary" && (
         <>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Ставка, ₴/день">
+            <Field label={`Ставка, ${sym}/день`}>
               <Input
                 type="number"
                 value={conditions}

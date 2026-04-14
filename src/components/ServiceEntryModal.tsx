@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { inputCls, selectCls, labelCls } from "./ui";
+import { useSettings } from "@/lib/hooks";
+import { formatMoney } from "@/lib/format";
 
 interface Specialist {
   id: string;
@@ -180,6 +182,8 @@ function CalcMaterialsSection({
   usages: MaterialUsage[];
   onChange: (usages: MaterialUsage[]) => void;
 }) {
+  const { settings } = useSettings();
+  const currency = settings?.currency;
   function addMaterial() {
     onChange([...usages, { materialId: "", amount: 0 }]);
   }
@@ -195,7 +199,7 @@ function CalcMaterialsSection({
       <div className="flex items-center justify-between mb-2">
         <span className={labelCls + " mb-0"}>Додаткові матеріали</span>
         {totalCalcCost > 0 && (
-          <span className="text-[12px] font-semibold text-brand-600 tabular-nums">{Math.round(totalCalcCost)} ₴</span>
+          <span className="text-[12px] font-semibold text-brand-600 tabular-nums">{formatMoney(Math.round(totalCalcCost), currency)}</span>
         )}
       </div>
 
@@ -252,9 +256,9 @@ function CalcMaterialsSection({
                   </div>
                   <div className="w-[70px] text-right flex-shrink-0">
                     {cost > 0 ? (
-                      <span className="text-[14px] font-medium text-gray-700 tabular-nums">{Math.round(cost)} ₴</span>
+                      <span className="text-[14px] font-medium text-gray-700 tabular-nums">{formatMoney(Math.round(cost), currency)}</span>
                     ) : (
-                      <span className="text-[13px] text-gray-300">0 ₴</span>
+                      <span className="text-[13px] text-gray-300">{formatMoney(0, currency)}</span>
                     )}
                   </div>
                 </div>
@@ -285,6 +289,8 @@ export default function ServiceEntryModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { settings } = useSettings();
+  const currency = settings?.currency;
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [specialistId, setSpecialistId] = useState("");
   const [serviceId, setServiceId] = useState("");
@@ -399,7 +405,7 @@ export default function ServiceEntryModal({
 
             {/* Specialist */}
             <div className="mb-4">
-              <label className={labelCls}>Спеціаліст</label>
+              <label className={labelCls}>{settings?.specialistTerm || "Спеціаліст"}</label>
               <select
                 value={specialistId}
                 onChange={(e) => { setSpecialistId(e.target.value); setServiceId(""); setShowAllServices(false); }}
@@ -435,16 +441,16 @@ export default function ServiceEntryModal({
                 renderItem={(s) => (
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[14px] text-gray-900 truncate">{s.name}</span>
-                    <span className="text-[13px] text-gray-400 whitespace-nowrap tabular-nums">{s.totalPrice} ₴</span>
+                    <span className="text-[13px] text-gray-400 whitespace-nowrap tabular-nums">{formatMoney(s.totalPrice, currency)}</span>
                   </div>
                 )}
                 renderSelected={(s) => (
                   <div>
                     <div className="text-[14px] text-gray-900 font-medium leading-tight">{s.name}</div>
                     <div className="text-[12px] text-gray-500 mt-0.5 tabular-nums">
-                      {s.hourlyRate} ₴ × {s.hours} год
-                      {s.materialsCost > 0 && ` + мат. ${s.materialsCost} ₴`}
-                      {" = "}{s.totalPrice} ₴
+                      {formatMoney(s.hourlyRate, currency)} × {s.hours} год
+                      {s.materialsCost > 0 && ` + мат. ${formatMoney(s.materialsCost, currency)}`}
+                      {" = "}{formatMoney(s.totalPrice, currency)}
                     </div>
                   </div>
                 )}
@@ -500,7 +506,7 @@ export default function ServiceEntryModal({
                           Робота ({preview.rate} × {preview.hrs} год
                           {supplement ? ` ${parseFloat(supplement) > 0 ? "+" : ""}${supplement}` : ""})
                         </span>
-                        <span className="text-gray-900 tabular-nums font-medium">{preview.work} ₴</span>
+                        <span className="text-gray-900 tabular-nums font-medium">{formatMoney(preview.work, currency)}</span>
                       </div>
                       {preview.totalMat > 0 && (
                         <div className="flex justify-between">
@@ -510,12 +516,12 @@ export default function ServiceEntryModal({
                               <span className="text-gray-400"> ({preview.baseMat}+{preview.calcCost})</span>
                             )}
                           </span>
-                          <span className="text-gray-900 tabular-nums font-medium">{preview.totalMat} ₴</span>
+                          <span className="text-gray-900 tabular-nums font-medium">{formatMoney(preview.totalMat, currency)}</span>
                         </div>
                       )}
                       <div className="flex justify-between pt-2 border-t border-black/5">
                         <span className="text-gray-900 font-semibold">Всього</span>
-                        <span className="text-brand-600 font-bold tabular-nums text-[15px]">{preview.total} ₴</span>
+                        <span className="text-brand-600 font-bold tabular-nums text-[15px]">{formatMoney(preview.total, currency)}</span>
                       </div>
                     </div>
                   </div>

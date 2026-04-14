@@ -9,6 +9,7 @@ export interface Settings {
   specialistTerm: string;
   locationTerm: string;
   brandColor: string;
+  timezone: string;
   hasPin: boolean;
 }
 
@@ -19,6 +20,7 @@ const DEFAULTS: Omit<Settings, "id" | "hasPin"> = {
   specialistTerm: "Майстер",
   locationTerm: "Салон",
   brandColor: "#9333ea",
+  timezone: "Europe/Kyiv",
 };
 
 function mapSettings(r: { id: string; fields: Record<string, unknown> }): Settings {
@@ -31,6 +33,7 @@ function mapSettings(r: { id: string; fields: Record<string, unknown> }): Settin
     specialistTerm: (f.specialistTerm as string) || DEFAULTS.specialistTerm,
     locationTerm: (f.locationTerm as string) || DEFAULTS.locationTerm,
     brandColor: (f.brandColor as string) || DEFAULTS.brandColor,
+    timezone: (f.timezone as string) || DEFAULTS.timezone,
     hasPin: Boolean((f.pinHash as string)?.trim()),
   };
 }
@@ -71,6 +74,7 @@ export async function PATCH(request: NextRequest) {
     if (typeof body.specialistTerm === "string") fields.specialistTerm = body.specialistTerm;
     if (typeof body.locationTerm === "string") fields.locationTerm = body.locationTerm;
     if (typeof body.brandColor === "string") fields.brandColor = body.brandColor;
+    if (typeof body.timezone === "string") fields.timezone = body.timezone;
     // pinHash is set via dedicated endpoint later — not writable here
 
     if (Object.keys(fields).length === 0) {

@@ -175,6 +175,9 @@ export function useJournal(
   const [data, setData] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Pull timezone from shared settings store so /api/journal can format
+  // "Created" timestamps in the tenant's local time.
+  const tz = settingsStore.data?.timezone;
 
   const reload = useCallback(() => {
     setLoading(true);
@@ -189,6 +192,7 @@ export function useJournal(
     }
 
     if (specialistId) params.set("specialist", specialistId);
+    if (tz) params.set("tz", tz);
 
     params.set("_t", String(Date.now())); // cache-bust
     fetch(`/api/journal?${params.toString()}`)
@@ -205,7 +209,7 @@ export function useJournal(
         setError(err.message);
         setLoading(false);
       });
-  }, [period, specialistId, dateFrom, dateTo]);
+  }, [period, specialistId, dateFrom, dateTo, tz]);
 
   useEffect(() => {
     reload();

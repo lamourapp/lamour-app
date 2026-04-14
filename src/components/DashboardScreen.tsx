@@ -1,21 +1,26 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useJournal, useSpecialists } from "@/lib/hooks";
+import { useJournal, useSpecialists, useSettings } from "@/lib/hooks";
 import type { JournalEntry } from "@/lib/demo-data";
+import type { Settings } from "@/app/api/settings/route";
+import { formatMoney } from "@/lib/format";
 import CalendarPicker from "./CalendarPicker";
 
 function MetricCard({
   label,
   sublabel,
   value,
-  suffix = "₴",
+  suffix,
+  currency,
   variant = "default",
 }: {
   label: string;
   sublabel?: string;
   value: number | string;
+  /** When undefined => money (uses currency). Empty string => plain number. Non-empty => custom unit. */
   suffix?: string;
+  currency?: Settings["currency"];
   variant?: "default" | "green" | "green-light" | "brand-dark" | "negative";
 }) {
   const styles = {
@@ -49,7 +54,9 @@ function MetricCard({
 
   const formatted =
     typeof value === "number"
-      ? `${value.toLocaleString("uk-UA")}${suffix ? ` ${suffix}` : ""}`
+      ? suffix === undefined
+        ? formatMoney(value, currency)
+        : `${value.toLocaleString("uk-UA")}${suffix ? ` ${suffix}` : ""}`
       : value;
 
   return (
@@ -145,6 +152,8 @@ export default function DashboardScreen() {
   const [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null);
   const [showDetailCols, setShowDetailCols] = useState(false);
 
+  const { settings } = useSettings();
+  const currency = settings?.currency;
   const { entries, loading, error } = useJournal(
     customRange ? "custom" : period,
     selectedSpecialist,
@@ -265,18 +274,18 @@ export default function DashboardScreen() {
 
             {/* Row 1: salon share — matches original layout */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
-              <MetricCard label="% салону за послуги" value={Math.round(m.salonServiceShare)} />
-              <MetricCard label="% салону за матеріали" value={Math.round(m.salonMaterialShare)} />
-              <MetricCard label="% салону за продажі" value={Math.round(m.salonSalesShare)} />
-              <MetricCard label="Всього салону" value={Math.round(m.salonTotal)} variant="green" />
+              <MetricCard label="% салону за послуги" value={Math.round(m.salonServiceShare)} currency={currency} />
+              <MetricCard label="% салону за матеріали" value={Math.round(m.salonMaterialShare)} currency={currency} />
+              <MetricCard label="% салону за продажі" value={Math.round(m.salonSalesShare)} currency={currency} />
+              <MetricCard label="Всього салону" value={Math.round(m.salonTotal)} currency={currency} variant="green" />
             </div>
 
             {/* Row 2: specialist share */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
-              <MetricCard label="% спеціалісту за послуги" value={Math.round(m.specialistServiceShare)} />
-              <MetricCard label="% спеціалісту за матеріали" value={Math.round(m.specialistMaterialShare)} />
-              <MetricCard label="% спеціалісту за продажі" value={Math.round(m.specialistSalesShare)} />
-              <MetricCard label="Всього оплата спеціалісту" value={Math.round(m.specialistTotal)} variant="green-light" />
+              <MetricCard label="% спеціалісту за послуги" value={Math.round(m.specialistServiceShare)} currency={currency} />
+              <MetricCard label="% спеціалісту за матеріали" value={Math.round(m.specialistMaterialShare)} currency={currency} />
+              <MetricCard label="% спеціалісту за продажі" value={Math.round(m.specialistSalesShare)} currency={currency} />
+              <MetricCard label="Всього оплата спеціалісту" value={Math.round(m.specialistTotal)} currency={currency} variant="green-light" />
             </div>
 
             {/* Row 3: debts, expenses, rental, cash */}
@@ -285,11 +294,12 @@ export default function DashboardScreen() {
                 label="Борги"
                 sublabel={totalDebt > 0 ? "салон винен · актуально" : totalDebt < 0 ? "нам винні · актуально" : "баланс · актуально"}
                 value={Math.round(totalDebt)}
+                currency={currency}
                 variant={totalDebt !== 0 ? "negative" : "default"}
               />
-              <MetricCard label="Витрати" value={Math.round(m.expenses)} />
-              <MetricCard label="Оренда" sublabel="без матеріалів" value={Math.round(m.rentalSum)} />
-              <MetricCard label="Кошти в касі" value={Math.round(m.cashInRegister)} />
+              <MetricCard label="Витрати" value={Math.round(m.expenses)} currency={currency} />
+              <MetricCard label="Оренда" sublabel="без матеріалів" value={Math.round(m.rentalSum)} currency={currency} />
+              <MetricCard label="Кошти в касі" value={Math.round(m.cashInRegister)} currency={currency} />
             </div>
           </div>
 
@@ -339,16 +349,19 @@ export default function DashboardScreen() {
                 <MetricCard
                   label="Загальний оборот"
                   value={Math.round(m.salonTotal + m.specialistTotal)}
+                  currency={currency}
                   variant="brand-dark"
                 />
-                <MetricCard label="Чистий дохід салону" value={Math.round(m.cashInRegister)} variant="brand-dark" />
+                <MetricCard label="Чистий дохід салону" value={Math.round(m.cashInRegister)} currency={currency} variant="brand-dark" />
                 <MetricCard
                   label="Середній чек послуги"
                   value={m.countServices > 0 ? Math.round((m.salonServiceShare + m.specialistServiceShare) / m.countServices) : 0}
+                  currency={currency}
                 />
                 <MetricCard
                   label="Середній чек продажу"
                   value={m.countSales > 0 ? Math.round((m.salonSalesShare + m.specialistSalesShare) / m.countSales) : 0}
+                  currency={currency}
                 />
               </div>
             </div>
@@ -375,7 +388,7 @@ export default function DashboardScreen() {
                           Дата
                         </th>
                         <th className="sticky left-[52px] z-30 bg-white text-left px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider min-w-[100px] border-r border-black/5">
-                          Спеціаліст
+                          {settings?.specialistTerm || "Спеціаліст"}
                         </th>
                         <th className="text-left px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider">
                           Послуга / Продаж / Витрата

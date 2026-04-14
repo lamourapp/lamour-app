@@ -1,19 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { useSpecialists } from "@/lib/hooks";
+import { useSpecialists, useSettings } from "@/lib/hooks";
 import type { Specialist } from "@/lib/demo-data";
+import type { Settings } from "@/app/api/settings/route";
+import { formatMoney, currencySymbol } from "@/lib/format";
 import SpecialistModal from "./SpecialistModal";
 
-function compensationLabel(s: Specialist): string {
+function compensationLabel(s: Specialist, currency: Settings["currency"] | undefined): string {
   const materialsLabel = s.salesCommission > 0 ? ` · матеріали ${s.salesCommission}%` : "";
+  const sym = currencySymbol(currency);
   switch (s.compensationType) {
     case "commission":
       return `комісія ${s.serviceCommission}%${materialsLabel}`;
     case "rental":
-      return `оренда${s.rentalRate ? ` ${s.rentalRate.toLocaleString("uk-UA")} ₴` : ""}${materialsLabel}`;
+      return `оренда${s.rentalRate ? ` ${formatMoney(s.rentalRate, currency)}` : ""}${materialsLabel}`;
     case "salary":
-      return `ЗП ${s.salaryRate} ₴/день${materialsLabel}`;
+      return `ЗП ${s.salaryRate} ${sym}/день${materialsLabel}`;
   }
 }
 
@@ -41,18 +44,21 @@ function compensationHighlight(type: Specialist["compensationType"]): string {
   }
 }
 
-function BalanceDisplay({ balance }: { balance: number }) {
+function BalanceDisplay({ balance, currency }: { balance: number; currency: Settings["currency"] | undefined }) {
   if (balance === 0) {
-    return <div className="text-[13px] font-semibold text-gray-400 tabular-nums">0 ₴</div>;
+    return <div className="text-[13px] font-semibold text-gray-400 tabular-nums">{formatMoney(0, currency)}</div>;
   }
   if (balance > 0) {
-    return <div className="text-[13px] font-semibold text-gray-900 tabular-nums">+{balance.toLocaleString("uk-UA")} ₴</div>;
+    return <div className="text-[13px] font-semibold text-gray-900 tabular-nums">{formatMoney(balance, currency, { signed: true })}</div>;
   }
-  return <div className="text-[13px] font-semibold text-red-500 tabular-nums">{balance.toLocaleString("uk-UA")} ₴</div>;
+  return <div className="text-[13px] font-semibold text-red-500 tabular-nums">{formatMoney(balance, currency)}</div>;
 }
 
 export default function StaffScreen() {
   const [showInactive, setShowInactive] = useState(false);
+  const { settings } = useSettings();
+  const currency = settings?.currency;
+  const specialistTerm = settings?.specialistTerm || "Спеціаліст";
   const { specialists, loading, error, reload } = useSpecialists(showInactive);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSpecialist, setEditingSpecialist] = useState<Specialist | null>(null);
@@ -77,7 +83,7 @@ export default function StaffScreen() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-5">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-[15px] font-semibold text-gray-900 tracking-tight">Співробітники</h2>
+        <h2 className="text-[15px] font-semibold text-gray-900 tracking-tight">{specialistTerm}и</h2>
         <button
           onClick={openCreate}
           className="bg-brand-600 text-white rounded-[10px] font-medium text-[13px] px-4 py-2 cursor-pointer hover:bg-brand-700 transition-colors"
@@ -96,7 +102,7 @@ export default function StaffScreen() {
       {/* Active specialists */}
       <div className="space-y-1.5">
         {activeList.map((s) => {
-          const label = compensationLabel(s);
+          const label = compensationLabel(s, currency);
           const highlight = compensationHighlight(s.compensationType);
 
           return (
@@ -131,7 +137,7 @@ export default function StaffScreen() {
                   </div>
                   <div className="text-right">
                     <div className="text-[10px] text-gray-400 uppercase tracking-wider">Баланс</div>
-                    <BalanceDisplay balance={s.balance} />
+                    <BalanceDisplay balance={s.balance} currency={currency} />
                   </div>
                   <svg className="w-4 h-4 text-gray-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 5l7 7-7 7" />
@@ -161,7 +167,7 @@ export default function StaffScreen() {
           <div className="text-[11px] text-gray-400 uppercase tracking-wider mb-2 px-1">Неактивні</div>
           <div className="space-y-1.5">
             {inactiveList.map((s) => {
-              const label = compensationLabel(s);
+              const label = compensationLabel(s, currency);
 
               return (
                 <div
@@ -184,7 +190,7 @@ export default function StaffScreen() {
                     <div className="flex items-center gap-4 shrink-0">
                       <div className="text-right">
                         <div className="text-[10px] text-gray-400 uppercase tracking-wider">Баланс</div>
-                        <BalanceDisplay balance={s.balance} />
+                        <BalanceDisplay balance={s.balance} currency={currency} />
                       </div>
                       <svg className="w-4 h-4 text-gray-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 5l7 7-7 7" />

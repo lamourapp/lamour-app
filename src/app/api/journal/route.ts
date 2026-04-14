@@ -8,6 +8,24 @@ export async function GET(request: NextRequest) {
     const specialistId = searchParams.get("specialist") || "";
     const dateFrom = searchParams.get("from") || "";
     const dateTo = searchParams.get("to") || "";
+    const tz = searchParams.get("tz") || "Europe/Kyiv";
+    // Validate timezone — Intl throws on unknown zones.
+    let timeFormatter: Intl.DateTimeFormat;
+    try {
+      timeFormatter = new Intl.DateTimeFormat("uk-UA", {
+        timeZone: tz,
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+    } catch {
+      timeFormatter = new Intl.DateTimeFormat("uk-UA", {
+        timeZone: "Europe/Kyiv",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+    }
 
     // Build date filter only — specialist filtering is done client-side
     // because Airtable linked record formula is unreliable with IDs
@@ -172,12 +190,12 @@ export async function GET(request: NextRequest) {
       const chatbot = f["Чатбот"] as string | undefined;
       const source = chatbot ? "bot" : "admin";
 
-      // Time from Created
+      // Time from Created, formatted in the tenant's timezone.
+      // `Created` is always a UTC ISO string from Airtable; Intl handles the shift.
       let time = "";
       const created = f["Created"] as string;
       if (created) {
-        const date = new Date(created);
-        time = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+        time = timeFormatter.format(new Date(created));
       }
 
       return {
