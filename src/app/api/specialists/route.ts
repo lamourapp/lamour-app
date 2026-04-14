@@ -26,7 +26,9 @@ function mapSpecialist(r: { id: string; fields: Record<string, unknown> }) {
     birthday = `${date.getDate()} ${months[date.getMonth()]}`;
   }
 
-  const isActive = f["is_active"] === true || f["is_active"] === undefined;
+  // Airtable checkbox: true = active, false/undefined = inactive
+  // (Airtable stores false as absent, so undefined also means "unchecked")
+  const isActive = f["is_active"] === true;
 
   return {
     id: r.id,
