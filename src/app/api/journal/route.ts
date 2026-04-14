@@ -257,6 +257,46 @@ export async function POST(request: NextRequest) {
         if (body.costPrice) fields["Фікс. ціна закупки"] = body.costPrice;
         break;
 
+      case "service": {
+        if (!body.serviceId) return NextResponse.json({ error: "serviceId is required" }, { status: 400 });
+        if (!specialistId) return NextResponse.json({ error: "specialistId is required" }, { status: 400 });
+        fields["Послуга"] = [body.serviceId];
+        // Fixed values from catalog (formulas use these, not lookups)
+        if (body.hourlyRate !== undefined) fields["Фікс. вартість години"] = body.hourlyRate;
+        if (body.materialsCost !== undefined) fields["Фікс. вартість матеріалів"] = body.materialsCost;
+        if (body.supplement) fields["Доповнення"] = body.supplement;
+        if (body.extraHours) fields["Додаткові години"] = body.extraHours;
+        if (body.extraMaterialsCost) fields["Додаткові матеріали(Калькуляція)"] = body.extraMaterialsCost;
+        if (body.paymentType) fields["вид оплати"] = body.paymentType;
+
+        // If product is sold alongside
+        if (body.productId) {
+          fields["Продажі"] = [body.productId];
+          if (body.productSupplement) fields["Доповнення(продажі)"] = body.productSupplement;
+          if (body.salePrice) fields["Фікс. ціна продажу"] = body.salePrice;
+          if (body.costPrice) fields["Фікс. ціна закупки"] = body.costPrice;
+        }
+
+        // Create Замовлення (order) records for calculation materials first
+        const calcMaterials = body.calcMaterials as { materialId: string; amount: number }[] | undefined;
+        if (calcMaterials && calcMaterials.length > 0) {
+          const orderIds: string[] = [];
+          for (const mat of calcMaterials) {
+            if (mat.amount > 0) {
+              const order = await createRecord(TABLES.orders, {
+                "мл/шт": mat.amount,
+                "Калькуляція": [mat.materialId],
+              });
+              orderIds.push(order.id);
+            }
+          }
+          if (orderIds.length > 0) {
+            fields["Замовлення"] = orderIds;
+          }
+        }
+        break;
+      }
+
       default:
         return NextResponse.json({ error: "Invalid type" }, { status: 400 });
     }

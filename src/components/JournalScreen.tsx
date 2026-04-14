@@ -5,6 +5,7 @@ import { useJournal, useSpecialists } from "@/lib/hooks";
 import type { JournalEntry } from "@/lib/demo-data";
 import CalendarPicker from "./CalendarPicker";
 import CreateEntryModal from "./CreateEntryModal";
+import ServiceEntryModal from "./ServiceEntryModal";
 
 function TypeDot({ type }: { type: JournalEntry["type"] }) {
   const colors: Record<string, string> = {
@@ -162,7 +163,7 @@ export default function JournalScreen() {
     customRange?.to,
   );
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [createType, setCreateType] = useState<"expense" | "debt" | "sale" | null>(null);
+  const [createType, setCreateType] = useState<"expense" | "debt" | "sale" | "service" | null>(null);
 
   async function handleDelete(id: string) {
     setDeleting(id);
@@ -328,7 +329,10 @@ export default function JournalScreen() {
 
       {/* Quick Add Buttons */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex gap-1 sm:gap-1.5 bg-white/90 backdrop-blur-xl rounded-2xl shadow-lg shadow-black/[0.08] p-1 sm:p-1.5 border border-black/5 z-40 max-w-[calc(100vw-24px)]">
-        <button className="bg-brand-600 text-white rounded-[10px] font-medium text-[11px] sm:text-[13px] px-2.5 sm:px-4 py-2 sm:py-2.5 cursor-pointer hover:bg-brand-700 transition-colors opacity-50 whitespace-nowrap" title="Скоро">
+        <button
+          onClick={() => setCreateType("service")}
+          className="bg-brand-600 text-white rounded-[10px] font-medium text-[11px] sm:text-[13px] px-2.5 sm:px-4 py-2 sm:py-2.5 cursor-pointer hover:bg-brand-700 transition-colors whitespace-nowrap"
+        >
           + Послуга
         </button>
         <button
@@ -351,8 +355,15 @@ export default function JournalScreen() {
         </button>
       </div>
 
-      {/* Create Entry Modal */}
-      {createType && (
+      {/* Create Entry Modals */}
+      {createType === "service" && (
+        <ServiceEntryModal
+          specialists={specialists}
+          onClose={() => setCreateType(null)}
+          onCreated={reload}
+        />
+      )}
+      {createType && createType !== "service" && (
         <CreateEntryModal
           type={createType}
           specialists={specialists}
