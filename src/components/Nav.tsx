@@ -1,10 +1,13 @@
 "use client";
 
+import { useSettings } from "@/lib/hooks";
+
 type Screen = "journal" | "staff" | "dashboard" | "settings";
 
 interface NavProps {
   active: Screen;
   onNavigate: (screen: Screen) => void;
+  /** Optional override; falls back to Settings.name, then a default label. */
   locationName?: string;
 }
 
@@ -16,6 +19,8 @@ const tabs: { id: Screen; label: string; icon: string }[] = [
 ];
 
 export default function Nav({ active, onNavigate, locationName }: NavProps) {
+  const { settings } = useSettings();
+  const label = locationName ?? settings?.name ?? "Салон";
   return (
     <nav className="bg-white/80 backdrop-blur-xl border-b border-black/5 sticky top-0 z-50">
       <div className="max-w-6xl mx-auto px-4">
@@ -45,7 +50,7 @@ export default function Nav({ active, onNavigate, locationName }: NavProps) {
             ))}
           </div>
           <div className="text-[11px] text-gray-400 hidden md:block tracking-wide">
-            {locationName || "Салон «Лямурчик»"}
+            {label}
           </div>
         </div>
       </div>
