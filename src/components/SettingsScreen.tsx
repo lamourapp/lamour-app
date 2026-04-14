@@ -104,6 +104,7 @@ function BusinessSettingsModal({ onClose }: { onClose: () => void }) {
         specialistTerm: d.specialistTerm.trim(),
         locationTerm: d.locationTerm.trim(),
         brandColor: d.brandColor,
+        timezone: d.timezone,
       });
       setSavedOk(true);
       onClose();
@@ -134,6 +135,37 @@ function BusinessSettingsModal({ onClose }: { onClose: () => void }) {
           <option value="EUR">€ — євро (EUR)</option>
           <option value="PLN">zł — злотий (PLN)</option>
         </Select>
+        <p className="mt-1 text-[11px] text-amber-600">
+          ⚠️ Одноразове налаштування. Зміна валюти не конвертує історію — існуючі суми залишаться тими ж числами з новим символом.
+        </p>
+      </Field>
+
+      <Field label="Часовий пояс">
+        <div className="flex gap-2">
+          <Select
+            value={draft.timezone}
+            onChange={(e) => patch({ timezone: e.target.value })}
+          >
+            <option value="Europe/Kyiv">🇺🇦 Київ (Europe/Kyiv)</option>
+            <option value="Europe/Dublin">🇮🇪 Дублін (Europe/Dublin)</option>
+            <option value="Europe/Rome">🇮🇹 Рим (Europe/Rome)</option>
+            <option value="Europe/Warsaw">🇵🇱 Варшава (Europe/Warsaw)</option>
+          </Select>
+          <button
+            type="button"
+            onClick={() => {
+              const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+              if (tz) patch({ timezone: tz });
+            }}
+            className="shrink-0 px-3 rounded-xl border border-black/10 bg-white text-[12px] font-medium text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors"
+            title="Взяти з браузера"
+          >
+            Авто
+          </button>
+        </div>
+        <p className="mt-1 text-[11px] text-gray-400">
+          Час створення записів у журналі показуватиметься у цьому поясі.
+        </p>
       </Field>
 
       <div>
