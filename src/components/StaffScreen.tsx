@@ -13,7 +13,7 @@ function compensationLabel(s: Specialist): string {
     case "rental":
       return `оренда${s.rentalRate ? ` ${s.rentalRate.toLocaleString("uk-UA")} ₴` : ""}${materialsLabel}`;
     case "salary":
-      return `ставка ${s.salaryRate} ₴/день${materialsLabel}`;
+      return `ЗП ${s.salaryRate} ₴/день${materialsLabel}`;
   }
 }
 

@@ -17,7 +17,7 @@ const ROLES = [
   "Перукарі",
   "Візажисти, бровісти",
   "Нігтьовий сервіс",
-  "Адміністратор",
+  "Адміністратори",
 ];
 
 const COMP_TYPES: { id: CompensationType; label: string }[] = [
@@ -93,6 +93,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
         body: JSON.stringify({ id: specialist!.id, isActive: false }),
       });
       if (!res.ok) throw new Error((await res.json()).error || "Failed");
+      setConfirmDeactivate(false);
       onSaved();
       onClose();
     } catch (err) {
@@ -258,29 +259,35 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
 
           {/* Salary fields */}
           {compensationType === "salary" && (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelCls}>Ставка, ₴/день</label>
-                <input
-                  type="number"
-                  value={conditions}
-                  onChange={(e) => setConditions(Number(e.target.value))}
-                  className={inputCls}
-                  min={0}
-                />
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Ставка, ₴/день</label>
+                  <input
+                    type="number"
+                    value={conditions}
+                    onChange={(e) => setConditions(Number(e.target.value))}
+                    className={inputCls}
+                    min={0}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>% майстру з матеріалів</label>
+                  <input
+                    type="number"
+                    value={salesCommission}
+                    onChange={(e) => setSalesCommission(Number(e.target.value))}
+                    className={inputCls}
+                    min={0}
+                    max={100}
+                  />
+                </div>
               </div>
-              <div>
-                <label className={labelCls}>% майстру з матеріалів</label>
-                <input
-                  type="number"
-                  value={salesCommission}
-                  onChange={(e) => setSalesCommission(Number(e.target.value))}
-                  className={inputCls}
-                  min={0}
-                  max={100}
-                />
+              <div className="text-[11px] text-gray-400 leading-relaxed bg-amber-50/50 border border-amber-100 rounded-lg px-3 py-2">
+                💡 Ставка — це сума, яку <strong>салон платить</strong> спеціалісту.
+                Виплати ЗП записуються в журнал як <strong>витрата</strong> з видом &quot;Зарплата&quot;.
               </div>
-            </div>
+            </>
           )}
 
           {/* Error */}

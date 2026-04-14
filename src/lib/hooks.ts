@@ -14,7 +14,7 @@ export function useSpecialists(includeInactive = false) {
     const params = new URLSearchParams();
     if (includeInactive) params.set("all", "1");
     params.set("_t", String(Date.now()));
-    fetch(`/api/specialists?${params.toString()}`)
+    fetch(`/api/specialists?${params.toString()}`, { cache: "no-store" })
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch");
         return res.json();
