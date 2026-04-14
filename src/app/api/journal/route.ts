@@ -68,6 +68,7 @@ export async function GET(request: NextRequest) {
           "% салону за матеріали",
           "% салону за продаж",
           "Додаткові матеріали(Калькуляція)",
+          "Фікс. вартість матеріалів",
         ],
       }),
       fetchAllRecords(TABLES.specialists, { fields: ["Ім'я"] }),
@@ -198,8 +199,16 @@ export async function GET(request: NextRequest) {
         salonSalesShare: (f["% салону за продаж"] as number) || undefined,
         materialsCost,
         comment: (f["Коментарі"] as string) || undefined,
-        calculationCost: type !== "rental" ? ((f["Додаткові матеріали(Калькуляція)"] as number) || undefined) : undefined,
-        baseMaterialsCost: (f["Загальна вартість матеріалів"] as number) || undefined,
+        // Калькуляція = base materials from service catalog (fixed/snapshot)
+        calculationCost: type !== "rental" ? ((f["Фікс. вартість матеріалів"] as number) || undefined) : undefined,
+        // Матеріали = extra materials added (total materials minus base)
+        baseMaterialsCost: (() => {
+          if (type === "rental") return undefined;
+          const total = (f["Загальна вартість матеріалів"] as number) || 0;
+          const base = (f["Фікс. вартість матеріалів"] as number) || 0;
+          const extra = total - base;
+          return extra > 0 ? extra : undefined;
+        })(),
         source,
         time,
         paymentType: (f["вид оплати"] as string) || undefined,
