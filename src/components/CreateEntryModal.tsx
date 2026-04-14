@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Button, Field, Input, Modal, Select, inputCls } from "./ui";
+import { Button, Field, Input, Label, Modal, Select, inputCls } from "./ui";
 import { useSettings } from "@/lib/hooks";
 import { moneyFormatter } from "@/lib/format";
 
@@ -344,7 +344,12 @@ export default function CreateEntryModal({
       )}
 
       {type === "sale" && (
-        <Field label="Товар">
+        // Deliberately NOT using <Field> here because it wraps children in
+        // <label>, and clicking a <button> inside a <label> re-focuses the
+        // nested <input>, which re-opened the dropdown and swallowed the
+        // product selection. Using a plain <div> avoids that forwarding.
+        <div className="block">
+          <Label>Товар</Label>
           <ProductPicker products={products} productId={productId} onSelect={setProductId} />
           {selectedProduct && (
             <div className="mt-2 text-[12px] text-gray-400">
@@ -352,7 +357,7 @@ export default function CreateEntryModal({
               {selectedProduct.group && <span> · {selectedProduct.group}</span>}
             </div>
           )}
-        </Field>
+        </div>
       )}
 
       {type === "sale" && (
