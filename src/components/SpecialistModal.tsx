@@ -216,7 +216,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
                 />
               </div>
               <div>
-                <label className={labelCls}>% майстру за продаж</label>
+                <label className={labelCls}>% майстру з матеріалів</label>
                 <input
                   type="number"
                   value={salesCommission}
@@ -243,7 +243,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
                 />
               </div>
               <div>
-                <label className={labelCls}>% майстру за продаж</label>
+                <label className={labelCls}>% майстру з матеріалів</label>
                 <input
                   type="number"
                   value={salesCommission}
@@ -270,7 +270,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
                 />
               </div>
               <div>
-                <label className={labelCls}>% майстру за продаж</label>
+                <label className={labelCls}>% майстру з матеріалів</label>
                 <input
                   type="number"
                   value={salesCommission}
