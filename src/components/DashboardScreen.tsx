@@ -194,38 +194,40 @@ export default function DashboardScreen() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-5">
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-black/[0.06] p-3 mb-5">
-        <div className="flex flex-wrap gap-2.5 items-center">
-          <div className="flex gap-1">
+      <div className="bg-white rounded-2xl border border-black/[0.06] p-3 mb-5">
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="flex gap-1 bg-[#f5f5f7] rounded-xl p-0.5">
             {periodButtons.map((p) => (
               <button
                 key={p.id}
                 onClick={() => selectPeriod(p.id)}
-                className={`px-3 py-1.5 rounded-full text-[11px] font-medium cursor-pointer transition-all
-                  ${period === p.id && !customRange ? "bg-brand-600 text-white" : "bg-[#f5f5f7] text-gray-600 hover:bg-[#e5e5ea]"}`}
+                className={`px-3 py-2 rounded-[10px] text-[13px] font-medium cursor-pointer transition-all
+                  ${period === p.id && !customRange ? "bg-brand-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
               >
                 {p.label}
               </button>
             ))}
             <button
               onClick={() => setShowCalendar(!showCalendar)}
-              className={`px-3 py-1.5 rounded-full text-[11px] font-medium cursor-pointer transition-all
-                ${customRange ? "bg-brand-600 text-white" : "bg-[#f5f5f7] text-gray-600 hover:bg-[#e5e5ea]"}`}
+              className={`px-2.5 py-2 rounded-[10px] text-[13px] cursor-pointer transition-all
+                ${customRange ? "bg-brand-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
             >
               📅
             </button>
           </div>
-          <div className="h-5 w-px bg-black/5 hidden sm:block" />
-          <select
-            value={selectedSpecialist}
-            onChange={(e) => setSelectedSpecialist(e.target.value)}
-            className="text-[11px] border border-black/[0.08] rounded-lg px-2.5 py-1.5 text-gray-600 bg-white cursor-pointer"
-          >
-            <option value="">Всі спеціалісти</option>
-            {specialists.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              value={selectedSpecialist}
+              onChange={(e) => setSelectedSpecialist(e.target.value)}
+              className="appearance-none text-[13px] border border-black/[0.08] rounded-xl pl-3 pr-8 py-2 text-gray-700 bg-white cursor-pointer hover:border-brand-300 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400"
+            >
+              <option value="">Всі спеціалісти</option>
+              {specialists.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+            <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+          </div>
         </div>
 
         {showCalendar && (

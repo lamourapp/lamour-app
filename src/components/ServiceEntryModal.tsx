@@ -8,7 +8,6 @@ interface Specialist {
   role?: string;
 }
 
-// Mapping: specialist role → allowed service categories
 const ROLE_CATEGORIES: Record<string, string[]> = {
   "Перукарі": ["Фарбування", "Стрижки", "Лікування", "Зачіски, укладки"],
   "Візажисти, бровісти": ["Брови", "Мейкап"],
@@ -39,15 +38,14 @@ interface MaterialUsage {
   amount: number;
 }
 
-// iOS-safe input class: font-size 16px prevents zoom on focus
-const INPUT_CLS =
-  "w-full border border-black/10 rounded-lg px-3 py-2.5 text-[16px] text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500/20";
-const SELECT_CLS =
-  "w-full border border-black/10 rounded-lg px-3 py-2.5 text-[16px] text-gray-900 bg-white focus:border-brand-500 focus:outline-none cursor-pointer";
-const LABEL_CLS = "text-[11px] font-medium text-gray-500 uppercase tracking-wider";
+/* ─── Shared styles ─── */
+const inputBase = "w-full rounded-xl border border-black/10 bg-white text-[16px] text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/10 transition-colors";
+const inputCls = `${inputBase} px-3.5 h-[44px]`;
+const selectCls = `${inputBase} px-3.5 h-[44px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%239ca3af%22%20d%3D%22M2%204l4%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_12px_center] bg-no-repeat pr-8`;
+const labelCls = "block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5";
 
-/* ─── Searchable Picker (reusable) ─── */
-function SearchablePicker<T extends { id: string; name?: string }>({
+/* ─── Searchable Picker ─── */
+function SearchablePicker<T extends { id: string }>({
   items,
   selectedId,
   onSelect,
@@ -73,9 +71,7 @@ function SearchablePicker<T extends { id: string; name?: string }>({
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -101,31 +97,27 @@ function SearchablePicker<T extends { id: string; name?: string }>({
     return groups;
   }, [filtered, groupBy]);
 
-  function handleSelect(item: T) {
-    onSelect(item.id);
-    setQuery("");
-    setOpen(false);
-  }
-
   return (
-    <div ref={wrapperRef} className="relative mt-1">
+    <div ref={wrapperRef} className="relative">
       {selected && !open ? (
         <div
-          className="w-full border border-brand-200 bg-brand-50/50 rounded-lg px-3 py-2.5 flex items-center justify-between cursor-pointer"
+          className="w-full rounded-xl border border-brand-200 bg-brand-50/40 px-3.5 py-2.5 flex items-center justify-between cursor-pointer min-h-[44px]"
           onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 50); }}
         >
           <div className="flex-1 min-w-0">{renderSelected(selected)}</div>
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onSelect(""); }}
-            className="text-gray-400 hover:text-gray-600 text-[18px] ml-2 cursor-pointer flex-shrink-0"
+            className="w-6 h-6 rounded-full bg-black/5 hover:bg-black/10 flex items-center justify-center text-gray-400 hover:text-gray-600 text-[12px] ml-2 cursor-pointer flex-shrink-0 transition-colors"
           >
             ✕
           </button>
         </div>
       ) : (
         <div className="relative">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">🔍</div>
+          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+          </svg>
           <input
             ref={inputRef}
             type="text"
@@ -133,27 +125,27 @@ function SearchablePicker<T extends { id: string; name?: string }>({
             onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
             onFocus={() => setOpen(true)}
             placeholder={placeholder}
-            className={`${INPUT_CLS} pl-9`}
+            className={`${inputCls} pl-10`}
           />
         </div>
       )}
 
       {open && (
-        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-black/10 rounded-xl shadow-xl max-h-[240px] overflow-y-auto z-50">
+        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-black/10 rounded-xl shadow-xl max-h-[220px] overflow-y-auto z-50">
           {filtered.length === 0 ? (
-            <div className="px-4 py-3 text-[13px] text-gray-400">Нічого не знайдено</div>
+            <div className="px-4 py-3 text-[13px] text-gray-400 text-center">Нічого не знайдено</div>
           ) : grouped ? (
             Array.from(grouped.entries()).map(([group, groupItems]) => (
               <div key={group}>
-                <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider bg-gray-50 sticky top-0">
+                <div className="px-3.5 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50/80 sticky top-0 border-b border-black/5">
                   {group}
                 </div>
                 {groupItems.map((item) => (
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => handleSelect(item)}
-                    className={`w-full text-left px-3 py-2 hover:bg-brand-50 cursor-pointer transition-colors ${
+                    onClick={() => { onSelect(item.id); setQuery(""); setOpen(false); }}
+                    className={`w-full text-left px-3.5 py-2.5 hover:bg-brand-50 cursor-pointer transition-colors border-b border-black/[0.03] last:border-0 ${
                       item.id === selectedId ? "bg-brand-50" : ""
                     }`}
                   >
@@ -167,8 +159,8 @@ function SearchablePicker<T extends { id: string; name?: string }>({
               <button
                 key={item.id}
                 type="button"
-                onClick={() => handleSelect(item)}
-                className={`w-full text-left px-3 py-2 hover:bg-brand-50 cursor-pointer transition-colors ${
+                onClick={() => { onSelect(item.id); setQuery(""); setOpen(false); }}
+                className={`w-full text-left px-3.5 py-2.5 hover:bg-brand-50 cursor-pointer transition-colors border-b border-black/[0.03] last:border-0 ${
                   item.id === selectedId ? "bg-brand-50" : ""
                 }`}
               >
@@ -182,7 +174,7 @@ function SearchablePicker<T extends { id: string; name?: string }>({
   );
 }
 
-/* ─── Calculation Materials Section ─── */
+/* ─── Calculation Materials ─── */
 function CalcMaterialsSection({
   materials,
   usages,
@@ -196,20 +188,6 @@ function CalcMaterialsSection({
     onChange([...usages, { materialId: "", amount: 0 }]);
   }
 
-  function removeMaterial(index: number) {
-    onChange(usages.filter((_, i) => i !== index));
-  }
-
-  function updateMaterial(index: number, field: "materialId" | "amount", value: string | number) {
-    const updated = [...usages];
-    if (field === "materialId") {
-      updated[index] = { ...updated[index], materialId: value as string };
-    } else {
-      updated[index] = { ...updated[index], amount: value as number };
-    }
-    onChange(updated);
-  }
-
   const totalCalcCost = usages.reduce((sum, u) => {
     const mat = materials.find((m) => m.id === u.materialId);
     if (!mat || u.amount <= 0) return sum;
@@ -217,70 +195,91 @@ function CalcMaterialsSection({
   }, 0);
 
   return (
-    <div className="mb-4">
+    <div className="mb-5">
       <div className="flex items-center justify-between mb-2">
-        <span className={LABEL_CLS}>Калькуляція матеріалів</span>
+        <span className={labelCls + " mb-0"}>Додаткові матеріали</span>
         {totalCalcCost > 0 && (
-          <span className="text-[12px] font-medium text-brand-600">{Math.round(totalCalcCost)} ₴</span>
+          <span className="text-[12px] font-semibold text-brand-600 tabular-nums">{Math.round(totalCalcCost)} ₴</span>
         )}
       </div>
 
-      {usages.map((usage, index) => {
-        const mat = materials.find((m) => m.id === usage.materialId);
-        const cost = mat && usage.amount > 0 ? (usage.amount * mat.totalCost) / mat.totalVolume : 0;
+      {usages.length > 0 && (
+        <div className="space-y-2 mb-3">
+          {usages.map((usage, index) => {
+            const mat = materials.find((m) => m.id === usage.materialId);
+            const cost = mat && usage.amount > 0 ? (usage.amount * mat.totalCost) / mat.totalVolume : 0;
 
-        return (
-          <div key={index} className="flex gap-2 mb-2 items-start">
-            <div className="flex-1 min-w-0">
-              <select
-                value={usage.materialId}
-                onChange={(e) => updateMaterial(index, "materialId", e.target.value)}
-                className={`${SELECT_CLS} text-[14px] py-2`}
-              >
-                <option value="">Матеріал...</option>
-                {materials.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} ({m.totalVolume} мл)
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="w-[70px] flex-shrink-0">
-              <input
-                type="number"
-                inputMode="decimal"
-                value={usage.amount || ""}
-                onChange={(e) => updateMaterial(index, "amount", parseFloat(e.target.value) || 0)}
-                placeholder="мл"
-                className={`${INPUT_CLS} text-[14px] py-2 px-2 text-center`}
-              />
-            </div>
-            <div className="w-[55px] flex-shrink-0 text-right pt-2">
-              {cost > 0 && <span className="text-[12px] text-gray-500">{Math.round(cost)} ₴</span>}
-            </div>
-            <button
-              type="button"
-              onClick={() => removeMaterial(index)}
-              className="text-gray-400 hover:text-red-500 text-[16px] pt-2 cursor-pointer flex-shrink-0"
-            >
-              ✕
-            </button>
-          </div>
-        );
-      })}
+            return (
+              <div key={index} className="bg-gray-50/80 rounded-xl p-3 relative group">
+                {/* Delete button */}
+                <button
+                  type="button"
+                  onClick={() => onChange(usages.filter((_, i) => i !== index))}
+                  className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/5 hover:bg-red-100 flex items-center justify-center text-gray-400 hover:text-red-500 text-[11px] cursor-pointer transition-colors"
+                >
+                  ✕
+                </button>
+
+                {/* Material select */}
+                <select
+                  value={usage.materialId}
+                  onChange={(e) => {
+                    const updated = [...usages];
+                    updated[index] = { ...updated[index], materialId: e.target.value };
+                    onChange(updated);
+                  }}
+                  className={`${selectCls} mb-2`}
+                >
+                  <option value="">Оберіть матеріал</option>
+                  {materials.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} ({m.totalVolume} мл/шт)
+                    </option>
+                  ))}
+                </select>
+
+                {/* Amount + cost in one row */}
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={usage.amount || ""}
+                      onChange={(e) => {
+                        const updated = [...usages];
+                        updated[index] = { ...updated[index], amount: parseFloat(e.target.value) || 0 };
+                        onChange(updated);
+                      }}
+                      placeholder="Кількість (мл/шт)"
+                      className={inputCls}
+                    />
+                  </div>
+                  <div className="w-[70px] text-right flex-shrink-0">
+                    {cost > 0 ? (
+                      <span className="text-[14px] font-medium text-gray-700 tabular-nums">{Math.round(cost)} ₴</span>
+                    ) : (
+                      <span className="text-[13px] text-gray-300">0 ₴</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <button
         type="button"
         onClick={addMaterial}
-        className="text-[13px] text-brand-600 hover:text-brand-700 font-medium cursor-pointer"
+        className="w-full h-[40px] rounded-xl border border-dashed border-brand-300 text-[13px] font-medium text-brand-600 hover:bg-brand-50 cursor-pointer transition-colors flex items-center justify-center gap-1"
       >
-        + Додати матеріал
+        <span className="text-[16px] leading-none">+</span> Додати матеріал
       </button>
     </div>
   );
 }
 
-/* ─── Main Service Entry Modal ─── */
+/* ─── Main Modal ─── */
 export default function ServiceEntryModal({
   specialists,
   onClose,
@@ -290,7 +289,6 @@ export default function ServiceEntryModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  // Form state
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [specialistId, setSpecialistId] = useState("");
   const [serviceId, setServiceId] = useState("");
@@ -301,102 +299,72 @@ export default function ServiceEntryModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  // Data
   const [services, setServices] = useState<ServiceCatalogItem[]>([]);
   const [materials, setMaterials] = useState<CalcMaterial[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
-  // Fetch catalog data
   useEffect(() => {
     Promise.all([
       fetch("/api/services-catalog").then((r) => r.json()),
       fetch("/api/materials").then((r) => r.json()),
     ])
-      .then(([svc, mat]) => {
-        setServices(svc);
-        setMaterials(mat);
-        setLoadingData(false);
-      })
+      .then(([svc, mat]) => { setServices(svc); setMaterials(mat); setLoadingData(false); })
       .catch(() => setLoadingData(false));
   }, []);
 
   const selectedService = services.find((s) => s.id === serviceId);
-
-  // Filter services by specialist's specialization
   const selectedSpecialist = specialists.find((s) => s.id === specialistId);
   const [showAllServices, setShowAllServices] = useState(false);
 
   const filteredServices = useMemo(() => {
     if (!selectedSpecialist?.role || showAllServices) return services;
-    const allowedCategories = ROLE_CATEGORIES[selectedSpecialist.role];
-    if (!allowedCategories) return services;
-    return services.filter((s) => allowedCategories.includes(s.category));
+    const cats = ROLE_CATEGORIES[selectedSpecialist.role];
+    if (!cats) return services;
+    return services.filter((s) => cats.includes(s.category));
   }, [services, selectedSpecialist, showAllServices]);
 
-  // Calculate preview
   const preview = useMemo(() => {
     if (!selectedService) return null;
-
-    const hourlyRate = selectedService.hourlyRate || 0;
-    const hours = selectedService.hours + (parseFloat(extraHours) || 0);
+    const rate = selectedService.hourlyRate || 0;
+    const hrs = selectedService.hours + (parseFloat(extraHours) || 0);
     const suppl = parseFloat(supplement) || 0;
-    const workCost = hourlyRate * hours + suppl;
-    const baseMaterials = selectedService.materialsCost || 0;
-
-    const calcCost = calcMaterials.reduce((sum, u) => {
-      const mat = materials.find((m) => m.id === u.materialId);
-      if (!mat || u.amount <= 0) return sum;
-      return sum + (u.amount * mat.totalCost) / mat.totalVolume;
+    const work = rate * hrs + suppl;
+    const baseMat = selectedService.materialsCost || 0;
+    const calcCost = calcMaterials.reduce((s, u) => {
+      const m = materials.find((x) => x.id === u.materialId);
+      return !m || u.amount <= 0 ? s : s + (u.amount * m.totalCost) / m.totalVolume;
     }, 0);
-
-    const totalMaterials = baseMaterials + Math.round(calcCost);
-    const total = workCost + totalMaterials;
-
-    return { workCost, baseMaterials, calcCost: Math.round(calcCost), totalMaterials, total, hours, hourlyRate };
+    const totalMat = baseMat + Math.round(calcCost);
+    return { work, baseMat, calcCost: Math.round(calcCost), totalMat, total: work + totalMat, hrs, rate };
   }, [selectedService, supplement, extraHours, calcMaterials, materials]);
 
   async function handleSubmit() {
     setError("");
-
     if (!serviceId) { setError("Оберіть послугу"); return; }
     if (!specialistId) { setError("Оберіть спеціаліста"); return; }
 
     setSaving(true);
     try {
       const body: Record<string, unknown> = {
-        type: "service",
-        date,
-        specialistId,
-        serviceId,
+        type: "service", date, specialistId, serviceId,
         hourlyRate: selectedService?.hourlyRate || 0,
         materialsCost: selectedService?.materialsCost || 0,
         comment: comment || undefined,
       };
-
       const suppl = parseFloat(supplement);
       if (suppl) body.supplement = suppl;
-
       const eh = parseFloat(extraHours);
       if (eh) body.extraHours = eh;
-
-      // Calculation materials → create Замовлення records
-      const validMaterials = calcMaterials.filter((m) => m.materialId && m.amount > 0);
-      if (validMaterials.length > 0) {
-        body.calcMaterials = validMaterials;
-      }
+      const valid = calcMaterials.filter((m) => m.materialId && m.amount > 0);
+      if (valid.length > 0) body.calcMaterials = valid;
 
       const res = await fetch("/api/journal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed");
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Failed"); }
+      await new Promise((r) => setTimeout(r, 800));
       onCreated();
       onClose();
     } catch (err) {
@@ -409,12 +377,12 @@ export default function ServiceEntryModal({
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
       <div
-        className="bg-white w-full sm:w-[460px] sm:rounded-2xl rounded-t-2xl p-5 max-h-[90vh] overflow-y-auto"
+        className="bg-white w-full sm:w-[440px] sm:rounded-2xl rounded-t-2xl p-5 pb-6 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-[15px] font-semibold text-gray-900">Нова послуга</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-[17px] font-semibold text-gray-900">Нова послуга</h2>
           <button
             onClick={onClose}
             className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 cursor-pointer transition-colors"
@@ -424,39 +392,39 @@ export default function ServiceEntryModal({
         </div>
 
         {loadingData ? (
-          <div className="py-8 text-center text-[13px] text-gray-400">Завантаження...</div>
+          <div className="py-12 text-center text-[13px] text-gray-400">Завантаження...</div>
         ) : (
           <>
             {/* Date */}
-            <label className="block mb-4">
-              <span className={LABEL_CLS}>Дата</span>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`mt-1 ${INPUT_CLS}`} />
-            </label>
+            <div className="mb-4">
+              <label className={labelCls}>Дата</label>
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
+            </div>
 
             {/* Specialist */}
-            <label className="block mb-4">
-              <span className={LABEL_CLS}>Спеціаліст</span>
+            <div className="mb-4">
+              <label className={labelCls}>Спеціаліст</label>
               <select
                 value={specialistId}
                 onChange={(e) => { setSpecialistId(e.target.value); setServiceId(""); setShowAllServices(false); }}
-                className={`mt-1 ${SELECT_CLS}`}
+                className={selectCls}
               >
                 <option value="">Оберіть спеціаліста</option>
                 {specialists.map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
-            </label>
+            </div>
 
             {/* Service */}
             <div className="mb-4">
-              <div className="flex items-center justify-between">
-                <span className={LABEL_CLS}>Послуга</span>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className={labelCls + " mb-0"}>Послуга</label>
                 {selectedSpecialist?.role && ROLE_CATEGORIES[selectedSpecialist.role] && (
                   <button
                     type="button"
                     onClick={() => setShowAllServices(!showAllServices)}
-                    className="text-[11px] text-brand-500 hover:text-brand-700 cursor-pointer"
+                    className="text-[11px] text-brand-500 hover:text-brand-700 cursor-pointer font-medium"
                   >
                     {showAllServices ? "Тільки мої" : "Показати всі"}
                   </button>
@@ -469,17 +437,17 @@ export default function ServiceEntryModal({
                 placeholder="Пошук послуги..."
                 groupBy={(s) => s.category}
                 renderItem={(s) => (
-                  <div className="flex items-center justify-between">
-                    <span className="text-[14px] text-gray-900 truncate mr-2">{s.name}</span>
-                    <span className="text-[13px] text-gray-500 whitespace-nowrap">{s.totalPrice} ₴</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[14px] text-gray-900 truncate">{s.name}</span>
+                    <span className="text-[13px] text-gray-400 whitespace-nowrap tabular-nums">{s.totalPrice} ₴</span>
                   </div>
                 )}
                 renderSelected={(s) => (
                   <div>
-                    <div className="text-[14px] text-gray-900 font-medium">{s.name}</div>
-                    <div className="text-[12px] text-gray-500 mt-0.5">
-                      {s.hourlyRate} ₴/год × {s.hours} год
-                      {s.materialsCost > 0 && <span> + матеріали {s.materialsCost} ₴</span>}
+                    <div className="text-[14px] text-gray-900 font-medium leading-tight">{s.name}</div>
+                    <div className="text-[12px] text-gray-500 mt-0.5 tabular-nums">
+                      {s.hourlyRate} ₴ × {s.hours} год
+                      {s.materialsCost > 0 && ` + мат. ${s.materialsCost} ₴`}
                       {" = "}{s.totalPrice} ₴
                     </div>
                   </div>
@@ -487,33 +455,36 @@ export default function ServiceEntryModal({
               />
             </div>
 
-            {/* Price details (shown when service selected) */}
+            {/* Details (shown when service selected) */}
             {selectedService && (
               <>
-                {/* Supplement & Extra Hours */}
-                <div className="flex gap-3 mb-4">
-                  <label className="flex-1">
-                    <span className={LABEL_CLS}>Доповнення (±)</span>
+                {/* Divider */}
+                <div className="border-t border-black/5 my-5" />
+
+                {/* Supplement & Extra Hours - same height */}
+                <div className="grid grid-cols-2 gap-3 mb-5">
+                  <div>
+                    <label className={labelCls}>Доповнення (±)</label>
                     <input
                       type="number"
                       inputMode="numeric"
                       value={supplement}
                       onChange={(e) => setSupplement(e.target.value)}
                       placeholder="0"
-                      className={`mt-1 ${INPUT_CLS} tabular-nums`}
+                      className={`${inputCls} tabular-nums`}
                     />
-                  </label>
-                  <label className="w-[100px] flex-shrink-0">
-                    <span className={LABEL_CLS}>Додат. годин</span>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Додат. години</label>
                     <input
                       type="number"
                       inputMode="decimal"
                       value={extraHours}
                       onChange={(e) => setExtraHours(e.target.value)}
                       placeholder="0"
-                      className={`mt-1 ${INPUT_CLS} tabular-nums`}
+                      className={`${inputCls} tabular-nums`}
                     />
-                  </label>
+                  </div>
                 </div>
 
                 {/* Calculation Materials */}
@@ -525,23 +496,30 @@ export default function ServiceEntryModal({
 
                 {/* Price Preview */}
                 {preview && (
-                  <div className="mb-4 bg-gray-50 rounded-xl p-3">
-                    <div className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2">Попередній розрахунок</div>
-                    <div className="space-y-1 text-[13px]">
+                  <div className="mb-5 bg-gray-50 rounded-xl p-4">
+                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2.5">Розрахунок</div>
+                    <div className="space-y-1.5 text-[13px]">
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Робота ({preview.hourlyRate} × {preview.hours} год{supplement ? ` ${parseFloat(supplement) > 0 ? "+" : ""}${supplement}` : ""})</span>
-                        <span className="text-gray-900 tabular-nums">{preview.workCost} ₴</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">
-                          Матеріали
-                          {preview.calcCost > 0 && <span className="text-gray-400"> ({preview.baseMaterials} + {preview.calcCost})</span>}
+                        <span className="text-gray-500">
+                          Робота ({preview.rate} × {preview.hrs} год
+                          {supplement ? ` ${parseFloat(supplement) > 0 ? "+" : ""}${supplement}` : ""})
                         </span>
-                        <span className="text-gray-900 tabular-nums">{preview.totalMaterials} ₴</span>
+                        <span className="text-gray-900 tabular-nums font-medium">{preview.work} ₴</span>
                       </div>
-                      <div className="flex justify-between pt-1 border-t border-black/5 font-medium">
-                        <span className="text-gray-900">Всього</span>
-                        <span className="text-brand-600 tabular-nums">{preview.total} ₴</span>
+                      {preview.totalMat > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">
+                            Матеріали
+                            {preview.calcCost > 0 && (
+                              <span className="text-gray-400"> ({preview.baseMat}+{preview.calcCost})</span>
+                            )}
+                          </span>
+                          <span className="text-gray-900 tabular-nums font-medium">{preview.totalMat} ₴</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between pt-2 border-t border-black/5">
+                        <span className="text-gray-900 font-semibold">Всього</span>
+                        <span className="text-brand-600 font-bold tabular-nums text-[15px]">{preview.total} ₴</span>
                       </div>
                     </div>
                   </div>
@@ -550,27 +528,27 @@ export default function ServiceEntryModal({
             )}
 
             {/* Comment */}
-            <label className="block mb-5">
-              <span className={LABEL_CLS}>Коментар</span>
+            <div className="mb-5">
+              <label className={labelCls}>Коментар</label>
               <input
                 type="text"
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
                 placeholder="Необов'язково"
-                className={`mt-1 ${INPUT_CLS}`}
+                className={inputCls}
               />
-            </label>
+            </div>
 
             {/* Error */}
             {error && (
-              <div className="mb-4 text-[12px] text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</div>
+              <div className="mb-4 text-[13px] text-red-600 bg-red-50 rounded-xl px-4 py-2.5">{error}</div>
             )}
 
             {/* Submit */}
             <button
               onClick={handleSubmit}
               disabled={saving}
-              className="w-full bg-brand-600 text-white rounded-xl font-medium text-[16px] py-3 cursor-pointer hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-[48px] bg-brand-600 text-white rounded-xl font-semibold text-[16px] cursor-pointer hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? "Збереження..." : "Зберегти"}
             </button>
