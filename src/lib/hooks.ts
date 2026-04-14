@@ -52,6 +52,7 @@ export function useJournal(
 
     if (specialistId) params.set("specialist", specialistId);
 
+    params.set("_t", String(Date.now())); // cache-bust
     fetch(`/api/journal?${params.toString()}`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch");

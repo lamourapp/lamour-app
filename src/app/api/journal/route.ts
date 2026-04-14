@@ -252,6 +252,9 @@ export async function POST(request: NextRequest) {
         if (!specialistId) return NextResponse.json({ error: "specialistId is required" }, { status: 400 });
         fields["Продажі"] = [body.productId];
         if (body.supplement) fields["Доповнення(продажі)"] = body.supplement;
+        // Set fixed price fields — Airtable formula uses these for total calculation
+        if (body.salePrice) fields["Фікс. ціна продажу"] = body.salePrice;
+        if (body.costPrice) fields["Фікс. ціна закупки"] = body.costPrice;
         break;
 
       default:

@@ -70,7 +70,7 @@ export async function fetchRecords(
       Authorization: `Bearer ${getToken()}`,
       "Content-Type": "application/json",
     },
-    next: { revalidate: 30 }, // cache for 30 seconds
+    cache: "no-store", // always fresh data after mutations
   });
 
   if (!res.ok) {

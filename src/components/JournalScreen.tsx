@@ -327,25 +327,25 @@ export default function JournalScreen() {
       <div className="h-24" />
 
       {/* Quick Add Buttons */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex gap-1.5 bg-white/90 backdrop-blur-xl rounded-2xl shadow-lg shadow-black/[0.08] p-1.5 border border-black/5 z-40">
-        <button className="bg-brand-600 text-white rounded-[10px] font-medium text-[13px] px-4 py-2.5 cursor-pointer hover:bg-brand-700 transition-colors opacity-50" title="Скоро">
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex gap-1 sm:gap-1.5 bg-white/90 backdrop-blur-xl rounded-2xl shadow-lg shadow-black/[0.08] p-1 sm:p-1.5 border border-black/5 z-40 max-w-[calc(100vw-24px)]">
+        <button className="bg-brand-600 text-white rounded-[10px] font-medium text-[11px] sm:text-[13px] px-2.5 sm:px-4 py-2 sm:py-2.5 cursor-pointer hover:bg-brand-700 transition-colors opacity-50 whitespace-nowrap" title="Скоро">
           + Послуга
         </button>
         <button
           onClick={() => setCreateType("sale")}
-          className="bg-[#f5f5f7] text-[#3f3f46] rounded-[10px] font-medium text-[13px] px-4 py-2.5 border border-black/[0.1] cursor-pointer hover:bg-[#e5e5ea] transition-colors"
+          className="bg-[#f5f5f7] text-[#3f3f46] rounded-[10px] font-medium text-[11px] sm:text-[13px] px-2.5 sm:px-4 py-2 sm:py-2.5 border border-black/[0.1] cursor-pointer hover:bg-[#e5e5ea] transition-colors whitespace-nowrap"
         >
           + Продаж
         </button>
         <button
           onClick={() => setCreateType("expense")}
-          className="bg-[#f5f5f7] text-[#3f3f46] rounded-[10px] font-medium text-[13px] px-4 py-2.5 border border-black/[0.1] cursor-pointer hover:bg-[#e5e5ea] transition-colors"
+          className="bg-[#f5f5f7] text-[#3f3f46] rounded-[10px] font-medium text-[11px] sm:text-[13px] px-2.5 sm:px-4 py-2 sm:py-2.5 border border-black/[0.1] cursor-pointer hover:bg-[#e5e5ea] transition-colors whitespace-nowrap"
         >
           + Витрата
         </button>
         <button
           onClick={() => setCreateType("debt")}
-          className="bg-[#f5f5f7] text-[#3f3f46] rounded-[10px] font-medium text-[13px] px-4 py-2.5 border border-black/[0.1] cursor-pointer hover:bg-[#e5e5ea] transition-colors hidden sm:block"
+          className="bg-[#f5f5f7] text-[#3f3f46] rounded-[10px] font-medium text-[11px] sm:text-[13px] px-2.5 sm:px-4 py-2 sm:py-2.5 border border-black/[0.1] cursor-pointer hover:bg-[#e5e5ea] transition-colors whitespace-nowrap"
         >
           + Борг
         </button>

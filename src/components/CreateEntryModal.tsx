@@ -11,6 +11,7 @@ interface Product {
   id: string;
   name: string;
   price: number;
+  costPrice: number;
   group: string;
 }
 
@@ -99,6 +100,11 @@ export default function CreateEntryModal({
         body.productId = productId;
         body.specialistId = specialistId;
         if (supplement) body.supplement = parseFloat(supplement);
+        // Pass prices so server can set fixed price fields for Airtable formulas
+        if (selectedProduct) {
+          body.salePrice = selectedProduct.price;
+          body.costPrice = selectedProduct.costPrice;
+        }
       }
 
       const res = await fetch("/api/journal", {
@@ -112,6 +118,8 @@ export default function CreateEntryModal({
         throw new Error(data.error || "Failed");
       }
 
+      // Small delay so Airtable computes formula fields (price, percentages)
+      await new Promise((resolve) => setTimeout(resolve, 800));
       onCreated();
       onClose();
     } catch (err) {
