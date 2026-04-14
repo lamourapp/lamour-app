@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Button, Field, Input, Modal, Select, inputCls } from "./ui";
 import { useSettings } from "@/lib/hooks";
-import { formatMoney } from "@/lib/format";
+import { moneyFormatter } from "@/lib/format";
 
 interface Specialist {
   id: string;
@@ -47,7 +47,7 @@ function ProductPicker({
   onSelect: (id: string) => void;
 }) {
   const { settings } = useSettings();
-  const currency = settings?.currency;
+  const fmt = moneyFormatter(settings);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -105,7 +105,7 @@ function ProductPicker({
           <div className="min-w-0">
             <div className="text-[14px] text-gray-900 font-medium truncate">{selected.name}</div>
             <div className="text-[11px] text-gray-500 mt-0.5">
-              {formatMoney(selected.price, currency)}{selected.group ? ` · ${selected.group}` : ""}
+              {fmt(selected.price)}{selected.group ? ` · ${selected.group}` : ""}
             </div>
           </div>
           <button
@@ -154,7 +154,7 @@ function ProductPicker({
                     }`}
                   >
                     <span className="text-[14px] text-gray-900 truncate mr-2">{p.name}</span>
-                    <span className="text-[13px] text-gray-500 whitespace-nowrap">{formatMoney(p.price, currency)}</span>
+                    <span className="text-[13px] text-gray-500 whitespace-nowrap">{fmt(p.price)}</span>
                   </button>
                 ))}
               </div>
@@ -179,7 +179,7 @@ export default function CreateEntryModal({
   onCreated: () => void;
 }) {
   const { settings } = useSettings();
-  const currency = settings?.currency;
+  const fmt = moneyFormatter(settings);
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [amount, setAmount] = useState("");
   const [specialistId, setSpecialistId] = useState("");
@@ -336,7 +336,7 @@ export default function CreateEntryModal({
           <ProductPicker products={products} productId={productId} onSelect={setProductId} />
           {selectedProduct && (
             <div className="mt-2 text-[12px] text-gray-400">
-              Ціна: {formatMoney(selectedProduct.price, currency)}
+              Ціна: {fmt(selectedProduct.price)}
               {selectedProduct.group && <span> · {selectedProduct.group}</span>}
             </div>
           )}

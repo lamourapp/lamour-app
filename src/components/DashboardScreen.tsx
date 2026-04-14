@@ -3,8 +3,9 @@
 import { useState, useMemo } from "react";
 import { useJournal, useSpecialists, useSettings } from "@/lib/hooks";
 import type { JournalEntry } from "@/lib/demo-data";
-import type { Settings } from "@/app/api/settings/route";
-import { formatMoney } from "@/lib/format";
+import { moneyFormatter, localeFromTimezone } from "@/lib/format";
+
+type Fmt = (amount: number, opts?: { signed?: boolean; maximumFractionDigits?: number }) => string;
 import CalendarPicker from "./CalendarPicker";
 
 function MetricCard({
@@ -12,15 +13,17 @@ function MetricCard({
   sublabel,
   value,
   suffix,
-  currency,
+  fmt,
+  locale = "uk-UA",
   variant = "default",
 }: {
   label: string;
   sublabel?: string;
   value: number | string;
-  /** When undefined => money (uses currency). Empty string => plain number. Non-empty => custom unit. */
+  /** When undefined => money (uses fmt). Empty string => plain number. Non-empty => custom unit. */
   suffix?: string;
-  currency?: Settings["currency"];
+  fmt?: Fmt;
+  locale?: string;
   variant?: "default" | "green" | "green-light" | "brand-dark" | "negative";
 }) {
   const styles = {
@@ -55,8 +58,8 @@ function MetricCard({
   const formatted =
     typeof value === "number"
       ? suffix === undefined
-        ? formatMoney(value, currency)
-        : `${value.toLocaleString("uk-UA")}${suffix ? ` ${suffix}` : ""}`
+        ? (fmt ? fmt(value) : value.toLocaleString(locale))
+        : `${value.toLocaleString(locale)}${suffix ? ` ${suffix}` : ""}`
       : value;
 
   return (
@@ -153,7 +156,8 @@ export default function DashboardScreen() {
   const [showDetailCols, setShowDetailCols] = useState(false);
 
   const { settings } = useSettings();
-  const currency = settings?.currency;
+  const fmt = useMemo(() => moneyFormatter(settings), [settings]);
+  const locale = localeFromTimezone(settings?.timezone);
   const { entries, loading, error } = useJournal(
     customRange ? "custom" : period,
     selectedSpecialist,
@@ -274,18 +278,18 @@ export default function DashboardScreen() {
 
             {/* Row 1: salon share — matches original layout */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
-              <MetricCard label="% салону за послуги" value={Math.round(m.salonServiceShare)} currency={currency} />
-              <MetricCard label="% салону за матеріали" value={Math.round(m.salonMaterialShare)} currency={currency} />
-              <MetricCard label="% салону за продажі" value={Math.round(m.salonSalesShare)} currency={currency} />
-              <MetricCard label="Всього салону" value={Math.round(m.salonTotal)} currency={currency} variant="green" />
+              <MetricCard label="% салону за послуги" value={Math.round(m.salonServiceShare)} fmt={fmt} />
+              <MetricCard label="% салону за матеріали" value={Math.round(m.salonMaterialShare)} fmt={fmt} />
+              <MetricCard label="% салону за продажі" value={Math.round(m.salonSalesShare)} fmt={fmt} />
+              <MetricCard label="Всього салону" value={Math.round(m.salonTotal)} fmt={fmt} variant="green" />
             </div>
 
             {/* Row 2: specialist share */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
-              <MetricCard label="% спеціалісту за послуги" value={Math.round(m.specialistServiceShare)} currency={currency} />
-              <MetricCard label="% спеціалісту за матеріали" value={Math.round(m.specialistMaterialShare)} currency={currency} />
-              <MetricCard label="% спеціалісту за продажі" value={Math.round(m.specialistSalesShare)} currency={currency} />
-              <MetricCard label="Всього оплата спеціалісту" value={Math.round(m.specialistTotal)} currency={currency} variant="green-light" />
+              <MetricCard label="% спеціалісту за послуги" value={Math.round(m.specialistServiceShare)} fmt={fmt} />
+              <MetricCard label="% спеціалісту за матеріали" value={Math.round(m.specialistMaterialShare)} fmt={fmt} />
+              <MetricCard label="% спеціалісту за продажі" value={Math.round(m.specialistSalesShare)} fmt={fmt} />
+              <MetricCard label="Всього оплата спеціалісту" value={Math.round(m.specialistTotal)} fmt={fmt} variant="green-light" />
             </div>
 
             {/* Row 3: debts, expenses, rental, cash */}
@@ -294,12 +298,12 @@ export default function DashboardScreen() {
                 label="Борги"
                 sublabel={totalDebt > 0 ? "салон винен · актуально" : totalDebt < 0 ? "нам винні · актуально" : "баланс · актуально"}
                 value={Math.round(totalDebt)}
-                currency={currency}
+                fmt={fmt}
                 variant={totalDebt !== 0 ? "negative" : "default"}
               />
-              <MetricCard label="Витрати" value={Math.round(m.expenses)} currency={currency} />
-              <MetricCard label="Оренда" sublabel="без матеріалів" value={Math.round(m.rentalSum)} currency={currency} />
-              <MetricCard label="Кошти в касі" value={Math.round(m.cashInRegister)} currency={currency} />
+              <MetricCard label="Витрати" value={Math.round(m.expenses)} fmt={fmt} />
+              <MetricCard label="Оренда" sublabel="без матеріалів" value={Math.round(m.rentalSum)} fmt={fmt} />
+              <MetricCard label="Кошти в касі" value={Math.round(m.cashInRegister)} fmt={fmt} />
             </div>
           </div>
 
@@ -349,19 +353,19 @@ export default function DashboardScreen() {
                 <MetricCard
                   label="Загальний оборот"
                   value={Math.round(m.salonTotal + m.specialistTotal)}
-                  currency={currency}
+                  fmt={fmt}
                   variant="brand-dark"
                 />
-                <MetricCard label="Чистий дохід салону" value={Math.round(m.cashInRegister)} currency={currency} variant="brand-dark" />
+                <MetricCard label="Чистий дохід салону" value={Math.round(m.cashInRegister)} fmt={fmt} variant="brand-dark" />
                 <MetricCard
                   label="Середній чек послуги"
                   value={m.countServices > 0 ? Math.round((m.salonServiceShare + m.specialistServiceShare) / m.countServices) : 0}
-                  currency={currency}
+                  fmt={fmt}
                 />
                 <MetricCard
                   label="Середній чек продажу"
                   value={m.countSales > 0 ? Math.round((m.salonSalesShare + m.specialistSalesShare) / m.countSales) : 0}
-                  currency={currency}
+                  fmt={fmt}
                 />
               </div>
             </div>
@@ -440,7 +444,7 @@ export default function DashboardScreen() {
                               </span>
                             </td>
                             <td className="px-3 py-2.5 text-right font-medium text-gray-900 tabular-nums">
-                              {e.amount < 0 ? `−${Math.round(Math.abs(e.amount)).toLocaleString("uk-UA")}` : Math.round(e.amount).toLocaleString("uk-UA")}
+                              {e.amount < 0 ? `−${Math.round(Math.abs(e.amount)).toLocaleString(locale)}` : Math.round(e.amount).toLocaleString(locale)}
                             </td>
                             <td className="px-3 py-2.5 text-left text-[11px] text-gray-500 max-w-[150px] truncate">
                               {e.comment || <span className="text-gray-300">—</span>}
@@ -458,25 +462,25 @@ export default function DashboardScreen() {
                                 </td>
                                 <td className="px-3 py-2.5 text-right tabular-nums">
                                   {e.baseMaterialsCost ? (
-                                    <span className="text-purple-600">{Math.round(e.baseMaterialsCost).toLocaleString("uk-UA")}</span>
+                                    <span className="text-purple-600">{Math.round(e.baseMaterialsCost).toLocaleString(locale)}</span>
                                   ) : (
                                     <span className="text-gray-300">—</span>
                                   )}
                                 </td>
                                 <td className="px-3 py-2.5 text-right tabular-nums">
                                   {e.calculationCost ? (
-                                    <span className="text-amber-600">{Math.round(e.calculationCost).toLocaleString("uk-UA")}</span>
+                                    <span className="text-amber-600">{Math.round(e.calculationCost).toLocaleString(locale)}</span>
                                   ) : (
                                     <span className="text-gray-300">—</span>
                                   )}
                                 </td>
                                 <td className="px-3 py-2.5 text-right text-gray-500 tabular-nums">
-                                  {e.specialistShare ? Math.round(e.specialistShare).toLocaleString("uk-UA") : <span className="text-gray-300">—</span>}
+                                  {e.specialistShare ? Math.round(e.specialistShare).toLocaleString(locale) : <span className="text-gray-300">—</span>}
                                 </td>
                                 <td className="px-3 py-2.5 text-right text-gray-500 tabular-nums">
                                   {(() => {
                                     const total = (e.salonShare || 0) + (e.salonMaterialShare || 0) + (e.salonSalesShare || 0);
-                                    return total ? Math.round(total).toLocaleString("uk-UA") : <span className="text-gray-300">—</span>;
+                                    return total ? Math.round(total).toLocaleString(locale) : <span className="text-gray-300">—</span>;
                                   })()}
                                 </td>
                                 <td className="px-3 py-2.5 text-center">

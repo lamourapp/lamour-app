@@ -1,20 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useSpecialists, useSettings } from "@/lib/hooks";
 import type { Specialist } from "@/lib/demo-data";
-import type { Settings } from "@/app/api/settings/route";
-import { formatMoney, currencySymbol } from "@/lib/format";
+import { moneyFormatter, currencySymbol } from "@/lib/format";
+
+type Fmt = (amount: number, opts?: { signed?: boolean; maximumFractionDigits?: number }) => string;
 import SpecialistModal from "./SpecialistModal";
 
-function compensationLabel(s: Specialist, currency: Settings["currency"] | undefined): string {
+function compensationLabel(s: Specialist, fmt: Fmt, sym: string): string {
   const materialsLabel = s.salesCommission > 0 ? ` · матеріали ${s.salesCommission}%` : "";
-  const sym = currencySymbol(currency);
   switch (s.compensationType) {
     case "commission":
       return `комісія ${s.serviceCommission}%${materialsLabel}`;
     case "rental":
-      return `оренда${s.rentalRate ? ` ${formatMoney(s.rentalRate, currency)}` : ""}${materialsLabel}`;
+      return `оренда${s.rentalRate ? ` ${fmt(s.rentalRate)}` : ""}${materialsLabel}`;
     case "salary":
       return `ЗП ${s.salaryRate} ${sym}/день${materialsLabel}`;
   }
@@ -44,20 +44,21 @@ function compensationHighlight(type: Specialist["compensationType"]): string {
   }
 }
 
-function BalanceDisplay({ balance, currency }: { balance: number; currency: Settings["currency"] | undefined }) {
+function BalanceDisplay({ balance, fmt }: { balance: number; fmt: Fmt }) {
   if (balance === 0) {
-    return <div className="text-[13px] font-semibold text-gray-400 tabular-nums">{formatMoney(0, currency)}</div>;
+    return <div className="text-[13px] font-semibold text-gray-400 tabular-nums">{fmt(0)}</div>;
   }
   if (balance > 0) {
-    return <div className="text-[13px] font-semibold text-gray-900 tabular-nums">{formatMoney(balance, currency, { signed: true })}</div>;
+    return <div className="text-[13px] font-semibold text-gray-900 tabular-nums">{fmt(balance, { signed: true })}</div>;
   }
-  return <div className="text-[13px] font-semibold text-red-500 tabular-nums">{formatMoney(balance, currency)}</div>;
+  return <div className="text-[13px] font-semibold text-red-500 tabular-nums">{fmt(balance)}</div>;
 }
 
 export default function StaffScreen() {
   const [showInactive, setShowInactive] = useState(false);
   const { settings } = useSettings();
-  const currency = settings?.currency;
+  const fmt = useMemo(() => moneyFormatter(settings), [settings]);
+  const sym = currencySymbol(settings?.currency);
   const specialistTerm = settings?.specialistTerm || "Спеціаліст";
   const { specialists, loading, error, reload } = useSpecialists(showInactive);
   const [modalOpen, setModalOpen] = useState(false);
@@ -102,7 +103,7 @@ export default function StaffScreen() {
       {/* Active specialists */}
       <div className="space-y-1.5">
         {activeList.map((s) => {
-          const label = compensationLabel(s, currency);
+          const label = compensationLabel(s, fmt, sym);
           const highlight = compensationHighlight(s.compensationType);
 
           return (
@@ -137,7 +138,7 @@ export default function StaffScreen() {
                   </div>
                   <div className="text-right">
                     <div className="text-[10px] text-gray-400 uppercase tracking-wider">Баланс</div>
-                    <BalanceDisplay balance={s.balance} currency={currency} />
+                    <BalanceDisplay balance={s.balance} fmt={fmt} />
                   </div>
                   <svg className="w-4 h-4 text-gray-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 5l7 7-7 7" />
@@ -167,7 +168,7 @@ export default function StaffScreen() {
           <div className="text-[11px] text-gray-400 uppercase tracking-wider mb-2 px-1">Неактивні</div>
           <div className="space-y-1.5">
             {inactiveList.map((s) => {
-              const label = compensationLabel(s, currency);
+              const label = compensationLabel(s, fmt, sym);
 
               return (
                 <div
@@ -190,7 +191,7 @@ export default function StaffScreen() {
                     <div className="flex items-center gap-4 shrink-0">
                       <div className="text-right">
                         <div className="text-[10px] text-gray-400 uppercase tracking-wider">Баланс</div>
-                        <BalanceDisplay balance={s.balance} currency={currency} />
+                        <BalanceDisplay balance={s.balance} fmt={fmt} />
                       </div>
                       <svg className="w-4 h-4 text-gray-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 5l7 7-7 7" />

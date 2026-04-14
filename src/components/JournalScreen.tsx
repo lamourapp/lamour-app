@@ -3,8 +3,9 @@
 import { useState, useMemo } from "react";
 import { useJournal, useSpecialists, useSettings } from "@/lib/hooks";
 import type { JournalEntry } from "@/lib/demo-data";
-import type { Settings } from "@/app/api/settings/route";
-import { formatMoney } from "@/lib/format";
+import { moneyFormatter } from "@/lib/format";
+
+type Fmt = (amount: number, opts?: { signed?: boolean; maximumFractionDigits?: number }) => string;
 import CalendarPicker from "./CalendarPicker";
 import CreateEntryModal from "./CreateEntryModal";
 import ServiceEntryModal from "./ServiceEntryModal";
@@ -42,7 +43,7 @@ function TypeLabel({ type }: { type: JournalEntry["type"] }) {
   );
 }
 
-function EntryCard({ entry, onDelete, currency }: { entry: JournalEntry; onDelete: (id: string) => void; currency: Settings["currency"] | undefined }) {
+function EntryCard({ entry, onDelete, fmt }: { entry: JournalEntry; onDelete: (id: string) => void; fmt: Fmt }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const isRental = entry.type === "rental";
   const hasMaterials = isRental && entry.materialsCost && entry.materialsCost > 0;
@@ -86,13 +87,13 @@ function EntryCard({ entry, onDelete, currency }: { entry: JournalEntry; onDelet
               isRental ? "text-green-600" : "text-gray-900"
             }`}>
               {isRental && "+"}
-              {formatMoney(entry.amount, currency)}
+              {fmt(entry.amount)}
             </div>
             {hasMaterials ? (
               <div className="text-[10px] text-gray-400 tabular-nums leading-tight">
-                <span className="text-amber-500">оренда {formatMoney(entry.amount - entry.materialsCost!, currency)}</span>
+                <span className="text-amber-500">оренда {fmt(entry.amount - entry.materialsCost!)}</span>
                 {" + "}
-                <span>матер. {formatMoney(entry.materialsCost!, currency)}</span>
+                <span>матер. {fmt(entry.materialsCost!)}</span>
               </div>
             ) : (
               <TypeLabel type={entry.type} />
@@ -171,7 +172,7 @@ export default function JournalScreen() {
   const [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null);
 
   const { settings } = useSettings();
-  const currency = settings?.currency;
+  const fmt = useMemo(() => moneyFormatter(settings), [settings]);
   const { entries, loading, error, reload } = useJournal(
     customRange ? "custom" : period,
     selectedSpecialist,
@@ -314,7 +315,7 @@ export default function JournalScreen() {
         </h2>
         <div className="flex gap-3 text-[11px] text-gray-400">
           <span>Записів: <strong className="text-gray-600">{totalRecords}</strong></span>
-          <span>Дохід: <strong className="text-gray-900">{formatMoney(totalIncome, currency, { signed: true })}</strong></span>
+          <span>Дохід: <strong className="text-gray-900">{fmt(totalIncome, { signed: true })}</strong></span>
         </div>
       </div>
 
@@ -342,7 +343,7 @@ export default function JournalScreen() {
           <div className="space-y-1.5 mb-1">
             {grouped[date].map((entry) => (
               <div key={entry.id} className={deleting === entry.id ? "opacity-50 pointer-events-none" : ""}>
-                <EntryCard entry={entry} onDelete={handleDelete} currency={currency} />
+                <EntryCard entry={entry} onDelete={handleDelete} fmt={fmt} />
               </div>
             ))}
           </div>

@@ -11,9 +11,11 @@ export interface Settings {
   brandColor: string;
   timezone: string;
   hasPin: boolean;
+  /** Locked after first successful save. When true, currency is read-only in UI. */
+  isOnboarded: boolean;
 }
 
-const DEFAULTS: Omit<Settings, "id" | "hasPin"> = {
+const DEFAULTS: Omit<Settings, "id" | "hasPin" | "isOnboarded"> = {
   name: "Салон «Лямурчик»",
   currency: "UAH",
   businessType: "beauty",
@@ -35,6 +37,7 @@ function mapSettings(r: { id: string; fields: Record<string, unknown> }): Settin
     brandColor: (f.brandColor as string) || DEFAULTS.brandColor,
     timezone: (f.timezone as string) || DEFAULTS.timezone,
     hasPin: Boolean((f.pinHash as string)?.trim()),
+    isOnboarded: Boolean(f.isOnboarded),
   };
 }
 
@@ -67,14 +70,19 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Settings row 'current' not found" }, { status: 404 });
     }
 
+    const currentlyOnboarded = Boolean(record.fields.isOnboarded);
+
     const fields: Record<string, unknown> = {};
     if (typeof body.name === "string") fields.name = body.name;
-    if (typeof body.currency === "string") fields.currency = body.currency;
+    // Currency is locked after onboarding — ignore incoming changes to preserve history integrity.
+    if (typeof body.currency === "string" && !currentlyOnboarded) fields.currency = body.currency;
     if (typeof body.businessType === "string") fields.businessType = body.businessType;
     if (typeof body.specialistTerm === "string") fields.specialistTerm = body.specialistTerm;
     if (typeof body.locationTerm === "string") fields.locationTerm = body.locationTerm;
     if (typeof body.brandColor === "string") fields.brandColor = body.brandColor;
     if (typeof body.timezone === "string") fields.timezone = body.timezone;
+    // Auto-seal the tenant the first time settings are saved successfully.
+    if (!currentlyOnboarded) fields.isOnboarded = true;
     // pinHash is set via dedicated endpoint later — not writable here
 
     if (Object.keys(fields).length === 0) {

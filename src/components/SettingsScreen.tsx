@@ -129,15 +129,22 @@ function BusinessSettingsModal({ onClose }: { onClose: () => void }) {
         <Select
           value={draft.currency}
           onChange={(e) => patch({ currency: e.target.value as Settings["currency"] })}
+          disabled={draft.isOnboarded}
         >
           <option value="UAH">₴ — гривня (UAH)</option>
           <option value="USD">$ — долар (USD)</option>
           <option value="EUR">€ — євро (EUR)</option>
           <option value="PLN">zł — злотий (PLN)</option>
         </Select>
-        <p className="mt-1 text-[11px] text-amber-600">
-          ⚠️ Одноразове налаштування. Зміна валюти не конвертує історію — існуючі суми залишаться тими ж числами з новим символом.
-        </p>
+        {draft.isOnboarded ? (
+          <p className="mt-1 text-[11px] text-gray-400">
+            🔒 Валюта зафіксована після першого збереження — щоб зберегти цілісність історичних сум.
+          </p>
+        ) : (
+          <p className="mt-1 text-[11px] text-amber-600">
+            ⚠️ Одноразове налаштування. Після першого збереження валюту буде заблоковано — історичні суми не конвертуються.
+          </p>
+        )}
       </Field>
 
       <Field label="Часовий пояс">
