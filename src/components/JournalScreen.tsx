@@ -63,6 +63,9 @@ function EntryCard({ entry, onDelete }: { entry: JournalEntry; onDelete: (id: st
                 <span className="text-gray-400">· {entry.supplement}</span>
               )}
             </div>
+            {entry.comment && (
+              <div className="text-[11px] text-gray-400 mt-0.5 italic truncate">💬 {entry.comment}</div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">

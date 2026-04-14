@@ -277,7 +277,8 @@ export async function DELETE(request: NextRequest) {
     await deleteRecord(TABLES.services, id);
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Failed to delete record:", error);
-    return NextResponse.json({ error: "Failed to delete record" }, { status: 500 });
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    console.error("Failed to delete record:", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
