@@ -440,7 +440,7 @@ export default function DashboardScreen() {
                               </span>
                             </td>
                             <td className="px-3 py-2.5 text-right font-medium text-gray-900 tabular-nums">
-                              {e.amount < 0 ? `−${Math.abs(e.amount).toLocaleString("uk-UA")}` : e.amount.toLocaleString("uk-UA")}
+                              {e.amount < 0 ? `−${Math.round(Math.abs(e.amount)).toLocaleString("uk-UA")}` : Math.round(e.amount).toLocaleString("uk-UA")}
                             </td>
                             <td className="px-3 py-2.5 text-left text-[11px] text-gray-500 max-w-[150px] truncate">
                               {e.comment || <span className="text-gray-300">—</span>}
@@ -458,25 +458,25 @@ export default function DashboardScreen() {
                                 </td>
                                 <td className="px-3 py-2.5 text-right tabular-nums">
                                   {e.baseMaterialsCost ? (
-                                    <span className="text-purple-600">{e.baseMaterialsCost.toLocaleString("uk-UA")}</span>
+                                    <span className="text-purple-600">{Math.round(e.baseMaterialsCost).toLocaleString("uk-UA")}</span>
                                   ) : (
                                     <span className="text-gray-300">—</span>
                                   )}
                                 </td>
                                 <td className="px-3 py-2.5 text-right tabular-nums">
                                   {e.calculationCost ? (
-                                    <span className="text-amber-600">{e.calculationCost.toLocaleString("uk-UA")}</span>
+                                    <span className="text-amber-600">{Math.round(e.calculationCost).toLocaleString("uk-UA")}</span>
                                   ) : (
                                     <span className="text-gray-300">—</span>
                                   )}
                                 </td>
                                 <td className="px-3 py-2.5 text-right text-gray-500 tabular-nums">
-                                  {e.specialistShare ? e.specialistShare.toLocaleString("uk-UA") : <span className="text-gray-300">—</span>}
+                                  {e.specialistShare ? Math.round(e.specialistShare).toLocaleString("uk-UA") : <span className="text-gray-300">—</span>}
                                 </td>
                                 <td className="px-3 py-2.5 text-right text-gray-500 tabular-nums">
                                   {(() => {
                                     const total = (e.salonShare || 0) + (e.salonMaterialShare || 0) + (e.salonSalesShare || 0);
-                                    return total ? total.toLocaleString("uk-UA") : <span className="text-gray-300">—</span>;
+                                    return total ? Math.round(total).toLocaleString("uk-UA") : <span className="text-gray-300">—</span>;
                                   })()}
                                 </td>
                                 <td className="px-3 py-2.5 text-center">
