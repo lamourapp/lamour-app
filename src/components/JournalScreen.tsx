@@ -38,12 +38,13 @@ function TypeLabel({ type }: { type: JournalEntry["type"] }) {
   );
 }
 
-function EntryCard({ entry }: { entry: JournalEntry }) {
+function EntryCard({ entry, onDelete }: { entry: JournalEntry; onDelete: (id: string) => void }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const isRental = entry.type === "rental";
   const hasMaterials = isRental && entry.materialsCost && entry.materialsCost > 0;
 
   return (
-    <div className="bg-white rounded-xl border border-black/[0.06] px-4 py-3 cursor-pointer transition-all hover:shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
+    <div className="bg-white rounded-xl border border-black/[0.06] px-4 py-3 transition-all hover:shadow-[0_2px_12px_rgba(0,0,0,0.06)] group relative">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3 min-w-0">
           <TypeDot type={entry.type} />
@@ -63,25 +64,55 @@ function EntryCard({ entry }: { entry: JournalEntry }) {
             </div>
           </div>
         </div>
-        <div className="text-right shrink-0 ml-3">
-          <div className={`text-[13px] font-semibold tabular-nums ${
-            isRental ? "text-green-600" : "text-gray-900"
-          }`}>
-            {isRental && "+"}
-            {entry.amount < 0 ? "−" : ""}
-            {Math.abs(entry.amount).toLocaleString("uk-UA")} ₴
-          </div>
-          {hasMaterials ? (
-            <div className="text-[10px] text-gray-400 tabular-nums leading-tight">
-              <span className="text-amber-500">оренда {(entry.amount - entry.materialsCost!).toLocaleString("uk-UA")}</span>
-              {" + "}
-              <span>матер. {entry.materialsCost!.toLocaleString("uk-UA")}</span>
+        <div className="flex items-center gap-2">
+          <div className="text-right shrink-0">
+            <div className={`text-[13px] font-semibold tabular-nums ${
+              isRental ? "text-green-600" : "text-gray-900"
+            }`}>
+              {isRental && "+"}
+              {entry.amount < 0 ? "−" : ""}
+              {Math.abs(entry.amount).toLocaleString("uk-UA")} ₴
             </div>
-          ) : (
-            <TypeLabel type={entry.type} />
-          )}
+            {hasMaterials ? (
+              <div className="text-[10px] text-gray-400 tabular-nums leading-tight">
+                <span className="text-amber-500">оренда {(entry.amount - entry.materialsCost!).toLocaleString("uk-UA")}</span>
+                {" + "}
+                <span>матер. {entry.materialsCost!.toLocaleString("uk-UA")}</span>
+              </div>
+            ) : (
+              <TypeLabel type={entry.type} />
+            )}
+          </div>
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="opacity-0 group-hover:opacity-100 sm:opacity-0 max-sm:opacity-30 transition-opacity p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 cursor-pointer"
+            title="Видалити запис"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+            </svg>
+          </button>
         </div>
       </div>
+
+      {/* Confirm delete dialog */}
+      {confirmDelete && (
+        <div className="absolute inset-0 bg-white/95 rounded-xl flex items-center justify-center gap-3 z-10 border border-red-200">
+          <span className="text-[12px] text-gray-600">Видалити запис?</span>
+          <button
+            onClick={() => { onDelete(entry.id); setConfirmDelete(false); }}
+            className="px-3 py-1.5 rounded-lg bg-red-500 text-white text-[11px] font-medium cursor-pointer hover:bg-red-600 transition-colors"
+          >
+            Видалити
+          </button>
+          <button
+            onClick={() => setConfirmDelete(false)}
+            className="px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 text-[11px] font-medium cursor-pointer hover:bg-gray-200 transition-colors"
+          >
+            Скасувати
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -120,12 +151,31 @@ export default function JournalScreen() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null);
 
-  const { entries, loading, error } = useJournal(
+  const { entries, loading, error, reload } = useJournal(
     customRange ? "custom" : period,
     selectedSpecialist,
     customRange?.from,
     customRange?.to,
   );
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  async function handleDelete(id: string) {
+    setDeleting(id);
+    try {
+      const res = await fetch("/api/journal", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) throw new Error("Failed to delete");
+      reload();
+    } catch (err) {
+      console.error(err);
+      alert("Не вдалося видалити запис");
+    } finally {
+      setDeleting(null);
+    }
+  }
   const { specialists } = useSpecialists();
 
   // Client-side type filter
@@ -260,7 +310,9 @@ export default function JournalScreen() {
           </div>
           <div className="space-y-1.5 mb-1">
             {grouped[date].map((entry) => (
-              <EntryCard key={entry.id} entry={entry} />
+              <div key={entry.id} className={deleting === entry.id ? "opacity-50 pointer-events-none" : ""}>
+                <EntryCard entry={entry} onDelete={handleDelete} />
+              </div>
             ))}
           </div>
         </div>

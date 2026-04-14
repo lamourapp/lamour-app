@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchAllRecords, TABLES } from "@/lib/airtable";
+import { fetchAllRecords, deleteRecord, TABLES } from "@/lib/airtable";
 
 export async function GET(request: NextRequest) {
   try {
@@ -215,5 +215,20 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Failed to fetch journal:", error);
     return NextResponse.json({ error: "Failed to fetch journal" }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { id } = await request.json();
+    if (!id || typeof id !== "string" || !id.startsWith("rec")) {
+      return NextResponse.json({ error: "Invalid record ID" }, { status: 400 });
+    }
+
+    await deleteRecord(TABLES.services, id);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Failed to delete record:", error);
+    return NextResponse.json({ error: "Failed to delete record" }, { status: 500 });
   }
 }

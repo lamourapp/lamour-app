@@ -101,3 +101,19 @@ export async function fetchAllRecords(
 
   return all;
 }
+
+// Delete a record
+export async function deleteRecord(tableId: string, recordId: string): Promise<void> {
+  const url = `${API_URL}/${BASE_ID}/${tableId}/${recordId}`;
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${getToken()}`,
+    },
+  });
+
+  if (!res.ok) {
+    const error = await res.text();
+    throw new Error(`Airtable delete error ${res.status}: ${error}`);
+  }
+}
