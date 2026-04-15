@@ -322,7 +322,9 @@ export default function ServiceEntryModal({
     if (!selectedSpecialist?.role || showAllServices) return services;
     const cats = ROLE_CATEGORIES[selectedSpecialist.role];
     if (!cats) return services;
-    return services.filter((s) => cats.includes(s.category));
+    // "Оренда" services are always visible — any master can be on rental,
+    // so the rental line must not be hidden by role-category filtering.
+    return services.filter((s) => s.category === "Оренда" || cats.includes(s.category));
   }, [services, selectedSpecialist, showAllServices]);
 
   const preview = useMemo(() => {

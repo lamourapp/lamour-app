@@ -54,7 +54,13 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
         name: name.trim(),
         role,
         compensationType,
-        serviceCommission: compensationType === "commission" ? serviceCommission : 0,
+        // For rental masters we force 100% salon cut so the rental line
+        // ("Оренда робочого місця" as a service) counts fully as salon income.
+        // Commission masters use their configured %. Salary masters = 0.
+        serviceCommission:
+          compensationType === "commission" ? serviceCommission :
+          compensationType === "rental" ? 100 :
+          0,
         salesCommission,
         conditions: compensationType !== "commission" ? conditions : 0,
         birthday: birthday || undefined,
