@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSettings } from "@/lib/hooks";
 import { Button, Field, Input, Modal, Select } from "./ui";
 import type { Settings } from "@/app/api/settings/route";
+import CatalogScreen from "./CatalogScreen";
 
 /* ─── Business-type presets ─── */
 
@@ -280,9 +281,20 @@ function BusinessSettingsModal({ onClose }: { onClose: () => void }) {
 export default function SettingsScreen() {
   const { settings } = useSettings();
   const [showBusiness, setShowBusiness] = useState(false);
+  const [catalogTab, setCatalogTab] = useState<"products" | "materials" | null>(null);
 
   const specialistTerm = settings?.specialistTerm || "Спеціаліст";
   const businessName = businessPresets[settings?.businessType || "beauty"].label;
+
+  // Show CatalogScreen as a sub-view
+  if (catalogTab) {
+    return (
+      <CatalogScreen
+        initialTab={catalogTab}
+        onBack={() => setCatalogTab(null)}
+      />
+    );
+  }
 
   const cards = [
     {
@@ -294,7 +306,18 @@ export default function SettingsScreen() {
       onClick: () => setShowBusiness(true),
     },
     { icon: "📋", title: "Каталог послуг", desc: "Калькуляції матеріалів" },
-    { icon: "📦", title: "Матеріали та товари", desc: "Ціни закупки / продажу" },
+    {
+      icon: "🛍️",
+      title: "Товари",
+      desc: "Прайс для продажу клієнтам",
+      onClick: () => setCatalogTab("products"),
+    },
+    {
+      icon: "🧴",
+      title: "Матеріали",
+      desc: "Матеріали для калькуляції послуг",
+      onClick: () => setCatalogTab("materials"),
+    },
     { icon: "👥", title: "Управління персоналом", desc: `${specialistTerm}и · ставки, %` },
   ];
 
