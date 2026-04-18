@@ -482,7 +482,13 @@ export default function DashboardScreen() {
                                   )}
                                 </td>
                                 <td className="px-3 py-2.5 text-right text-gray-500 tabular-nums">
-                                  {e.specialistShare ? Math.round(e.specialistShare).toLocaleString(locale) : <span className="text-gray-300">—</span>}
+                                  {(() => {
+                                    // Master side = service take + material cut + sale commission.
+                                    // For services, specialistShare already totals service+material; for sales it's undefined
+                                    // and specialistSalesShare carries the snapshot.
+                                    const total = (e.specialistShare || 0) + (e.specialistSalesShare || 0);
+                                    return total ? Math.round(total).toLocaleString(locale) : <span className="text-gray-300">—</span>;
+                                  })()}
                                 </td>
                                 <td className="px-3 py-2.5 text-right text-gray-500 tabular-nums">
                                   {(() => {

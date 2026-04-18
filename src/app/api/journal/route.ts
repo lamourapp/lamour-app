@@ -240,12 +240,10 @@ export async function GET(request: NextRequest) {
         specialistName,
         amount,
         supplement: (f["Доповнення"] as number) || (f["Доповнення(продажі)"] as number) || undefined,
-        specialistShare: type === "sale"
-          ? ((f["Фікс. % майстру за продаж"] as number | undefined) ?? (f["Оплата майстру - всього"] as number | undefined))
-          : ((f["Оплата майстру - всього"] as number) || undefined),
-        salonShare: type === "sale"
-          ? ((f["Фікс. % салону за продаж"] as number | undefined) ?? (f["Салону за послугу"] as number | undefined))
-          : ((f["Салону за послугу"] as number) || undefined),
+        // Service-side aggregates. For sales these are 0/undefined —
+        // the sale split lives in specialistSalesShare/salonSalesShare.
+        specialistShare: type === "sale" ? undefined : ((f["Оплата майстру - всього"] as number) || undefined),
+        salonShare: type === "sale" ? undefined : ((f["Салону за послугу"] as number) || undefined),
         // Detailed breakdowns for dashboard
         specialistServiceShare: (f["% майстру за послуги"] as number) || undefined,
         specialistMaterialShare: (f["% майстру за матеріали"] as number) || undefined,
