@@ -242,8 +242,12 @@ export async function GET(request: NextRequest) {
         specialistName,
         amount,
         supplement: (f["Доповнення"] as number) || (f["Доповнення(продажі)"] as number) || undefined,
-        specialistShare: (f["Оплата майстру - всього"] as number) || undefined,
-        salonShare: (f["Салону за послугу"] as number) || undefined,
+        specialistShare: type === "sale"
+          ? ((f["Фікс. % майстру за продаж"] as number | undefined) ?? (f["Оплата майстру - всього"] as number | undefined))
+          : ((f["Оплата майстру - всього"] as number) || undefined),
+        salonShare: type === "sale"
+          ? ((f["Фікс. % салону за продаж"] as number | undefined) ?? (f["Салону за послугу"] as number | undefined))
+          : ((f["Салону за послугу"] as number) || undefined),
         // Detailed breakdowns for dashboard
         specialistServiceShare: (f["% майстру за послуги"] as number) || undefined,
         specialistMaterialShare: (f["% майстру за матеріали"] as number) || undefined,
@@ -438,7 +442,34 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Invalid record ID" }, { status: 400 });
     }
 
+    // Fetch linked sale details + orders so we can cascade-delete them.
+    // (Airtable won't orphan-clean linked records when the parent is deleted.)
+    const parent = await fetchRecords(TABLES.services, {
+      filterByFormula: `RECORD_ID()='${id}'`,
+      fields: ["Продажі деталі", "Замовлення"],
+      maxRecords: 1,
+    });
+    const parentFields = parent.records[0]?.fields ?? {};
+    const detailIds = (parentFields["Продажі деталі"] as string[] | undefined) ?? [];
+    const orderIds = (parentFields["Замовлення"] as string[] | undefined) ?? [];
+
+    // Delete parent first (unlinks children so their deletion is permitted)
     await deleteRecord(TABLES.services, id);
+
+    // Best-effort cleanup of child records. Log but don't fail the request.
+    await Promise.all([
+      ...detailIds.map((did) =>
+        deleteRecord(TABLES.saleDetails, did).catch((err) =>
+          console.error(`Failed to delete sale detail ${did}:`, err),
+        ),
+      ),
+      ...orderIds.map((oid) =>
+        deleteRecord(TABLES.orders, oid).catch((err) =>
+          console.error(`Failed to delete order ${oid}:`, err),
+        ),
+      ),
+    ]);
+
     return NextResponse.json({ success: true });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
