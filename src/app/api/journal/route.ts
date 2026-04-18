@@ -83,9 +83,7 @@ export async function GET(request: NextRequest) {
           "Загальна вартість матеріалів",
           "% майстру за послуги",
           "% майстру за матеріали",
-          "% майстру за продаж",
           "% салону за матеріали",
-          "% салону за продаж",
           "Фікс. % майстру за продаж",
           "Фікс. % салону за продаж",
           "Додаткові матеріали(Калькуляція)",
@@ -251,9 +249,9 @@ export async function GET(request: NextRequest) {
         // Detailed breakdowns for dashboard
         specialistServiceShare: (f["% майстру за послуги"] as number) || undefined,
         specialistMaterialShare: (f["% майстру за матеріали"] as number) || undefined,
-        specialistSalesShare: (f["Фікс. % майстру за продаж"] as number) || (f["% майстру за продаж"] as number) || undefined,
+        specialistSalesShare: (f["Фікс. % майстру за продаж"] as number) || undefined,
         salonMaterialShare: (f["% салону за матеріали"] as number) || undefined,
-        salonSalesShare: (f["Фікс. % салону за продаж"] as number) || (f["% салону за продаж"] as number) || undefined,
+        salonSalesShare: (f["Фікс. % салону за продаж"] as number) || undefined,
         materialsCost,
         comment: (f["Коментарі"] as string) || undefined,
         // Калькуляція = base materials from service catalog (fixed/snapshot)
