@@ -440,7 +440,14 @@ export default function DashboardScreen() {
                             <td className="px-3 py-2.5 min-w-[120px] max-w-[220px]">
                               <span className="inline-flex items-start gap-1.5">
                                 <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1 ${dotColor(e.type)}`} />
-                                <span className={`${textColor} break-words`}>{e.title || "—"}</span>
+                                <span className={`${textColor} break-words`}>
+                                  {e.title || "—"}
+                                  {e.saleItems && e.saleItems.length > 1 && (
+                                    <span className="ml-1 inline-flex items-center px-1 py-0.5 rounded text-[9px] font-medium bg-emerald-50 text-emerald-600" title={e.saleItems.map(si => `${si.productName} ×${si.quantity}`).join(", ")}>
+                                      {e.saleItems.length} тов.
+                                    </span>
+                                  )}
+                                </span>
                               </span>
                             </td>
                             <td className="px-3 py-2.5 text-right font-medium text-gray-900 tabular-nums">

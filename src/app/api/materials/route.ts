@@ -3,7 +3,7 @@ import { fetchAllRecords, createRecord, updateRecord, deleteRecord, TABLES } fro
 
 const FIELDS = [
   "Name", "Всього мл/шт", "Вартість", "закупка",
-  "sku", "артикул", "штрих-код", "група", "одиниця",
+  "sku", "артикул", "штрих-код", "група", "одиниця", "неактивний",
 ];
 
 function mapMaterial(r: { id: string; fields: Record<string, unknown> }) {
@@ -36,6 +36,7 @@ function mapMaterial(r: { id: string; fields: Record<string, unknown> }) {
     barcode: (f["штрих-код"] as string) || "",
     group: (f["група"] as string) || "",
     unit,
+    isActive: !f["неактивний"],  // checkbox: checked = deactivated
   };
 }
 
@@ -74,6 +75,7 @@ export async function POST(request: NextRequest) {
     const fields: Record<string, unknown> = {
       "Name": name,
       "sku": sku,
+      // неактивний defaults to unchecked = active, no need to set
     };
     if (costPrice !== undefined) fields["закупка"] = costPrice;
     if (salePrice !== undefined) fields["Вартість"] = salePrice;
@@ -108,6 +110,7 @@ export async function PATCH(request: NextRequest) {
     if (updates.group !== undefined) fields["група"] = updates.group;
     if (updates.article !== undefined) fields["артикул"] = updates.article;
     if (updates.barcode !== undefined) fields["штрих-код"] = updates.barcode;
+    if (updates.isActive !== undefined) fields["неактивний"] = !updates.isActive;
 
     await updateRecord(TABLES.calculation, id, fields);
     return NextResponse.json({ success: true });

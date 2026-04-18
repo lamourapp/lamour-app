@@ -5,6 +5,7 @@ import { useSettings } from "@/lib/hooks";
 import { Button, Field, Input, Modal, Select } from "./ui";
 import type { Settings } from "@/app/api/settings/route";
 import CatalogScreen from "./CatalogScreen";
+import ServicesCatalogScreen from "./ServicesCatalogScreen";
 
 /* ─── Business-type presets ─── */
 
@@ -282,11 +283,15 @@ export default function SettingsScreen() {
   const { settings } = useSettings();
   const [showBusiness, setShowBusiness] = useState(false);
   const [catalogTab, setCatalogTab] = useState<"products" | "materials" | null>(null);
+  const [showServicesCatalog, setShowServicesCatalog] = useState(false);
 
   const specialistTerm = settings?.specialistTerm || "Спеціаліст";
   const businessName = businessPresets[settings?.businessType || "beauty"].label;
 
-  // Show CatalogScreen as a sub-view
+  // Show sub-views
+  if (showServicesCatalog) {
+    return <ServicesCatalogScreen onBack={() => setShowServicesCatalog(false)} />;
+  }
   if (catalogTab) {
     return (
       <CatalogScreen
@@ -305,18 +310,17 @@ export default function SettingsScreen() {
         : "Тип, назва, валюта, колір",
       onClick: () => setShowBusiness(true),
     },
-    { icon: "📋", title: "Каталог послуг", desc: "Калькуляції матеріалів" },
     {
-      icon: "🛍️",
-      title: "Товари",
-      desc: "Прайс для продажу клієнтам",
-      onClick: () => setCatalogTab("products"),
+      icon: "📋",
+      title: "Каталог послуг",
+      desc: "Послуги, ціни, групи",
+      onClick: () => setShowServicesCatalog(true),
     },
     {
-      icon: "🧴",
-      title: "Матеріали",
-      desc: "Матеріали для калькуляції послуг",
-      onClick: () => setCatalogTab("materials"),
+      icon: "📦",
+      title: "Каталог",
+      desc: "Товари для продажу · матеріали для послуг",
+      onClick: () => setCatalogTab("products"),
     },
     { icon: "👥", title: "Управління персоналом", desc: `${specialistTerm}и · ставки, %` },
   ];

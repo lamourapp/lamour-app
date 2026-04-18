@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchAllRecords, createRecord, deleteRecord, TABLES } from "@/lib/airtable";
+import { fetchAllRecords, fetchRecords, createRecord, deleteRecord, TABLES } from "@/lib/airtable";
 
 export async function GET(request: NextRequest) {
   try {
@@ -55,8 +55,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Fetch journal, specialists, services, and price list in parallel
-    const [records, specialistRecords, serviceCatalog, priceList] = await Promise.all([
+    // Fetch journal, specialists, services, price list, and sale details in parallel
+    const [records, specialistRecords, serviceCatalog, priceList, saleDetailRecords] = await Promise.all([
       fetchAllRecords(TABLES.services, {
         filterByFormula: dateFilter,
         sort: [{ field: "Дата", direction: "desc" }],
@@ -72,6 +72,7 @@ export async function GET(request: NextRequest) {
           "Вид витрати",
           "Cума боргу",
           "Продажі",
+          "Продажі деталі",
           "Всього ціна продажі",
           "Доповнення(продажі)",
           "Created",
@@ -85,6 +86,8 @@ export async function GET(request: NextRequest) {
           "% майстру за продаж",
           "% салону за матеріали",
           "% салону за продаж",
+          "Фікс. % майстру за продаж",
+          "Фікс. % салону за продаж",
           "Додаткові матеріали(Калькуляція)",
           "Фікс. вартість матеріалів",
         ],
@@ -92,6 +95,7 @@ export async function GET(request: NextRequest) {
       fetchAllRecords(TABLES.specialists, { fields: ["Ім'я"] }),
       fetchAllRecords(TABLES.servicesCatalog, { fields: ["Назва"] }),
       fetchAllRecords(TABLES.priceList, { fields: ["Назва"] }),
+      fetchAllRecords(TABLES.saleDetails, { fields: ["к-сть", "Прайс", "Фікс. ціна продажу", "До оплати"] }),
     ]);
 
     // Build lookup maps
@@ -103,6 +107,18 @@ export async function GET(request: NextRequest) {
 
     const priceMap = new Map<string, string>();
     priceList.forEach((r) => priceMap.set(r.id, (r.fields["Назва"] as string) || ""));
+
+    // Build sale details map: detailId → { productName, quantity, lineTotal }
+    const saleDetailMap = new Map<string, { productName: string; quantity: number; lineTotal: number }>();
+    saleDetailRecords.forEach((r) => {
+      const priceLinks = r.fields["Прайс"] as string[] | undefined;
+      const productName = priceLinks && priceLinks.length > 0 ? (priceMap.get(priceLinks[0]) || "") : "";
+      saleDetailMap.set(r.id, {
+        productName,
+        quantity: (r.fields["к-сть"] as number) || 1,
+        lineTotal: (r.fields["До оплати"] as number) || (r.fields["Фікс. ціна продажу"] as number) || 0,
+      });
+    });
 
     let entries = records.map((r) => {
       const f = r.fields;
@@ -137,9 +153,28 @@ export async function GET(request: NextRequest) {
         title = serviceMap.get(serviceLinks[0]) || "";
       }
 
-      // Get product name for sales
-      if (type === "sale" && salesLinks && salesLinks.length > 0) {
-        title = priceMap.get(salesLinks[0]) || "Продаж";
+      // Get product name for sales + build saleItems from detail records
+      const detailLinks = f["Продажі деталі"] as string[] | undefined;
+      let saleItems: { productName: string; quantity: number; lineTotal: number }[] | undefined;
+
+      if (type === "sale") {
+        if (detailLinks && detailLinks.length > 0) {
+          // New multi-product format: build from detail records
+          saleItems = detailLinks
+            .map((id) => saleDetailMap.get(id))
+            .filter((d): d is NonNullable<typeof d> => !!d && !!d.productName);
+          if (saleItems.length > 0) {
+            title = saleItems[0].productName;
+            if (saleItems.length > 1) {
+              title += ` +${saleItems.length - 1}`;
+            }
+          } else {
+            title = salesLinks && salesLinks.length > 0 ? (priceMap.get(salesLinks[0]) || "Продаж") : "Продаж";
+          }
+        } else if (salesLinks && salesLinks.length > 0) {
+          // Legacy single-product format
+          title = priceMap.get(salesLinks[0]) || "Продаж";
+        }
       }
 
       // Also show product alongside service if both exist
@@ -212,9 +247,9 @@ export async function GET(request: NextRequest) {
         // Detailed breakdowns for dashboard
         specialistServiceShare: (f["% майстру за послуги"] as number) || undefined,
         specialistMaterialShare: (f["% майстру за матеріали"] as number) || undefined,
-        specialistSalesShare: (f["% майстру за продаж"] as number) || undefined,
+        specialistSalesShare: (f["Фікс. % майстру за продаж"] as number) || (f["% майстру за продаж"] as number) || undefined,
         salonMaterialShare: (f["% салону за матеріали"] as number) || undefined,
-        salonSalesShare: (f["% салону за продаж"] as number) || undefined,
+        salonSalesShare: (f["Фікс. % салону за продаж"] as number) || (f["% салону за продаж"] as number) || undefined,
         materialsCost,
         comment: (f["Коментарі"] as string) || undefined,
         // Калькуляція = base materials from service catalog (fixed/snapshot)
@@ -227,6 +262,7 @@ export async function GET(request: NextRequest) {
           const extra = total - base;
           return extra > 0 ? extra : undefined;
         })(),
+        saleItems: saleItems && saleItems.length > 1 ? saleItems : undefined,
         source,
         time,
         paymentType: (f["вид оплати"] as string) || undefined,
@@ -274,21 +310,79 @@ export async function POST(request: NextRequest) {
         fields["Cума боргу"] = amount; // + ми винні, - нам винні
         break;
 
-      case "sale":
-        if (!body.productId) return NextResponse.json({ error: "productId is required" }, { status: 400 });
+      case "sale": {
         if (!specialistId) return NextResponse.json({ error: "specialistId is required" }, { status: 400 });
-        fields["Продажі"] = [body.productId];
+        const saleItems = body.saleItems as { productId: string; quantity: number; salePrice: number; costPrice: number }[] | undefined;
+
+        if (saleItems && saleItems.length > 0) {
+          // Multi-product sale: create detail records, sum totals
+          const detailIds: string[] = [];
+          const productIds: string[] = [];
+          let totalSalePrice = 0;
+          let totalCostPrice = 0;
+
+          for (const item of saleItems) {
+            if (!item.productId || item.quantity <= 0) continue;
+            const lineTotal = item.salePrice * item.quantity;
+            const lineCost = item.costPrice * item.quantity;
+            const detail = await createRecord(TABLES.saleDetails, {
+              "к-сть": item.quantity,
+              "Прайс": [item.productId],
+              "Фікс. ціна продажу": item.salePrice,
+              "Фікс. ціна закупки": item.costPrice,
+              "До оплати": lineTotal,
+            });
+            detailIds.push(detail.id);
+            if (!productIds.includes(item.productId)) productIds.push(item.productId);
+            totalSalePrice += lineTotal;
+            totalCostPrice += lineCost;
+          }
+
+          if (detailIds.length === 0) return NextResponse.json({ error: "No valid sale items" }, { status: 400 });
+
+          fields["Продажі деталі"] = detailIds;
+          fields["Продажі"] = productIds;
+          fields["Фікс. ціна продажу"] = totalSalePrice;
+          fields["Фікс. ціна закупки"] = totalCostPrice;
+        } else if (body.productId) {
+          // Legacy single-product sale (backward compat)
+          fields["Продажі"] = [body.productId];
+          if (body.salePrice) fields["Фікс. ціна продажу"] = body.salePrice;
+          if (body.costPrice) fields["Фікс. ціна закупки"] = body.costPrice;
+        } else {
+          return NextResponse.json({ error: "saleItems or productId is required" }, { status: 400 });
+        }
+
         if (body.supplement) fields["Доповнення(продажі)"] = body.supplement;
-        // Set fixed price fields — Airtable formula uses these for total calculation
-        if (body.salePrice) fields["Фікс. ціна продажу"] = body.salePrice;
-        if (body.costPrice) fields["Фікс. ціна закупки"] = body.costPrice;
+
+        // Calculate specialist/salon split based on specialist's "% за продаж"
+        const totalSaleAmount = (fields["Фікс. ціна продажу"] as number) || 0;
+        const supplement = body.supplement || 0;
+        const saleTotal = totalSaleAmount + supplement;
+        if (specialistId && saleTotal > 0) {
+          // Fetch specialist's sales commission rate
+          const specResult = await fetchRecords(TABLES.specialists, {
+            filterByFormula: `RECORD_ID()='${specialistId}'`,
+            fields: ["% за продаж"],
+            maxRecords: 1,
+          });
+          const specRate = specResult.records.length > 0
+            ? (specResult.records[0].fields["% за продаж"] as number) || 0
+            : 0;
+          const specialistAmount = Math.round(saleTotal * specRate / 100);
+          const salonAmount = saleTotal - specialistAmount;
+          fields["Фікс. % майстру за продаж"] = specialistAmount;
+          fields["Фікс. % салону за продаж"] = salonAmount;
+        }
         break;
+      }
 
       case "service": {
         if (!body.serviceId) return NextResponse.json({ error: "serviceId is required" }, { status: 400 });
         if (!specialistId) return NextResponse.json({ error: "specialistId is required" }, { status: 400 });
         fields["Послуга"] = [body.serviceId];
         // Fixed values from catalog (formulas use these, not lookups)
+        if (body.fixedPrice !== undefined) fields["Фіксована вартість"] = body.fixedPrice;
         if (body.hourlyRate !== undefined) fields["Фікс. вартість години"] = body.hourlyRate;
         if (body.materialsCost !== undefined) fields["Фікс. вартість матеріалів"] = body.materialsCost;
         if (body.supplement) fields["Доповнення"] = body.supplement;

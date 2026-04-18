@@ -295,6 +295,7 @@ export default function ServiceEntryModal({
   const [specialistId, setSpecialistId] = useState("");
   const [serviceId, setServiceId] = useState("");
   const [supplement, setSupplement] = useState("");
+  const [supplementSign, setSupplementSign] = useState<"+" | "-">("+");
   const [extraHours, setExtraHours] = useState("");
   const [calcMaterials, setCalcMaterials] = useState<MaterialUsage[]>([]);
   const [comment, setComment] = useState("");
@@ -329,17 +330,29 @@ export default function ServiceEntryModal({
 
   const preview = useMemo(() => {
     if (!selectedService) return null;
-    const rate = selectedService.hourlyRate || 0;
-    const hrs = selectedService.hours + (parseFloat(extraHours) || 0);
-    const suppl = parseFloat(supplement) || 0;
-    const work = rate * hrs + suppl;
+    const isHourly = selectedService.hours > 0;
+    const rawSuppl = parseFloat(supplement) || 0;
+    const suppl = supplementSign === "-" ? -Math.abs(rawSuppl) : Math.abs(rawSuppl);
+    let work: number;
+    let rate = 0;
+    let hrs = 0;
+
+    if (isHourly) {
+      rate = selectedService.hourlyRate || 0;
+      hrs = selectedService.hours + (parseFloat(extraHours) || 0);
+      work = rate * hrs + suppl;
+    } else {
+      // Fixed price: workPrice is the total work component
+      work = (selectedService.workPrice || 0) + suppl;
+    }
+
     const baseMat = selectedService.materialsCost || 0;
     const calcCost = calcMaterials.reduce((s, u) => {
       const m = materials.find((x) => x.id === u.materialId);
       return !m || u.amount <= 0 ? s : s + (u.amount * m.totalCost) / m.totalVolume;
     }, 0);
     const totalMat = baseMat + Math.round(calcCost);
-    return { work, baseMat, calcCost: Math.round(calcCost), totalMat, total: work + totalMat, hrs, rate };
+    return { work, baseMat, calcCost: Math.round(calcCost), totalMat, total: work + totalMat, hrs, rate, isHourly };
   }, [selectedService, supplement, extraHours, calcMaterials, materials]);
 
   async function handleSubmit() {
@@ -349,14 +362,16 @@ export default function ServiceEntryModal({
 
     setSaving(true);
     try {
+      const isHourly = selectedService && selectedService.hours > 0;
       const body: Record<string, unknown> = {
         type: "service", date, specialistId, serviceId,
-        hourlyRate: selectedService?.hourlyRate || 0,
+        hourlyRate: isHourly ? (selectedService?.hourlyRate || 0) : undefined,
+        fixedPrice: !isHourly ? (selectedService?.workPrice || 0) : undefined,
         materialsCost: selectedService?.materialsCost || 0,
         comment: comment || undefined,
       };
-      const suppl = parseFloat(supplement);
-      if (suppl) body.supplement = suppl;
+      const rawSuppl = parseFloat(supplement);
+      if (rawSuppl) body.supplement = supplementSign === "-" ? -Math.abs(rawSuppl) : Math.abs(rawSuppl);
       const eh = parseFloat(extraHours);
       if (eh) body.extraHours = eh;
       const valid = calcMaterials.filter((m) => m.materialId && m.amount > 0);
@@ -450,7 +465,9 @@ export default function ServiceEntryModal({
                   <div>
                     <div className="text-[14px] text-gray-900 font-medium leading-tight">{s.name}</div>
                     <div className="text-[12px] text-gray-500 mt-0.5 tabular-nums">
-                      {fmt(s.hourlyRate)} × {s.hours} год
+                      {s.hours > 0
+                        ? `${fmt(s.hourlyRate)} × ${s.hours} год`
+                        : `роб. ${fmt(s.workPrice)}`}
                       {s.materialsCost > 0 && ` + мат. ${fmt(s.materialsCost)}`}
                       {" = "}{fmt(s.totalPrice)}
                     </div>
@@ -465,13 +482,38 @@ export default function ServiceEntryModal({
                 {/* Divider */}
                 <div className="border-t border-black/5 my-5" />
 
-                {/* Supplement & Extra Hours - same height */}
+                {/* Supplement sign toggle */}
+                <div className="mb-3">
+                  <label className={labelCls}>Доповнення</label>
+                  <div className="flex gap-2 mb-2">
+                    <button
+                      type="button"
+                      onClick={() => setSupplementSign("+")}
+                      className={`flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
+                        supplementSign === "+" ? "bg-green-50 text-green-600 border border-green-200" : "bg-gray-50 text-gray-500 border border-black/5"
+                      }`}
+                    >
+                      + Надбавка
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSupplementSign("-")}
+                      className={`flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
+                        supplementSign === "-" ? "bg-red-50 text-red-600 border border-red-200" : "bg-gray-50 text-gray-500 border border-black/5"
+                      }`}
+                    >
+                      − Знижка
+                    </button>
+                  </div>
+                </div>
+
+                {/* Supplement & Extra Hours */}
                 <div className="grid grid-cols-2 gap-3 mb-5">
                   <div>
-                    <label className={labelCls}>Доповнення (±)</label>
+                    <label className={labelCls}>Сума</label>
                     <input
                       type="number"
-                      inputMode="numeric"
+                      inputMode="decimal"
                       value={supplement}
                       onChange={(e) => setSupplement(e.target.value)}
                       placeholder="0"
@@ -505,8 +547,9 @@ export default function ServiceEntryModal({
                     <div className="space-y-1.5 text-[13px]">
                       <div className="flex justify-between">
                         <span className="text-gray-500">
-                          Робота ({preview.rate} × {preview.hrs} год
-                          {supplement ? ` ${parseFloat(supplement) > 0 ? "+" : ""}${supplement}` : ""})
+                          {preview.isHourly
+                            ? `Робота (${fmt(preview.rate)} × ${preview.hrs} год${supplement ? ` ${supplementSign === "-" ? "−" : "+"}${supplement}` : ""})`
+                            : `Робота (фікс.${supplement ? ` ${supplementSign === "-" ? "−" : "+"}${supplement}` : ""})`}
                         </span>
                         <span className="text-gray-900 tabular-nums font-medium">{fmt(preview.work)}</span>
                       </div>

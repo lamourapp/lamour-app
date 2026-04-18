@@ -137,13 +137,13 @@ export function useSettings() {
 export interface CatalogProduct {
   id: string; name: string; salePrice: number; costPrice: number;
   group: string; sku: string; article: string; barcode: string;
-  salonPercent: number; price: number;
+  salonPercent: number; price: number; isActive: boolean;
 }
 export interface CatalogMaterial {
   id: string; name: string; salePrice: number; costPrice: number;
   totalVolume: number; pricePerUnit: number; costPerUnit: number;
   group: string; unit: string; sku: string; article: string; barcode: string;
-  totalCost: number;
+  totalCost: number; isActive: boolean;
 }
 
 export function useCatalog<T extends "products" | "materials">(type: T) {
@@ -164,6 +164,36 @@ export function useCatalog<T extends "products" | "materials">(type: T) {
   useEffect(() => { reload(); }, [reload]);
 
   return { items: data, loading, error, reload };
+}
+
+/* ─── Services catalog ─── */
+
+export interface ServiceCatalogItem {
+  id: string; name: string; workPrice: number; hourlyRate: number;
+  hours: number; materialsCost: number; totalPrice: number;
+  category: string; duration: number; isActive: boolean;
+}
+
+export function useServicesCatalog() {
+  const [data, setData] = useState<ServiceCatalogItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const reload = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    fetch(`/api/services-catalog?_t=${Date.now()}`, { cache: "no-store" })
+      .then((res) => { if (!res.ok) throw new Error("Failed"); return res.json(); })
+      .then((d) => { setData(d); setLoading(false); })
+      .catch((e) => { setError(e.message); setLoading(false); });
+  }, []);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  // Extract unique categories
+  const categories = Array.from(new Set(data.map((s) => s.category).filter(Boolean))).sort();
+
+  return { services: data, categories, loading, error, reload };
 }
 
 export function useSpecialists(includeInactive = false) {

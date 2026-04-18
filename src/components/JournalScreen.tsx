@@ -9,6 +9,7 @@ type Fmt = (amount: number, opts?: { signed?: boolean; maximumFractionDigits?: n
 import CalendarPicker from "./CalendarPicker";
 import CreateEntryModal from "./CreateEntryModal";
 import ServiceEntryModal from "./ServiceEntryModal";
+import ScrollToTop from "./ScrollToTop";
 
 function TypeDot({ type }: { type: JournalEntry["type"] }) {
   const colors: Record<string, string> = {
@@ -45,13 +46,21 @@ function TypeLabel({ type }: { type: JournalEntry["type"] }) {
 
 function EntryCard({ entry, onDelete, fmt }: { entry: JournalEntry; onDelete: (id: string) => void; fmt: Fmt }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const isRental = entry.type === "rental";
   const hasMaterials = isRental && entry.materialsCost && entry.materialsCost > 0;
+  const hasMultiProducts = entry.saleItems && entry.saleItems.length > 1;
 
   return (
     <div
       className="bg-white rounded-xl border border-black/[0.06] px-4 py-3 transition-all hover:shadow-[0_2px_12px_rgba(0,0,0,0.06)] group relative"
       onClick={(e) => {
+        // Multi-product sale: toggle expand on tap
+        if (hasMultiProducts && !confirmDelete) {
+          e.preventDefault();
+          setExpanded(!expanded);
+          return;
+        }
         // On mobile: tap card to show delete confirm (only if not already showing)
         if (window.innerWidth < 640 && !confirmDelete) {
           e.preventDefault();
@@ -63,7 +72,17 @@ function EntryCard({ entry, onDelete, fmt }: { entry: JournalEntry; onDelete: (i
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <TypeDot type={entry.type} />
           <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-medium text-gray-900 truncate">{entry.title || "—"}</div>
+            <div className="text-[13px] font-medium text-gray-900 truncate flex items-center gap-1.5">
+              <span className="truncate">{entry.title || "—"}</span>
+              {hasMultiProducts && (
+                <span className="inline-flex items-center shrink-0 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-emerald-50 text-emerald-600 border border-emerald-100">
+                  {entry.saleItems!.length} товари
+                  <svg className={`w-3 h-3 ml-0.5 transition-transform ${expanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                  </svg>
+                </span>
+              )}
+            </div>
             <div className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1 flex-wrap">
               {entry.specialistName && <span>{entry.specialistName}</span>}
               {entry.time && <span>· {entry.time}</span>}
@@ -111,6 +130,21 @@ function EntryCard({ entry, onDelete, fmt }: { entry: JournalEntry; onDelete: (i
           </button>
         </div>
       </div>
+
+      {/* Expanded sale items */}
+      {expanded && hasMultiProducts && (
+        <div className="mt-2 pt-2 border-t border-black/[0.04] space-y-1">
+          {entry.saleItems!.map((item, i) => (
+            <div key={i} className="flex items-center justify-between text-[12px] pl-4">
+              <span className="text-gray-600">
+                {item.productName}
+                {item.quantity > 1 && <span className="text-gray-400"> ×{item.quantity}</span>}
+              </span>
+              <span className="text-gray-500 tabular-nums">{fmt(item.lineTotal)}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Confirm delete dialog */}
       {confirmDelete && (
@@ -244,8 +278,9 @@ export default function JournalScreen() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-5">
-      {/* Filters */}
-      <div className="bg-white rounded-2xl border border-black/[0.06] p-3 mb-4">
+      {/* Filters — sticky below nav */}
+      <div className="sticky top-12 z-30 -mx-4 px-4 pt-0 pb-2 bg-[#f5f5f7]/80 backdrop-blur-xl">
+      <div className="bg-white rounded-2xl border border-black/[0.06] p-3">
         {/* Row 1: period buttons */}
         <div className="flex items-center gap-2">
           <div className="flex gap-1 bg-[#f5f5f7] rounded-xl p-0.5 flex-1 min-w-0">
@@ -307,6 +342,7 @@ export default function JournalScreen() {
           />
         )}
       </div>
+      </div>{/* end sticky wrapper */}
 
       {/* Summary */}
       <div className="flex items-center justify-between mb-3 px-0.5">
@@ -349,6 +385,9 @@ export default function JournalScreen() {
           </div>
         </div>
       ))}
+
+      {/* Scroll to top */}
+      <ScrollToTop />
 
       {/* Bottom spacer */}
       <div className="h-24" />

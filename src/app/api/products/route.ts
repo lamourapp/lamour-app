@@ -3,7 +3,7 @@ import { fetchAllRecords, createRecord, updateRecord, deleteRecord, TABLES } fro
 
 const FIELDS = [
   "Назва", "ціна продажу", "ціна закупки", "% cалону", "група",
-  "sku", "артикул", "штрих-код",
+  "sku", "артикул", "штрих-код", "неактивний",
 ];
 
 function mapProduct(r: { id: string; fields: Record<string, unknown> }) {
@@ -26,6 +26,7 @@ function mapProduct(r: { id: string; fields: Record<string, unknown> }) {
     sku: (f["sku"] as string) || "",
     article: (f["артикул"] as string) || "",
     barcode: (f["штрих-код"] as string) || "",
+    isActive: !f["неактивний"],  // checkbox: checked = deactivated
     // Legacy compat: CreateEntryModal expects `price`
     price: (f["ціна продажу"] as number) || 0,
   };
@@ -67,10 +68,12 @@ export async function POST(request: NextRequest) {
     const fields: Record<string, unknown> = {
       "Назва": name,
       "sku": sku,
+      // неактивний defaults to unchecked = active, no need to set
     };
     if (costPrice !== undefined) fields["ціна закупки"] = costPrice;
     if (salePrice !== undefined) fields["ціна продажу"] = salePrice;
     if (group) fields["група"] = group;
+    if (body.salonPercent !== undefined) fields["% cалону"] = body.salonPercent;
     if (article) fields["артикул"] = article;
     if (barcode) fields["штрих-код"] = barcode;
 
@@ -94,9 +97,11 @@ export async function PATCH(request: NextRequest) {
     if (updates.name !== undefined) fields["Назва"] = updates.name;
     if (updates.costPrice !== undefined) fields["ціна закупки"] = updates.costPrice;
     if (updates.salePrice !== undefined) fields["ціна продажу"] = updates.salePrice;
-    if (updates.group !== undefined) fields["група"] = updates.group;
+    if (updates.group !== undefined) fields["група"] = updates.group || null;
+    if (updates.salonPercent !== undefined) fields["% cалону"] = updates.salonPercent;
     if (updates.article !== undefined) fields["артикул"] = updates.article;
     if (updates.barcode !== undefined) fields["штрих-код"] = updates.barcode;
+    if (updates.isActive !== undefined) fields["неактивний"] = !updates.isActive;
     // SKU is immutable — never updated via PATCH
 
     await updateRecord(TABLES.priceList, id, fields);

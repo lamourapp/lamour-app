@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { Button, Segmented, type SegmentedOption } from "./ui";
 import { useCatalog, type CatalogProduct, type CatalogMaterial } from "@/lib/hooks";
 import { useSettings } from "@/lib/hooks";
@@ -27,8 +27,12 @@ export default function CatalogScreen({
   const [query, setQuery] = useState("");
   const [modalItem, setModalItem] = useState<CatalogProduct | CatalogMaterial | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [showInactive, setShowInactive] = useState(false);
   const [skuLoading, setSkuLoading] = useState(false);
   const [skuMsg, setSkuMsg] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const products = useCatalog("products");
   const materials = useCatalog("materials");
@@ -36,37 +40,24 @@ export default function CatalogScreen({
   const current = tab === "products" ? products : materials;
   const items = current.items as (CatalogProduct | CatalogMaterial)[];
 
-  // Search filter
+  // Count inactive for badge
+  const inactiveCount = useMemo(() => items.filter((i) => !i.isActive).length, [items]);
+
+  // Search + active filter
   const filtered = useMemo(() => {
-    if (!query.trim()) return items;
-    const q = query.toLowerCase();
-    return items.filter(
-      (i) =>
-        i.name.toLowerCase().includes(q) ||
-        i.group.toLowerCase().includes(q) ||
-        i.sku.toLowerCase().includes(q) ||
-        i.article?.toLowerCase().includes(q) ||
-        i.barcode?.toLowerCase().includes(q)
-    );
-  }, [items, query]);
-
-  // Group by "group" field
-  const grouped = useMemo(() => {
-    const map = new Map<string, (CatalogProduct | CatalogMaterial)[]>();
-    filtered.forEach((i) => {
-      const g = i.group || "Без групи";
-      if (!map.has(g)) map.set(g, []);
-      map.get(g)!.push(i);
-    });
-    return map;
-  }, [filtered]);
-
-  // Unique groups for autocomplete
-  const existingGroups = useMemo(() => {
-    const set = new Set<string>();
-    items.forEach((i) => { if (i.group) set.add(i.group); });
-    return Array.from(set).sort();
-  }, [items]);
+    let list = showInactive ? items : items.filter((i) => i.isActive);
+    if (query.trim()) {
+      const q = query.toLowerCase();
+      list = list.filter(
+        (i) =>
+          i.name.toLowerCase().includes(q) ||
+          i.sku.toLowerCase().includes(q) ||
+          i.article?.toLowerCase().includes(q) ||
+          i.barcode?.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [items, query, showInactive]);
 
   function handleCreate() {
     setModalItem(null);
@@ -85,6 +76,32 @@ export default function CatalogScreen({
 
   async function handleExport() {
     window.location.href = `/api/catalog/export?type=${tab}`;
+  }
+
+  async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportMsg("");
+    try {
+      const text = await file.text();
+      const res = await fetch(`/api/catalog/import?type=${tab}`, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+        body: text,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setImportMsg(data.message);
+      products.reload();
+      materials.reload();
+    } catch (err) {
+      setImportMsg(err instanceof Error ? err.message : "Помилка імпорту");
+    } finally {
+      setImporting(false);
+      // Reset file input so the same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   }
 
   async function handleEnsureSku() {
@@ -145,7 +162,38 @@ export default function CatalogScreen({
         <Button variant="secondary" onClick={handleExport} className="shrink-0 !px-3" title="Експорт CSV">
           📥
         </Button>
+        <Button
+          variant="secondary"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={importing}
+          className="shrink-0 !px-3"
+          title="Імпорт CSV"
+        >
+          {importing ? "⏳" : "📤"}
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          onChange={handleImport}
+          className="hidden"
+        />
       </div>
+      {importMsg && (
+        <div className="mb-3 text-center text-[12px] text-brand-600 bg-brand-50 rounded-lg px-3 py-2">
+          {importMsg}
+        </div>
+      )}
+
+      {/* Show inactive toggle */}
+      {inactiveCount > 0 && (
+        <button
+          onClick={() => setShowInactive((v) => !v)}
+          className="mb-3 text-[12px] text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+        >
+          {showInactive ? "Сховати неактивні" : `Показати неактивні (${inactiveCount})`}
+        </button>
+      )}
 
       {/* Loading / error */}
       {current.loading && (
@@ -163,46 +211,41 @@ export default function CatalogScreen({
       )}
 
       {!current.loading && filtered.length > 0 && (
-        <div className="space-y-4">
-          {Array.from(grouped.entries()).map(([group, groupItems]) => (
-            <div key={group}>
-              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5 px-1">
-                {group} · {groupItems.length}
+        <div className="bg-white rounded-xl border border-black/5 divide-y divide-black/5">
+          {filtered.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => handleEdit(item)}
+              className={`w-full text-left px-3.5 py-2.5 hover:bg-brand-50/50 cursor-pointer transition-colors flex items-center justify-between gap-2 ${!item.isActive ? "opacity-50" : ""}`}
+            >
+              <div className="min-w-0 flex-1">
+                <div className="text-[14px] text-gray-900 truncate">
+                  {item.name}
+                  {!item.isActive && <span className="ml-1.5 text-[10px] text-gray-400 font-normal">⏸</span>}
+                </div>
+                <div className="text-[11px] text-gray-400 mt-0.5 flex gap-2">
+                  {item.sku && <span className="font-mono">{item.sku}</span>}
+                  {item.article && <span>{item.article}</span>}
+                  {tab === "materials" && (item as CatalogMaterial).totalVolume > 0 && (
+                    <span>
+                      {(item as CatalogMaterial).totalVolume}
+                      {(item as CatalogMaterial).unit || ""}
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="bg-white rounded-xl border border-black/5 divide-y divide-black/5">
-                {groupItems.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => handleEdit(item)}
-                    className="w-full text-left px-3.5 py-2.5 hover:bg-brand-50/50 cursor-pointer transition-colors flex items-center justify-between gap-2"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[14px] text-gray-900 truncate">{item.name}</div>
-                      <div className="text-[11px] text-gray-400 mt-0.5 flex gap-2">
-                        {item.sku && <span className="font-mono">{item.sku}</span>}
-                        {item.article && <span>{item.article}</span>}
-                        {tab === "materials" && (item as CatalogMaterial).totalVolume > 0 && (
-                          <span>
-                            {(item as CatalogMaterial).totalVolume}
-                            {(item as CatalogMaterial).unit || ""}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <div className="text-[14px] font-medium text-gray-900 tabular-nums">
-                        {fmt(item.salePrice)}
-                      </div>
-                      {item.costPrice > 0 && (
-                        <div className="text-[11px] text-gray-400 tabular-nums">
-                          зак. {fmt(item.costPrice)}
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                ))}
+              <div className="text-right shrink-0">
+                <div className="text-[14px] font-medium text-gray-900 tabular-nums">
+                  {fmt(item.salePrice)}
+                </div>
+                <div className="text-[11px] text-gray-400 tabular-nums">
+                  {item.costPrice > 0 && `зак. ${fmt(item.costPrice)}`}
+                  {tab === "products" && (item as CatalogProduct).salonPercent > 0 && (
+                    <span className="ml-1">· спец. {100 - (item as CatalogProduct).salonPercent}%</span>
+                  )}
+                </div>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -232,7 +275,6 @@ export default function CatalogScreen({
         <CatalogItemModal
           type={tab}
           item={modalItem}
-          existingGroups={existingGroups}
           onClose={() => setShowModal(false)}
           onSaved={handleSaved}
         />

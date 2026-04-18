@@ -35,6 +35,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
   const [compensationType, setCompensationType] = useState<CompensationType>(specialist?.compensationType || "commission");
   const [serviceCommission, setServiceCommission] = useState(specialist?.serviceCommission ?? 30);
   const [salesCommission, setSalesCommission] = useState(specialist?.salesCommission ?? 10);
+  const [productSalesCommission, setProductSalesCommission] = useState(specialist?.productSalesCommission ?? 10);
   const [conditions, setConditions] = useState(specialist?.conditions ?? 0);
   const [birthday, setBirthday] = useState(specialist?.birthdayRaw || "");
   const [saving, setSaving] = useState(false);
@@ -62,6 +63,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
           compensationType === "rental" ? 100 :
           0,
         salesCommission,
+        productSalesCommission,
         conditions: compensationType !== "commission" ? conditions : 0,
         birthday: birthday || undefined,
       };
@@ -134,48 +136,70 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
       </Field>
 
       {compensationType === "commission" && (
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="% салону за послугу">
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="% салону за послугу">
+              <Input
+                type="number"
+                value={serviceCommission}
+                onChange={(e) => setServiceCommission(Number(e.target.value))}
+                min={0}
+                max={100}
+              />
+            </Field>
+            <Field label="% майстру з матеріалів">
+              <Input
+                type="number"
+                value={salesCommission}
+                onChange={(e) => setSalesCommission(Number(e.target.value))}
+                min={0}
+                max={100}
+              />
+            </Field>
+          </div>
+          <Field label="% майстру за продаж товарів">
             <Input
               type="number"
-              value={serviceCommission}
-              onChange={(e) => setServiceCommission(Number(e.target.value))}
+              value={productSalesCommission}
+              onChange={(e) => setProductSalesCommission(Number(e.target.value))}
               min={0}
               max={100}
             />
           </Field>
-          <Field label="% майстру з матеріалів">
-            <Input
-              type="number"
-              value={salesCommission}
-              onChange={(e) => setSalesCommission(Number(e.target.value))}
-              min={0}
-              max={100}
-            />
-          </Field>
-        </div>
+        </>
       )}
 
       {compensationType === "rental" && (
-        <div className="grid grid-cols-2 gap-3">
-          <Field label={`Ставка оренди, ${sym}`}>
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={`Ставка оренди, ${sym}`}>
+              <Input
+                type="number"
+                value={conditions}
+                onChange={(e) => setConditions(Number(e.target.value))}
+                min={0}
+              />
+            </Field>
+            <Field label="% майстру з матеріалів">
+              <Input
+                type="number"
+                value={salesCommission}
+                onChange={(e) => setSalesCommission(Number(e.target.value))}
+                min={0}
+                max={100}
+              />
+            </Field>
+          </div>
+          <Field label="% майстру за продаж товарів">
             <Input
               type="number"
-              value={conditions}
-              onChange={(e) => setConditions(Number(e.target.value))}
-              min={0}
-            />
-          </Field>
-          <Field label="% майстру з матеріалів">
-            <Input
-              type="number"
-              value={salesCommission}
-              onChange={(e) => setSalesCommission(Number(e.target.value))}
+              value={productSalesCommission}
+              onChange={(e) => setProductSalesCommission(Number(e.target.value))}
               min={0}
               max={100}
             />
           </Field>
-        </div>
+        </>
       )}
 
       {compensationType === "salary" && (
@@ -199,6 +223,15 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
               />
             </Field>
           </div>
+          <Field label="% майстру за продаж товарів">
+            <Input
+              type="number"
+              value={productSalesCommission}
+              onChange={(e) => setProductSalesCommission(Number(e.target.value))}
+              min={0}
+              max={100}
+            />
+          </Field>
           <div className="text-[11px] text-gray-500 leading-relaxed bg-amber-50/50 border border-amber-100 rounded-lg px-3 py-2">
             💡 Ставка — це сума, яку <strong>салон платить</strong> спеціалісту.
             Виплати ЗП записуються в журнал як <strong>витрата</strong> з видом &quot;Зарплата&quot;.

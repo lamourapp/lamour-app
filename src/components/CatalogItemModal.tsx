@@ -9,12 +9,12 @@ type CatalogType = "products" | "materials";
 interface Props {
   type: CatalogType;
   item?: CatalogProduct | CatalogMaterial | null;
-  existingGroups: string[];
+  existingGroups?: string[];
   onClose: () => void;
   onSaved: () => void;
 }
 
-export default function CatalogItemModal({ type, item, existingGroups, onClose, onSaved }: Props) {
+export default function CatalogItemModal({ type, item, onClose, onSaved }: Props) {
   const isEdit = !!item;
   const isMaterial = type === "materials";
   const mat = isMaterial ? (item as CatalogMaterial | undefined) : undefined;
@@ -24,9 +24,15 @@ export default function CatalogItemModal({ type, item, existingGroups, onClose, 
   const [barcode, setBarcode] = useState(item?.barcode || "");
   const [costPrice, setCostPrice] = useState(item?.costPrice?.toString() || "");
   const [salePrice, setSalePrice] = useState(item?.salePrice?.toString() || "");
-  const [group, setGroup] = useState(item?.group || "");
   const [totalVolume, setTotalVolume] = useState(mat?.totalVolume?.toString() || "");
   const [unit, setUnit] = useState(mat?.unit || "");
+  // UI shows specialist %, Airtable stores salon % → convert: specialist = 100 - salon
+  const [specialistPercent, setSpecialistPercent] = useState(() => {
+    if (isMaterial || !item) return "";
+    const salon = (item as CatalogProduct).salonPercent;
+    return salon ? String(100 - salon) : "";
+  });
+  const [isActive, setIsActive] = useState(item?.isActive ?? true);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -37,16 +43,18 @@ export default function CatalogItemModal({ type, item, existingGroups, onClose, 
     setError("");
 
     try {
-      const payload: Record<string, unknown> = { name: name.trim() };
+      const payload: Record<string, unknown> = { name: name.trim(), isActive };
       if (costPrice) payload.costPrice = parseFloat(costPrice);
       if (salePrice) payload.salePrice = parseFloat(salePrice);
-      if (group) payload.group = group.trim();
       if (article) payload.article = article.trim();
       if (barcode) payload.barcode = barcode.trim();
 
       if (isMaterial) {
         if (totalVolume) payload.totalVolume = parseFloat(totalVolume);
         if (unit) payload.unit = unit;
+      } else {
+        // Convert specialist % → salon %: salon = 100 - specialist
+        if (specialistPercent) payload.salonPercent = 100 - parseFloat(specialistPercent);
       }
 
       const url = `/api/${type}`;
@@ -101,18 +109,20 @@ export default function CatalogItemModal({ type, item, existingGroups, onClose, 
         </div>
       )}
 
-      <Field label="Група">
-        <Input
-          type="text"
-          value={group}
-          onChange={(e) => setGroup(e.target.value)}
-          placeholder="Група або категорія"
-          list="catalog-groups"
-        />
-        <datalist id="catalog-groups">
-          {existingGroups.map((g) => <option key={g} value={g} />)}
-        </datalist>
-      </Field>
+      {!isMaterial && (
+        <Field label="% спеціалісту за продаж">
+          <Input
+            type="number"
+            inputMode="numeric"
+            value={specialistPercent}
+            onChange={(e) => setSpecialistPercent(e.target.value)}
+            placeholder="10"
+            min={0}
+            max={100}
+            className="tabular-nums"
+          />
+        </Field>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="Артикул">
@@ -127,6 +137,32 @@ export default function CatalogItemModal({ type, item, existingGroups, onClose, 
         <div className="text-[11px] text-gray-400 bg-gray-50 rounded-lg px-3 py-2">
           SKU: <span className="font-mono">{item.sku}</span> <span className="text-gray-300">· незмінне</span>
         </div>
+      )}
+
+      {/* Active / inactive toggle */}
+      {isEdit && (
+        <label className="flex items-center gap-3 px-3 py-2.5 bg-gray-50 rounded-xl cursor-pointer select-none">
+          <div className="relative">
+            <input
+              type="checkbox"
+              checked={isActive}
+              onChange={(e) => setIsActive(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-9 h-5 bg-gray-300 rounded-full peer-checked:bg-brand-500 transition-colors" />
+            <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm peer-checked:translate-x-4 transition-transform" />
+          </div>
+          <div>
+            <div className="text-[13px] text-gray-900 font-medium">
+              {isActive ? "Активний" : "Виведений з асортименту"}
+            </div>
+            <div className="text-[11px] text-gray-400">
+              {isActive
+                ? "Показується у вибірках і каталозі"
+                : "Не пропонується при створенні записів"}
+            </div>
+          </div>
+        </label>
       )}
 
       {error && (

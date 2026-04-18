@@ -6,7 +6,7 @@ import { fetchAllRecords, TABLES } from "@/lib/airtable";
  * Returns CSV file download.
  */
 
-function escapeCSV(val: string | number | undefined | null): string {
+function escapeCSV(val: string | number | boolean | undefined | null): string {
   if (val === undefined || val === null) return "";
   const s = String(val);
   if (s.includes(",") || s.includes('"') || s.includes("\n")) {
@@ -24,18 +24,16 @@ export async function GET(request: NextRequest) {
   try {
     if (type === "products") {
       const records = await fetchAllRecords(TABLES.priceList, {
-        fields: ["Назва", "ціна закупки", "ціна продажу", "група", "sku", "артикул", "штрих-код"],
+        fields: ["Назва", "ціна закупки", "ціна продажу", "% cалону", "sku", "артикул", "штрих-код", "неактивний"],
         sort: [{ field: "Назва", direction: "asc" }],
       });
 
-      const header = "SKU,Назва,Артикул,Штрих-код,Ціна закупки,Ціна продажу,Група";
+      const header = "SKU,Назва,Артикул,Штрих-код,Ціна закупки,Ціна продажу,% спеціалісту,Активний";
       const rows = records.map((r) => {
         const f = r.fields;
-        const rawGroup = f["група"];
-        const group =
-          typeof rawGroup === "string" ? rawGroup :
-          rawGroup && typeof rawGroup === "object" && "name" in (rawGroup as Record<string, unknown>)
-            ? (rawGroup as { name: string }).name : "";
+        const salonPct = (f["% cалону"] as number) || 0;
+        const specialistPct = salonPct > 0 ? 100 - salonPct : "";
+        const isActive = !f["неактивний"];
         return [
           escapeCSV(f["sku"] as string),
           escapeCSV(f["Назва"] as string),
@@ -43,7 +41,8 @@ export async function GET(request: NextRequest) {
           escapeCSV(f["штрих-код"] as string),
           escapeCSV(f["ціна закупки"] as number),
           escapeCSV(f["ціна продажу"] as number),
-          escapeCSV(group),
+          escapeCSV(specialistPct),
+          escapeCSV(isActive ? "так" : "ні"),
         ].join(",");
       });
 
@@ -56,11 +55,11 @@ export async function GET(request: NextRequest) {
       });
     } else {
       const records = await fetchAllRecords(TABLES.calculation, {
-        fields: ["Name", "закупка", "Вартість", "Всього мл/шт", "одиниця", "група", "sku", "артикул", "штрих-код"],
+        fields: ["Name", "закупка", "Вартість", "Всього мл/шт", "одиниця", "sku", "артикул", "штрих-код", "неактивний"],
         sort: [{ field: "Name", direction: "asc" }],
       });
 
-      const header = "SKU,Назва,Артикул,Штрих-код,Ціна закупки,Ціна продажу,Фасування,Одиниця,Група";
+      const header = "SKU,Назва,Артикул,Штрих-код,Ціна закупки,Ціна продажу,Фасування,Одиниця,Активний";
       const rows = records.map((r) => {
         const f = r.fields;
         const rawUnit = f["одиниця"];
@@ -68,6 +67,7 @@ export async function GET(request: NextRequest) {
           typeof rawUnit === "string" ? rawUnit :
           rawUnit && typeof rawUnit === "object" && "name" in (rawUnit as Record<string, unknown>)
             ? (rawUnit as { name: string }).name : "";
+        const isActive = !f["неактивний"];
         return [
           escapeCSV(f["sku"] as string),
           escapeCSV(f["Name"] as string),
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
           escapeCSV(f["Вартість"] as number),
           escapeCSV(f["Всього мл/шт"] as number),
           escapeCSV(unit),
-          escapeCSV(f["група"] as string),
+          escapeCSV(isActive ? "так" : "ні"),
         ].join(",");
       });
 

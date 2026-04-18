@@ -6,6 +6,7 @@ function mapSpecialist(r: { id: string; fields: Record<string, unknown> }) {
   const compensationType = (f["Тип оплати"] as string) || "комісія";
   const salonPercent = (f["% cалону за послугу"] as number) || 0;
   const salesPercent = (f["% майстру за продаж матеріалів"] as number) || 0;
+  const productSalesPercent = (f["% за продаж"] as number) || 0;
 
   let type: "commission" | "rental" | "salary" = "commission";
   if (compensationType === "оренда") type = "rental";
@@ -37,6 +38,7 @@ function mapSpecialist(r: { id: string; fields: Record<string, unknown> }) {
     compensationType: type,
     serviceCommission: salonPercent,
     salesCommission: salesPercent,
+    productSalesCommission: productSalesPercent,
     rentalRate: type === "rental" ? (f["Умови співпраці"] as number) || 0 : undefined,
     salaryRate: type === "salary" ? (f["Умови співпраці"] as number) || 0 : undefined,
     conditions: (f["Умови співпраці"] as number) || 0,
@@ -58,6 +60,7 @@ export async function GET(request: NextRequest) {
         "Вид діяльності",
         "% cалону за послугу",
         "% майстру за продаж матеріалів",
+        "% за продаж",
         "Умови співпраці",
         "Баланс",
         "Дата народження",
@@ -83,7 +86,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, role, compensationType, serviceCommission, salesCommission, conditions, birthday } = body;
+    const { name, role, compensationType, serviceCommission, salesCommission, productSalesCommission, conditions, birthday } = body;
 
     if (!name) {
       return NextResponse.json({ error: "name is required" }, { status: 400 });
@@ -108,6 +111,7 @@ export async function POST(request: NextRequest) {
     // Percentages
     if (serviceCommission !== undefined) fields["% cалону за послугу"] = serviceCommission;
     if (salesCommission !== undefined) fields["% майстру за продаж матеріалів"] = salesCommission;
+    if (productSalesCommission !== undefined) fields["% за продаж"] = productSalesCommission;
     if (conditions !== undefined) fields["Умови співпраці"] = conditions;
 
     const result = await createRecord(TABLES.specialists, fields);
@@ -146,6 +150,7 @@ export async function PATCH(request: NextRequest) {
 
     if (updates.serviceCommission !== undefined) fields["% cалону за послугу"] = updates.serviceCommission;
     if (updates.salesCommission !== undefined) fields["% майстру за продаж матеріалів"] = updates.salesCommission;
+    if (updates.productSalesCommission !== undefined) fields["% за продаж"] = updates.productSalesCommission;
     if (updates.conditions !== undefined) fields["Умови співпраці"] = updates.conditions;
 
     await updateRecord(TABLES.specialists, id, fields);

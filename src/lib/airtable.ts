@@ -18,6 +18,7 @@ export const TABLES = {
   priceList: "tblhW7QGo6svDezGR",       // Прайс
   calculation: "tbl9NtGOpsE3XbdT4",     // Калькуляція
   orders: "tbl6WADNSFGrw6abz",          // Замовлення
+  saleDetails: "tblTbJdSfMpMRqU4r",     // Продажі деталі
   products: "tblthnCZzNrs9gJ1I",        // Товари
   clients: "tblhwRZKJeduhN7vE",         // Клієнти
   settings: "tblSTSjnEbV37pWRP",        // Settings (single row "current")
@@ -148,6 +149,31 @@ export async function updateRecord(
   }
 
   return res.json();
+}
+
+// Batch update records (max 10 per call, Airtable limit)
+export async function batchUpdateRecords(
+  tableId: string,
+  updates: { id: string; fields: Record<string, unknown> }[],
+): Promise<void> {
+  // Airtable allows max 10 records per batch
+  for (let i = 0; i < updates.length; i += 10) {
+    const batch = updates.slice(i, i + 10);
+    const url = `${API_URL}/${BASE_ID}/${tableId}`;
+    const res = await fetch(url, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ records: batch }),
+    });
+
+    if (!res.ok) {
+      const error = await res.text();
+      throw new Error(`Airtable batch update error ${res.status}: ${error}`);
+    }
+  }
 }
 
 // Delete a record

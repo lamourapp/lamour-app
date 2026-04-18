@@ -10,6 +10,7 @@ export interface Specialist {
   compensationType: CompensationType;
   serviceCommission: number; // % salon takes from services
   salesCommission: number;   // % specialist gets from materials used in services
+  productSalesCommission: number; // % specialist gets from product sales to clients
   rentalRate?: number;       // daily rental rate (for rental type)
   salaryRate?: number;       // daily salary (for salary type)
   balance: number;
@@ -39,21 +40,22 @@ export interface JournalEntry {
   comment?: string; // коментар до запису
   calculationCost?: number; // додаткова калькуляція
   baseMaterialsCost?: number; // базові матеріали послуги
+  saleItems?: { productName: string; quantity: number; lineTotal: number }[]; // multi-product sale details
   source?: "bot" | "admin";
   time?: string;
 }
 
 export const specialists: Specialist[] = [
-  { id: "1", name: "Соломія", role: "Перукар", compensationType: "commission", serviceCommission: 30, salesCommission: 10, balance: 0, birthday: "24 вересня", avatarColor: "brand" },
-  { id: "2", name: "Леся Шевчук", role: "Перукар", compensationType: "commission", serviceCommission: 30, salesCommission: 10, balance: 0, birthday: "27 листопада", avatarColor: "brand" },
-  { id: "3", name: "Лєна Громик", role: "Візажист, бровіст", compensationType: "commission", serviceCommission: 30, salesCommission: 10, balance: 0, birthday: "26 вересня", avatarColor: "brand" },
-  { id: "4", name: "Іра", role: "Візажист, бровіст", compensationType: "commission", serviceCommission: 25, salesCommission: 10, balance: 7, birthday: "9 вересня", avatarColor: "brand" },
-  { id: "5", name: "Юля манікюр", role: "Нігтьовий сервіс", compensationType: "commission", serviceCommission: 30, salesCommission: 10, balance: 10, birthday: "19 квітня", avatarColor: "brand" },
-  { id: "6", name: "Крістіна", role: "Візажист, бровіст", compensationType: "commission", serviceCommission: 30, salesCommission: 10, balance: 0, birthday: "28 травня", avatarColor: "brand" },
-  { id: "7", name: "Артур", role: "Перукар", compensationType: "rental", serviceCommission: 0, salesCommission: 10, rentalRate: 5000, balance: 0, birthday: "5 березня", avatarColor: "amber" },
-  { id: "8", name: "Андрій", role: "Перукар", compensationType: "rental", serviceCommission: 0, salesCommission: 10, rentalRate: 5000, balance: 0, birthday: "18 серпня", avatarColor: "amber" },
-  { id: "9", name: "Антон", role: "Перукар", compensationType: "rental", serviceCommission: 0, salesCommission: 15, rentalRate: 4500, balance: -2000, birthday: "2 червня", avatarColor: "amber" },
-  { id: "10", name: "Каріна", role: "Адміністратор", compensationType: "salary", serviceCommission: 0, salesCommission: 5, salaryRate: 600, balance: 0, birthday: "13 листопада", avatarColor: "gray" },
+  { id: "1", name: "Соломія", role: "Перукар", compensationType: "commission", serviceCommission: 30, salesCommission: 10, productSalesCommission: 10, balance: 0, birthday: "24 вересня", avatarColor: "brand" },
+  { id: "2", name: "Леся Шевчук", role: "Перукар", compensationType: "commission", serviceCommission: 30, salesCommission: 10, productSalesCommission: 10, balance: 0, birthday: "27 листопада", avatarColor: "brand" },
+  { id: "3", name: "Лєна Громик", role: "Візажист, бровіст", compensationType: "commission", serviceCommission: 30, salesCommission: 10, productSalesCommission: 10, balance: 0, birthday: "26 вересня", avatarColor: "brand" },
+  { id: "4", name: "Іра", role: "Візажист, бровіст", compensationType: "commission", serviceCommission: 25, salesCommission: 10, productSalesCommission: 10, balance: 7, birthday: "9 вересня", avatarColor: "brand" },
+  { id: "5", name: "Юля манікюр", role: "Нігтьовий сервіс", compensationType: "commission", serviceCommission: 30, salesCommission: 10, productSalesCommission: 10, balance: 10, birthday: "19 квітня", avatarColor: "brand" },
+  { id: "6", name: "Крістіна", role: "Візажист, бровіст", compensationType: "commission", serviceCommission: 30, salesCommission: 10, productSalesCommission: 10, balance: 0, birthday: "28 травня", avatarColor: "brand" },
+  { id: "7", name: "Артур", role: "Перукар", compensationType: "rental", serviceCommission: 0, salesCommission: 10, productSalesCommission: 10, rentalRate: 5000, balance: 0, birthday: "5 березня", avatarColor: "amber" },
+  { id: "8", name: "Андрій", role: "Перукар", compensationType: "rental", serviceCommission: 0, salesCommission: 10, productSalesCommission: 10, rentalRate: 5000, balance: 0, birthday: "18 серпня", avatarColor: "amber" },
+  { id: "9", name: "Антон", role: "Перукар", compensationType: "rental", serviceCommission: 0, salesCommission: 15, productSalesCommission: 15, rentalRate: 4500, balance: -2000, birthday: "2 червня", avatarColor: "amber" },
+  { id: "10", name: "Каріна", role: "Адміністратор", compensationType: "salary", serviceCommission: 0, salesCommission: 5, productSalesCommission: 5, salaryRate: 600, balance: 0, birthday: "13 листопада", avatarColor: "gray" },
 ];
 
 export const journalEntries: JournalEntry[] = [

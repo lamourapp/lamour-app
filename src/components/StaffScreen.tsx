@@ -9,14 +9,15 @@ type Fmt = (amount: number, opts?: { signed?: boolean; maximumFractionDigits?: n
 import SpecialistModal from "./SpecialistModal";
 
 function compensationLabel(s: Specialist, fmt: Fmt, sym: string): string {
-  const materialsLabel = s.salesCommission > 0 ? ` · матеріали ${s.salesCommission}%` : "";
+  const materialsLabel = s.salesCommission > 0 ? ` · матер. ${s.salesCommission}%` : "";
+  const salesLabel = s.productSalesCommission > 0 ? ` · продаж ${s.productSalesCommission}%` : "";
   switch (s.compensationType) {
     case "commission":
-      return `комісія ${s.serviceCommission}%${materialsLabel}`;
+      return `комісія ${s.serviceCommission}%${materialsLabel}${salesLabel}`;
     case "rental":
-      return `оренда${s.rentalRate ? ` ${fmt(s.rentalRate)}` : ""}${materialsLabel}`;
+      return `оренда${s.rentalRate ? ` ${fmt(s.rentalRate)}` : ""}${materialsLabel}${salesLabel}`;
     case "salary":
-      return `ЗП ${s.salaryRate} ${sym}/день${materialsLabel}`;
+      return `ЗП ${s.salaryRate} ${sym}/день${materialsLabel}${salesLabel}`;
   }
 }
 
