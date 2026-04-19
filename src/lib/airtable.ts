@@ -116,7 +116,10 @@ export async function createRecord(
       Authorization: `Bearer ${getToken()}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ fields }),
+    // typecast=true lets Airtable auto-create missing singleSelect/multipleSelect
+     // options and coerce string↔number where possible. Without it, sending a
+     // new select value (e.g. new Тип оплати) returns INVALID_MULTIPLE_CHOICE_OPTIONS.
+    body: JSON.stringify({ fields, typecast: true }),
   });
 
   if (!res.ok) {
@@ -140,7 +143,7 @@ export async function updateRecord(
       Authorization: `Bearer ${getToken()}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ fields }),
+    body: JSON.stringify({ fields, typecast: true }),
   });
 
   if (!res.ok) {
@@ -166,7 +169,7 @@ export async function batchUpdateRecords(
         Authorization: `Bearer ${getToken()}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ records: batch }),
+      body: JSON.stringify({ records: batch, typecast: true }),
     });
 
     if (!res.ok) {
