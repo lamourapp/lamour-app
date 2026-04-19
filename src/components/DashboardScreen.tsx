@@ -210,24 +210,48 @@ export default function DashboardScreen() {
       <div className="bg-white rounded-2xl border border-black/[0.06] p-3 mb-5">
         {/* Row 1: period buttons */}
         <div className="flex items-center gap-2">
-          <div className="flex gap-1 bg-[#f5f5f7] rounded-xl p-0.5 flex-1 min-w-0">
-            {periodButtons.map((p) => (
+          <div className="relative flex-1 min-w-0">
+            <div className="flex gap-1 bg-[#f5f5f7] rounded-xl p-0.5">
+              {periodButtons.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => selectPeriod(p.id)}
+                  className={`flex-1 px-1 sm:px-3 py-2 rounded-[10px] text-[13px] font-medium cursor-pointer transition-all truncate
+                    ${period === p.id && !customRange ? "bg-brand-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
+                >
+                  {p.label}
+                </button>
+              ))}
               <button
-                key={p.id}
-                onClick={() => selectPeriod(p.id)}
-                className={`flex-1 px-1 sm:px-3 py-2 rounded-[10px] text-[13px] font-medium cursor-pointer transition-all truncate
-                  ${period === p.id && !customRange ? "bg-brand-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
+                type="button"
+                onClick={() => setShowCalendar((v) => !v)}
+                className={`px-2.5 py-2 rounded-[10px] text-[13px] cursor-pointer transition-all shrink-0 inline-flex items-center justify-center
+                  ${customRange || showCalendar ? "bg-brand-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
+                aria-label="Обрати діапазон"
+                title="Обрати діапазон"
               >
-                {p.label}
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
               </button>
-            ))}
-            <button
-              onClick={() => setShowCalendar(!showCalendar)}
-              className={`px-2.5 py-2 rounded-[10px] text-[13px] cursor-pointer transition-all shrink-0
-                ${customRange ? "bg-brand-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
-            >
-              📅
-            </button>
+            </div>
+            {showCalendar && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowCalendar(false)}
+                  aria-hidden="true"
+                />
+                <div className="absolute right-0 top-full mt-2 w-[320px] max-w-[calc(100vw-2rem)] bg-white border border-black/[0.08] rounded-2xl shadow-xl p-3 z-50">
+                  <CalendarPicker
+                    onApply={handleCalendarApply}
+                    onClose={() => setShowCalendar(false)}
+                    initialFrom={customRange?.from}
+                    initialTo={customRange?.to}
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
         {/* Row 2: specialist select */}
@@ -247,14 +271,6 @@ export default function DashboardScreen() {
           </div>
         </div>
 
-        {showCalendar && (
-          <CalendarPicker
-            onApply={handleCalendarApply}
-            onClose={() => setShowCalendar(false)}
-            initialFrom={customRange?.from}
-            initialTo={customRange?.to}
-          />
-        )}
       </div>
 
       {/* Loading / Error */}

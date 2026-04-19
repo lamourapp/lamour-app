@@ -284,15 +284,16 @@ export default function OwnerScreen() {
               </p>
             </div>
 
-            <div className="flex gap-1 bg-[#f5f5f7] rounded-xl p-0.5 flex-wrap">
+            <div className="relative">
+              <div className="flex gap-1 bg-[#f5f5f7] rounded-xl p-0.5 flex-wrap">
               {periodButtons.map((p) => (
                 <button
                   key={p.id}
                   onClick={() => selectPeriod(p.id)}
-                  className={`px-3 py-1.5 text-[12px] font-medium rounded-[10px] cursor-pointer transition-colors ${
-                    period === p.id
-                      ? "bg-white text-brand-600 shadow-sm"
-                      : "text-gray-500 hover:text-gray-900"
+                  className={`px-3 py-2 rounded-[10px] text-[13px] font-medium cursor-pointer transition-all ${
+                    period === p.id && !customRange
+                      ? "bg-brand-600 text-white shadow-sm"
+                      : "text-gray-500 hover:text-gray-800"
                   }`}
                 >
                   {p.label}
@@ -301,30 +302,39 @@ export default function OwnerScreen() {
               <button
                 type="button"
                 onClick={() => setShowCalendar((v) => !v)}
-                className={`px-3 py-1.5 text-[12px] font-medium rounded-[10px] cursor-pointer transition-colors inline-flex items-center gap-1 ${
+                className={`px-2.5 py-2 rounded-[10px] text-[13px] cursor-pointer transition-all shrink-0 inline-flex items-center gap-1 ${
                   period === "custom" || showCalendar
-                    ? "bg-white text-brand-600 shadow-sm"
-                    : "text-gray-500 hover:text-gray-900"
+                    ? "bg-brand-600 text-white shadow-sm"
+                    : "text-gray-500 hover:text-gray-800"
                 }`}
                 title="Обрати діапазон"
                 aria-label="Обрати діапазон"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 00-2 2z" />
                 </svg>
-                <span className="hidden sm:inline">Діапазон</span>
               </button>
+              </div>
+
+              {showCalendar && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowCalendar(false)}
+                    aria-hidden="true"
+                  />
+                  <div className="absolute right-0 top-full mt-2 w-[320px] max-w-[calc(100vw-2rem)] bg-white border border-black/[0.08] rounded-2xl shadow-xl p-3 z-50">
+                    <CalendarPicker
+                      onClose={() => setShowCalendar(false)}
+                      onApply={handleCalendarApply}
+                      initialFrom={customRange?.from}
+                      initialTo={customRange?.to}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           </div>
-
-          {showCalendar && (
-            <CalendarPicker
-              onClose={() => setShowCalendar(false)}
-              onApply={handleCalendarApply}
-              initialFrom={customRange?.from}
-              initialTo={customRange?.to}
-            />
-          )}
         </div>
 
         {statsError && (
