@@ -346,12 +346,24 @@ export default function ServiceEntryModal({
   const filteredServices = useMemo(() => {
     // Rental specialists: only show "Оренда" category — no regular services.
     if (isRental) return services.filter((s) => s.category === "Оренда");
-    // Hourly specialists: show all services except Оренда (that's only for rental type)
-    if (isHourlySpec) return services.filter((s) => s.category !== "Оренда");
-    if (!selectedSpecialist?.role || showAllServices) return services;
+    // "Показати всі" toggle — override role-based filter (works for any comp type)
+    if (showAllServices) {
+      return isHourlySpec ? services.filter((s) => s.category !== "Оренда") : services;
+    }
+    // No role set → show all (fallback to avoid empty list for misconfigured specs)
+    if (!selectedSpecialist?.role) {
+      return isHourlySpec ? services.filter((s) => s.category !== "Оренда") : services;
+    }
     const cats = ROLE_CATEGORIES[selectedSpecialist.role];
-    if (!cats) return services;
-    return services.filter((s) => s.category === "Оренда" || cats.includes(s.category));
+    if (!cats) {
+      return isHourlySpec ? services.filter((s) => s.category !== "Оренда") : services;
+    }
+    // Role-based filter applies to BOTH hourly and commission specialists.
+    // Hourly excludes "Оренда" (it's only for rental-type specialists).
+    return services.filter((s) => {
+      if (s.category === "Оренда") return !isHourlySpec; // hide rental for hourly
+      return cats.includes(s.category);
+    });
   }, [services, selectedSpecialist, showAllServices, isRental, isHourlySpec]);
 
   const preview = useMemo(() => {

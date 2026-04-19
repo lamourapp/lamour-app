@@ -431,12 +431,137 @@ function SecurityModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+/* ─── Modal: "Пороги сигналів" ─── */
+
+function AlertsModal({ onClose }: { onClose: () => void }) {
+  const { settings, update } = useSettings();
+  const [draft, setDraft] = useState<{
+    alertNetDropWarn: number;
+    alertNetDropCrit: number;
+    alertExpensesHigh: number;
+    alertLowMargin: number;
+  } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (settings && !draft) {
+      setDraft({
+        alertNetDropWarn: settings.alertNetDropWarn,
+        alertNetDropCrit: settings.alertNetDropCrit,
+        alertExpensesHigh: settings.alertExpensesHigh,
+        alertLowMargin: settings.alertLowMargin,
+      });
+    }
+  }, [settings, draft]);
+
+  if (!draft) {
+    return (
+      <Modal title="Пороги сигналів" onClose={onClose}>
+        <div className="py-6 text-center text-gray-400 text-[13px]">Завантаження…</div>
+      </Modal>
+    );
+  }
+
+  function set<K extends keyof NonNullable<typeof draft>>(k: K, v: number) {
+    setDraft((d) => (d ? { ...d, [k]: v } : d));
+  }
+
+  function num(v: string): number {
+    const n = parseInt(v, 10);
+    return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0;
+  }
+
+  async function save() {
+    if (!draft) return;
+    if (draft.alertNetDropWarn >= draft.alertNetDropCrit) {
+      setError("Поріг попередження має бути меншим за критичний");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await update(draft);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Помилка збереження");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal title="Пороги сигналів" onClose={onClose}>
+      <p className="text-[12px] text-gray-500 mb-4">
+        Налаштування порогів, при яких у дашборді керівника з&apos;являються попередження.
+      </p>
+
+      <div className="space-y-3">
+        <Field label="Падіння чистого доходу MoM — попередження (%)">
+          <Input
+            type="number"
+            min={1}
+            max={99}
+            value={String(draft.alertNetDropWarn)}
+            onChange={(e) => set("alertNetDropWarn", num(e.target.value))}
+          />
+          <p className="mt-1 text-[11px] text-gray-400">Жовтий сигнал, якщо чистий дохід впав на цей % у порівнянні з минулим періодом.</p>
+        </Field>
+
+        <Field label="Падіння чистого доходу MoM — критично (%)">
+          <Input
+            type="number"
+            min={2}
+            max={100}
+            value={String(draft.alertNetDropCrit)}
+            onChange={(e) => set("alertNetDropCrit", num(e.target.value))}
+          />
+          <p className="mt-1 text-[11px] text-gray-400">Червоний сигнал. Має бути більшим за попередження.</p>
+        </Field>
+
+        <Field label="Частка витрат від обороту — попередження (%)">
+          <Input
+            type="number"
+            min={1}
+            max={100}
+            value={String(draft.alertExpensesHigh)}
+            onChange={(e) => set("alertExpensesHigh", num(e.target.value))}
+          />
+          <p className="mt-1 text-[11px] text-gray-400">Сигнал, коли витрати перевищують цей % від обороту.</p>
+        </Field>
+
+        <Field label="Мінімальна маржинальність (%)">
+          <Input
+            type="number"
+            min={1}
+            max={100}
+            value={String(draft.alertLowMargin)}
+            onChange={(e) => set("alertLowMargin", num(e.target.value))}
+          />
+          <p className="mt-1 text-[11px] text-gray-400">Інфо-сигнал, якщо маржа нижча за цей рівень.</p>
+        </Field>
+      </div>
+
+      {error && (
+        <div className="mt-3 text-[12px] text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</div>
+      )}
+
+      <div className="mt-5">
+        <Button fullWidth size="lg" onClick={save} disabled={saving}>
+          {saving ? "Зберігаю…" : "Зберегти"}
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
 /* ─── Entry list ─── */
 
 export default function SettingsScreen() {
   const { settings } = useSettings();
   const [showBusiness, setShowBusiness] = useState(false);
   const [showSecurity, setShowSecurity] = useState(false);
+  const [showAlerts, setShowAlerts] = useState(false);
   const [catalogTab, setCatalogTab] = useState<"products" | "materials" | null>(null);
   const [showServicesCatalog, setShowServicesCatalog] = useState(false);
 
@@ -479,6 +604,14 @@ export default function SettingsScreen() {
     },
     { icon: "👥", title: "Управління персоналом", desc: `${specialistTerm}и · ставки, %` },
     {
+      icon: "⚠️",
+      title: "Пороги сигналів",
+      desc: settings
+        ? `Падіння ${settings.alertNetDropWarn}/${settings.alertNetDropCrit}% · витрати ${settings.alertExpensesHigh}% · маржа ${settings.alertLowMargin}%`
+        : "Налаштування алертів у дашборді керівника",
+      onClick: () => setShowAlerts(true),
+    },
+    {
       icon: "🔒",
       title: "Безпека",
       desc: settings?.hasPin ? "PIN встановлено · змінити або видалити" : "Встановити PIN для аналітики власника",
@@ -513,6 +646,7 @@ export default function SettingsScreen() {
       </div>
 
       {showBusiness && <BusinessSettingsModal onClose={() => setShowBusiness(false)} />}
+      {showAlerts && <AlertsModal onClose={() => setShowAlerts(false)} />}
       {showSecurity && <SecurityModal onClose={() => setShowSecurity(false)} />}
     </div>
   );

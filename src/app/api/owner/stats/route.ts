@@ -292,11 +292,12 @@ function byService(records: Row[], nameMap: Map<string, string>): ServiceRow[] {
     // Це консистентно з тим, що net менший за оборот.
     row.revenue += total;
     row.netMaterials += (f["Дохід Матеріали"] as number) || 0;
-    // Канонічний `Чистий дохід салону` — та сама формула, що в daily() і aggregate().
-    // Для оренди `Салону за послугу` і `Дохід Матеріали` дублюють повну суму, тож
-    // сума цих двох полів подвоює rental net. Використовуємо канонічний net.
-    // TODO: для комбінованих записів (послуга+продаж) тут буде включено частину від продажу.
-    row.netSalon += (f["Чистий дохід салону"] as number) || 0;
+    // Канонічний `Чистий дохід салону` покриває послугу + продажі + матеріали в одному рядку.
+    // Для byService треба відняти чисту sale-частину, щоб атрибуція була тільки за послугу.
+    // `Дохід Продажі` — net від продажу товарів (ціна - закупка - оплата майстру%).
+    const canonNet = (f["Чистий дохід салону"] as number) || 0;
+    const netSales = (f["Дохід Продажі"] as number) || 0;
+    row.netSalon += canonNet - netSales;
   }
 
   return [...map.values()].sort((a, b) => b.netSalon - a.netSalon);
@@ -362,26 +363,38 @@ function byProduct(
   return [...byId.values()].sort((a, b) => b.revenue - a.revenue);
 }
 
+interface AlertThresholds {
+  netDropWarn: number;   // %
+  netDropCrit: number;   // %
+  expensesHigh: number;  // %
+  lowMargin: number;     // %
+}
+
 function buildAlerts(
   current: Aggregates,
   previous: Aggregates,
   specialists: SpecialistRow[],
   details: DetailRow[],
   productInfo: Map<string, ProductInfo>,
+  thresholds: AlertThresholds,
 ): RiskAlert[] {
   const alerts: RiskAlert[] = [];
+  const warnFrac = thresholds.netDropWarn / 100;
+  const critFrac = thresholds.netDropCrit / 100;
+  const expFrac = thresholds.expensesHigh / 100;
+  const marginFrac = thresholds.lowMargin / 100;
 
-  // 1) Падіння чистого доходу MoM (понад 15% — попередження, 30%+ — критично)
+  // 1) Падіння чистого доходу MoM (пороги з settings)
   if (previous.netSalon > 0 && previous.count > 0) {
     const diff = (current.netSalon - previous.netSalon) / previous.netSalon;
-    if (diff < -0.3) {
+    if (diff < -critFrac) {
       alerts.push({
         id: "net-drop-critical",
         severity: "critical",
         title: "Різке падіння чистого доходу",
         detail: `Чистий дохід впав на ${Math.round(diff * -100)}% у порівнянні з попереднім періодом (${Math.round(previous.netSalon)} → ${Math.round(current.netSalon)}).`,
       });
-    } else if (diff < -0.15) {
+    } else if (diff < -warnFrac) {
       alerts.push({
         id: "net-drop-warning",
         severity: "warning",
@@ -391,16 +404,16 @@ function buildAlerts(
     }
   }
 
-  // 2) Витрати перекривають дохід або майже перекривають
+  // 2) Витрати перекривають дохід (поріг з settings)
   const grossRevenue = current.revenueServices + current.revenueMaterials + current.revenueSales;
   if (current.expensesTotal > 0 && grossRevenue > 0) {
     const ratio = current.expensesTotal / grossRevenue;
-    if (ratio > 0.6) {
+    if (ratio > expFrac) {
       alerts.push({
         id: "expenses-high",
         severity: "warning",
         title: "Висока частка витрат",
-        detail: `Витрати склали ${Math.round(ratio * 100)}% від обороту.`,
+        detail: `Витрати склали ${Math.round(ratio * 100)}% від обороту (поріг ${thresholds.expensesHigh}%).`,
       });
     }
   }
@@ -415,13 +428,13 @@ function buildAlerts(
     });
   }
 
-  // 4) Маржинальність нижче 20%
-  if (current.margin < 0.2 && current.count > 0 && grossRevenue > 0) {
+  // 4) Маржинальність нижче порогу (поріг з settings)
+  if (current.margin < marginFrac && current.count > 0 && grossRevenue > 0) {
     alerts.push({
       id: "low-margin",
       severity: "info",
       title: "Низька маржинальність",
-      detail: `Поточна маржинальність ${(current.margin * 100).toFixed(1)}% — менше 20%.`,
+      detail: `Поточна маржинальність ${(current.margin * 100).toFixed(1)}% — менше ${thresholds.lowMargin}%.`,
     });
   }
 
@@ -487,7 +500,7 @@ export async function GET(request: NextRequest) {
 
     const prev = prevRange(from, to);
 
-    const [currentRecs, prevRecs, specRecs, svcCatalog, saleDetails, priceList] = await Promise.all([
+    const [currentRecs, prevRecs, specRecs, svcCatalog, saleDetails, priceList, settingsRecs] = await Promise.all([
       fetchAllRecords(TABLES.services, {
         filterByFormula: dateFilter(from, to),
         fields: FIELDS,
@@ -502,7 +515,23 @@ export async function GET(request: NextRequest) {
         fields: ["к-сть", "Прайс", "Фікс. ціна продажу", "Фікс. ціна закупки", "До оплати"],
       }),
       fetchAllRecords(TABLES.priceList, { fields: ["Назва"] }),
+      fetchAllRecords(TABLES.settings, {
+        filterByFormula: `{key} = "current"`,
+        fields: ["alertNetDropWarn", "alertNetDropCrit", "alertExpensesHigh", "alertLowMargin"],
+      }),
     ]);
+
+    const sFields = settingsRecs[0]?.fields || {};
+    const pickNum = (v: unknown, fallback: number): number => {
+      const n = typeof v === "number" ? v : Number(v);
+      return Number.isFinite(n) && n > 0 ? n : fallback;
+    };
+    const thresholds: AlertThresholds = {
+      netDropWarn: pickNum(sFields.alertNetDropWarn, 15),
+      netDropCrit: pickNum(sFields.alertNetDropCrit, 30),
+      expensesHigh: pickNum(sFields.alertExpensesHigh, 60),
+      lowMargin: pickNum(sFields.alertLowMargin, 20),
+    };
 
     const nameMap = new Map<string, string>();
     for (const s of specRecs) nameMap.set(s.id, (s.fields["Ім'я"] as string) || "—");
@@ -566,6 +595,7 @@ export async function GET(request: NextRequest) {
         bySpecialist(currentRecs, nameMap),
         details,
         productInfo,
+        thresholds,
       ),
       range: { from, to },
     };

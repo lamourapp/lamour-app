@@ -13,6 +13,11 @@ export interface Settings {
   hasPin: boolean;
   /** Locked after first successful save. When true, currency is read-only in UI. */
   isOnboarded: boolean;
+  /** Alert thresholds, stored as integer percents (15 = 15%). */
+  alertNetDropWarn: number;   // MoM net drop → warning
+  alertNetDropCrit: number;   // MoM net drop → critical
+  alertExpensesHigh: number;  // expenses share of revenue → warning
+  alertLowMargin: number;     // margin floor → info
 }
 
 const DEFAULTS: Omit<Settings, "id" | "hasPin" | "isOnboarded"> = {
@@ -23,6 +28,10 @@ const DEFAULTS: Omit<Settings, "id" | "hasPin" | "isOnboarded"> = {
   locationTerm: "Салон",
   brandColor: "#9333ea",
   timezone: "Europe/Kyiv",
+  alertNetDropWarn: 15,
+  alertNetDropCrit: 30,
+  alertExpensesHigh: 60,
+  alertLowMargin: 20,
 };
 
 function mapSettings(r: { id: string; fields: Record<string, unknown> }): Settings {
@@ -38,7 +47,16 @@ function mapSettings(r: { id: string; fields: Record<string, unknown> }): Settin
     timezone: (f.timezone as string) || DEFAULTS.timezone,
     hasPin: Boolean((f.pinHash as string)?.trim()),
     isOnboarded: Boolean(f.isOnboarded),
+    alertNetDropWarn: numOr(f.alertNetDropWarn, DEFAULTS.alertNetDropWarn),
+    alertNetDropCrit: numOr(f.alertNetDropCrit, DEFAULTS.alertNetDropCrit),
+    alertExpensesHigh: numOr(f.alertExpensesHigh, DEFAULTS.alertExpensesHigh),
+    alertLowMargin: numOr(f.alertLowMargin, DEFAULTS.alertLowMargin),
   };
+}
+
+function numOr(raw: unknown, fallback: number): number {
+  const n = typeof raw === "number" ? raw : Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
 async function loadCurrent(): Promise<{ id: string; fields: Record<string, unknown> } | null> {
@@ -81,6 +99,13 @@ export async function PATCH(request: NextRequest) {
     if (typeof body.locationTerm === "string") fields.locationTerm = body.locationTerm;
     if (typeof body.brandColor === "string") fields.brandColor = body.brandColor;
     if (typeof body.timezone === "string") fields.timezone = body.timezone;
+    // Alert thresholds — optional, clamped sanity bounds
+    for (const key of ["alertNetDropWarn", "alertNetDropCrit", "alertExpensesHigh", "alertLowMargin"] as const) {
+      const v = body[key];
+      if (typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 100) {
+        fields[key] = Math.round(v);
+      }
+    }
     // Auto-seal the tenant the first time settings are saved successfully.
     if (!currentlyOnboarded) fields.isOnboarded = true;
     // pinHash is set via dedicated endpoint later — not writable here
