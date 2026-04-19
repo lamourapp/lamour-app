@@ -76,7 +76,6 @@ export async function GET(request: NextRequest) {
           "Всього ціна продажі",
           "Доповнення(продажі)",
           "Created",
-          "Чатбот",
           "вид оплати",
           "Коментарі",
           "Загальна вартість роботи",
@@ -220,9 +219,8 @@ export async function GET(request: NextRequest) {
         amount = (f["Всього вартість послуги"] as number) || 0;
       }
 
-      // Source
-      const chatbot = f["Чатбот"] as string | undefined;
-      const source = chatbot ? "bot" : "admin";
+      // Source — all records now come from PWA (bot not connected to this base)
+      const source = "admin";
 
       // Time from Created, formatted in the tenant's timezone.
       // `Created` is always a UTC ISO string from Airtable; Intl handles the shift.
