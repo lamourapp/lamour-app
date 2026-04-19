@@ -36,6 +36,14 @@ export default function ProductsBlock({ top, settings, loading }: Props) {
         </div>
       ) : (
         <div className="space-y-2">
+          <div className="flex items-center gap-3 text-[11px] text-gray-500 font-medium pb-1.5 border-b border-black/[0.06]">
+            <span className="w-5"></span>
+            <div className="flex-1 flex items-center justify-between gap-2">
+              <span>Товар</span>
+              <span className="text-gray-400">К-сть · чистий</span>
+            </div>
+            <span className="w-20 text-right">Виручка</span>
+          </div>
           {top.map((p, i) => {
             const pct = (p.revenue / maxRevenue) * 100;
             return (
