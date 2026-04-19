@@ -8,12 +8,14 @@ function mapSpecialist(r: { id: string; fields: Record<string, unknown> }) {
   const salesPercent = (f["% майстру за продаж матеріалів"] as number) || 0;
   const productSalesPercent = (f["% за продаж"] as number) || 0;
 
-  let type: "commission" | "rental" | "salary" = "commission";
+  let type: "commission" | "hourly" | "rental" | "salary" = "commission";
   if (compensationType === "оренда") type = "rental";
+  else if (compensationType === "погодинна") type = "hourly";
   else if (compensationType === "зарплата") type = "salary";
 
   let avatarColor: "brand" | "amber" | "gray" = "brand";
   if (type === "rental") avatarColor = "amber";
+  else if (type === "hourly") avatarColor = "brand";
   else if (type === "salary") avatarColor = "gray";
 
   // Format birthday
@@ -40,6 +42,7 @@ function mapSpecialist(r: { id: string; fields: Record<string, unknown> }) {
     salesCommission: salesPercent,
     productSalesCommission: productSalesPercent,
     rentalRate: type === "rental" ? (f["Умови співпраці"] as number) || 0 : undefined,
+    hourlyRate: type === "hourly" ? (f["Умови співпраці"] as number) || 0 : undefined,
     salaryRate: type === "salary" ? (f["Умови співпраці"] as number) || 0 : undefined,
     conditions: (f["Умови співпраці"] as number) || 0,
     balance: (f["Баланс"] as number) || 0,
@@ -104,6 +107,7 @@ export async function POST(request: NextRequest) {
     const typeMap: Record<string, string> = {
       commission: "комісія",
       rental: "оренда",
+      hourly: "погодинна",
       salary: "зарплата",
     };
     fields["Тип оплати"] = typeMap[compensationType] || "комісія";
@@ -143,6 +147,7 @@ export async function PATCH(request: NextRequest) {
       const typeMap: Record<string, string> = {
         commission: "комісія",
         rental: "оренда",
+        hourly: "погодинна",
         salary: "зарплата",
       };
       fields["Тип оплати"] = typeMap[updates.compensationType] || "комісія";

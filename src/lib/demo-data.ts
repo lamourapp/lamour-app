@@ -1,7 +1,7 @@
 // Demo data mirroring real Airtable records from Лямурчик salon
 // In production, this will come from Airtable API
 
-export type CompensationType = "commission" | "rental" | "salary";
+export type CompensationType = "commission" | "hourly" | "rental" | "salary";
 
 export interface Specialist {
   id: string;
@@ -11,7 +11,8 @@ export interface Specialist {
   serviceCommission: number; // % salon takes from services
   salesCommission: number;   // % specialist gets from materials used in services
   productSalesCommission: number; // % specialist gets from product sales to clients
-  rentalRate?: number;       // daily rental rate (for rental type)
+  rentalRate?: number;       // fixed rent per period (for rental type)
+  hourlyRate?: number;       // rate per hour worked (for hourly type)
   salaryRate?: number;       // daily salary (for salary type)
   balance: number;
   birthday: string;

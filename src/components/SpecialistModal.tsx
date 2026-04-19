@@ -22,6 +22,7 @@ const ROLES = [
 const COMP_TYPES: SegmentedOption<CompensationType>[] = [
   { id: "commission", label: "Комісія (%)" },
   { id: "rental", label: "Оренда" },
+  { id: "hourly", label: "Погодинна" },
   { id: "salary", label: "Зарплата" },
 ];
 
@@ -61,7 +62,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
         serviceCommission:
           compensationType === "commission" ? serviceCommission :
           compensationType === "rental" ? 100 :
-          0,
+          0, // hourly & salary: master pay determined by snapshot/fixed rate
         salesCommission,
         productSalesCommission,
         conditions: compensationType !== "commission" ? conditions : 0,
@@ -199,6 +200,43 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
               max={100}
             />
           </Field>
+        </>
+      )}
+
+      {compensationType === "hourly" && (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={`Ставка, ${sym}/год`}>
+              <Input
+                type="number"
+                value={conditions}
+                onChange={(e) => setConditions(Number(e.target.value))}
+                min={0}
+              />
+            </Field>
+            <Field label="% майстру з матеріалів">
+              <Input
+                type="number"
+                value={salesCommission}
+                onChange={(e) => setSalesCommission(Number(e.target.value))}
+                min={0}
+                max={100}
+              />
+            </Field>
+          </div>
+          <Field label="% майстру за продаж товарів">
+            <Input
+              type="number"
+              value={productSalesCommission}
+              onChange={(e) => setProductSalesCommission(Number(e.target.value))}
+              min={0}
+              max={100}
+            />
+          </Field>
+          <div className="text-[11px] text-gray-500 leading-relaxed bg-brand-50/50 border border-brand-100 rounded-lg px-3 py-2">
+            💡 Оплата майстру = <strong>ставка × кількість годин</strong> в кожному записі послуги.
+            Ставка зберігається в картці та підставляється при внесенні послуги.
+          </div>
         </>
       )}
 

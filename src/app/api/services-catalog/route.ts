@@ -5,6 +5,7 @@ const FIELDS = [
   "Назва",
   "ціна роботи",
   "вартість матеріалів продажа",
+  "закупка",
   "ціна за годину",
   "К-сть годин",
   "Вид послуги",
@@ -31,6 +32,7 @@ function mapService(r: { id: string; fields: Record<string, unknown> }) {
   const catalogHourlyRate = (f["ціна за годину"] as number) || 0;
   const hours = (f["К-сть годин"] as number) || 0;
   const materialsCost = (f["вартість матеріалів продажа"] as number) || 0;
+  const materialsPurchaseCost = (f["закупка"] as number) || 0;
   const totalPrice = (f["вартість послуги"] as number) || 0;
 
   // Calculate total correctly for both pricing models
@@ -47,6 +49,7 @@ function mapService(r: { id: string; fields: Record<string, unknown> }) {
     hourlyRate: effectiveRate,
     hours,
     materialsCost,
+    materialsPurchaseCost,
     totalPrice: computedTotal || totalPrice, // prefer computed, fallback to formula
     category,
     duration: (f["тривалість"] as number) || 0,
@@ -70,7 +73,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, workPrice, hourlyRate, hours, materialsCost, category, duration } = body;
+    const { name, workPrice, hourlyRate, hours, materialsCost, materialsPurchaseCost, category, duration } = body;
     if (!name) return NextResponse.json({ error: "name is required" }, { status: 400 });
 
     const fields: Record<string, unknown> = { "Назва": name };
@@ -79,6 +82,7 @@ export async function POST(request: NextRequest) {
     if (hourlyRate !== undefined) fields["ціна за годину"] = hourlyRate;
     if (hours !== undefined) fields["К-сть годин"] = hours;
     if (materialsCost !== undefined) fields["вартість матеріалів продажа"] = materialsCost;
+    if (materialsPurchaseCost !== undefined) fields["закупка"] = materialsPurchaseCost;
     if (category) fields["Вид послуги"] = [category];
     if (duration !== undefined) fields["тривалість"] = duration;
 
@@ -104,6 +108,7 @@ export async function PATCH(request: NextRequest) {
     if (updates.hourlyRate !== undefined) fields["ціна за годину"] = updates.hourlyRate;
     if (updates.hours !== undefined) fields["К-сть годин"] = updates.hours;
     if (updates.materialsCost !== undefined) fields["вартість матеріалів продажа"] = updates.materialsCost;
+    if (updates.materialsPurchaseCost !== undefined) fields["закупка"] = updates.materialsPurchaseCost;
     if (updates.category !== undefined) {
       fields["Вид послуги"] = updates.category ? [updates.category] : [];
     }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { useJournal, useSpecialists, useSettings } from "@/lib/hooks";
 import type { JournalEntry } from "@/lib/demo-data";
 import { moneyFormatter, localeFromTimezone } from "@/lib/format";
@@ -148,7 +149,6 @@ function computeMetrics(entries: JournalEntry[]) {
 }
 
 export default function DashboardScreen() {
-  const [pinUnlocked, setPinUnlocked] = useState(false);
   const [period, setPeriod] = useState("today");
   const [selectedSpecialist, setSelectedSpecialist] = useState("");
   const [showCalendar, setShowCalendar] = useState(false);
@@ -315,61 +315,26 @@ export default function DashboardScreen() {
             <MetricCard label="Витрат" value={m.countExpenses} suffix="" />
           </div>
 
-          {/* PIN block */}
-          {!pinUnlocked ? (
-            <div className="bg-white rounded-xl border border-black/[0.06] p-6 text-center mb-6">
-              <div className="text-gray-400 text-[12px] mb-3">🔒 Розширена аналітика для власника</div>
-              <div className="flex justify-center gap-2 mb-3">
-                {[1, 2, 3, 4].map((i) => (
-                  <input
-                    key={i}
-                    type="password"
-                    maxLength={1}
-                    className="w-10 h-11 text-center text-lg border border-black/10 rounded-lg focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500/20 transition-colors"
-                  />
-                ))}
+          {/* Owner analytics entry — full dashboard is at /owner under PIN */}
+          <Link
+            href="/owner"
+            className="block bg-white rounded-xl border border-black/[0.06] p-5 mb-6 cursor-pointer transition-all hover:shadow-[0_2px_12px_rgba(0,0,0,0.06)] hover:border-brand-500/40 group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-brand-50 rounded-xl flex items-center justify-center text-lg shrink-0">
+                🔒
               </div>
-              <button
-                onClick={() => setPinUnlocked(true)}
-                className="bg-brand-600 text-white rounded-[10px] font-medium text-[13px] px-6 py-2 cursor-pointer hover:bg-brand-700 transition-colors"
-              >
-                Ввести PIN
-              </button>
-            </div>
-          ) : (
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-3 px-0.5">
-                <div className="text-[10px] font-semibold text-brand-600 uppercase tracking-widest">
-                  🔓 Аналітика власника
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] font-semibold text-gray-900">Аналітика власника</div>
+                <div className="text-[11px] text-gray-400 mt-0.5">
+                  Маржинальність, витрати-пиріг, порівняння майстрів і послуг · під PIN
                 </div>
-                <button
-                  onClick={() => setPinUnlocked(false)}
-                  className="text-[10px] text-gray-400 hover:text-gray-600 cursor-pointer"
-                >
-                  Заблокувати
-                </button>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <MetricCard
-                  label="Загальний оборот"
-                  value={Math.round(m.salonTotal + m.specialistTotal)}
-                  fmt={fmt}
-                  variant="brand-dark"
-                />
-                <MetricCard label="Чистий дохід салону" value={Math.round(m.cashInRegister)} fmt={fmt} variant="brand-dark" />
-                <MetricCard
-                  label="Середній чек послуги"
-                  value={m.countServices > 0 ? Math.round((m.salonServiceShare + m.specialistServiceShare) / m.countServices) : 0}
-                  fmt={fmt}
-                />
-                <MetricCard
-                  label="Середній чек продажу"
-                  value={m.countSales > 0 ? Math.round((m.salonSalesShare + m.specialistSalesShare) / m.countSales) : 0}
-                  fmt={fmt}
-                />
+              <div className="text-gray-300 group-hover:text-brand-600 transition-colors text-lg shrink-0">
+                →
               </div>
             </div>
-          )}
+          </Link>
 
           {/* Journal table */}
           <div>

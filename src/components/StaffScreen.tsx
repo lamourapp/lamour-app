@@ -16,8 +16,12 @@ function compensationLabel(s: Specialist, fmt: Fmt, sym: string): string {
       return `комісія ${s.serviceCommission}%${materialsLabel}${salesLabel}`;
     case "rental":
       return `оренда${s.rentalRate ? ` ${fmt(s.rentalRate)}` : ""}${materialsLabel}${salesLabel}`;
+    case "hourly":
+      return `погодинна ${s.hourlyRate ? `${fmt(s.hourlyRate)} ${sym}/год` : ""}${materialsLabel}${salesLabel}`;
     case "salary":
       return `ЗП ${s.salaryRate} ${sym}/день${materialsLabel}${salesLabel}`;
+    default:
+      return "";
   }
 }
 

@@ -9,6 +9,9 @@ interface Specialist {
   id: string;
   name: string;
   role?: string;
+  compensationType?: "commission" | "hourly" | "rental" | "salary";
+  rentalRate?: number;
+  hourlyRate?: number;
 }
 
 const ROLE_CATEGORIES: Record<string, string[]> = {
@@ -22,6 +25,7 @@ interface ServiceCatalogItem {
   name: string;
   workPrice: number;
   materialsCost: number;
+  materialsPurchaseCost: number;
   hourlyRate: number;
   hours: number;
   totalPrice: number;
@@ -32,8 +36,10 @@ interface CalcMaterial {
   id: string;
   name: string;
   totalVolume: number;
-  totalCost: number;
+  totalCost: number;   // sell price per package
+  costPrice: number;   // purchase price per package (закупка)
   pricePerUnit: number;
+  costPerUnit: number; // costPrice / totalVolume
 }
 
 interface MaterialUsage {
@@ -319,30 +325,52 @@ export default function ServiceEntryModal({
   const selectedSpecialist = specialists.find((s) => s.id === specialistId);
   const [showAllServices, setShowAllServices] = useState(false);
 
+  const isRental = selectedSpecialist?.compensationType === "rental";
+  const isHourlySpec = selectedSpecialist?.compensationType === "hourly";
+
+  // For rental specialists: auto-select the first "Оренда" service
+  // and pre-fill its price from the specialist card.
+  useEffect(() => {
+    if (!isRental || !services.length) return;
+    const rentalService = services.find((s) => s.category === "Оренда");
+    if (rentalService && serviceId !== rentalService.id) {
+      setServiceId(rentalService.id);
+    }
+  }, [isRental, services]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Override price for rental: comes from specialist card, not catalog.
+  const rentalPrice = isRental ? (selectedSpecialist?.rentalRate ?? 0) : null;
+  // Hourly specialist's rate from card (₴/hour)
+  const specHourlyRate = isHourlySpec ? (selectedSpecialist?.hourlyRate ?? 0) : 0;
+
   const filteredServices = useMemo(() => {
+    // Rental specialists: only show "Оренда" category — no regular services.
+    if (isRental) return services.filter((s) => s.category === "Оренда");
+    // Hourly specialists: show all services except Оренда (that's only for rental type)
+    if (isHourlySpec) return services.filter((s) => s.category !== "Оренда");
     if (!selectedSpecialist?.role || showAllServices) return services;
     const cats = ROLE_CATEGORIES[selectedSpecialist.role];
     if (!cats) return services;
-    // "Оренда" services are always visible — any master can be on rental,
-    // so the rental line must not be hidden by role-category filtering.
     return services.filter((s) => s.category === "Оренда" || cats.includes(s.category));
-  }, [services, selectedSpecialist, showAllServices]);
+  }, [services, selectedSpecialist, showAllServices, isRental, isHourlySpec]);
 
   const preview = useMemo(() => {
     if (!selectedService) return null;
-    const isHourly = selectedService.hours > 0;
+    // isHourly: service priced per hour (catalog-level, for ALL specialist types)
+    const isHourlySvc = !isRental && selectedService.hours > 0;
     const rawSuppl = parseFloat(supplement) || 0;
     const suppl = supplementSign === "-" ? -Math.abs(rawSuppl) : Math.abs(rawSuppl);
     let work: number;
     let rate = 0;
     let hrs = 0;
 
-    if (isHourly) {
+    if (isRental) {
+      work = (rentalPrice ?? 0) + suppl;
+    } else if (isHourlySvc) {
       rate = selectedService.hourlyRate || 0;
       hrs = selectedService.hours + (parseFloat(extraHours) || 0);
       work = rate * hrs + suppl;
     } else {
-      // Fixed price: workPrice is the total work component
       work = (selectedService.workPrice || 0) + suppl;
     }
 
@@ -352,8 +380,20 @@ export default function ServiceEntryModal({
       return !m || u.amount <= 0 ? s : s + (u.amount * m.totalCost) / m.totalVolume;
     }, 0);
     const totalMat = baseMat + Math.round(calcCost);
-    return { work, baseMat, calcCost: Math.round(calcCost), totalMat, total: work + totalMat, hrs, rate, isHourly };
-  }, [selectedService, supplement, extraHours, calcMaterials, materials]);
+
+    // For hourly specialist: master pay = spec rate × hours in this service
+    const svcHours = isHourlySvc ? hrs : (selectedService.hours || 1);
+    const masterHourlyPay = isHourlySpec
+      ? Math.round(specHourlyRate * (svcHours + (isHourlySvc ? 0 : parseFloat(extraHours) || 0)))
+      : null;
+
+    return {
+      work, baseMat, calcCost: Math.round(calcCost), totalMat,
+      total: work + totalMat,
+      hrs: isHourlySvc ? hrs : (selectedService.hours + (parseFloat(extraHours) || 0)),
+      rate, isHourlySvc, masterHourlyPay,
+    };
+  }, [selectedService, supplement, extraHours, calcMaterials, materials, isRental, isHourlySpec, specHourlyRate, rentalPrice, supplementSign]);
 
   async function handleSubmit() {
     setError("");
@@ -362,19 +402,39 @@ export default function ServiceEntryModal({
 
     setSaving(true);
     try {
-      const isHourly = selectedService && selectedService.hours > 0;
+      const isHourlySvc = !isRental && selectedService && selectedService.hours > 0;
+      const totalHrs = isHourlySvc
+        ? (selectedService?.hours || 0) + (parseFloat(extraHours) || 0)
+        : (selectedService?.hours || 1) + (parseFloat(extraHours) || 0);
+      const masterHourlyPay = isHourlySpec ? Math.round(specHourlyRate * totalHrs) : undefined;
+
       const body: Record<string, unknown> = {
         type: "service", date, specialistId, serviceId,
-        hourlyRate: isHourly ? (selectedService?.hourlyRate || 0) : undefined,
-        fixedPrice: !isHourly ? (selectedService?.workPrice || 0) : undefined,
+        hourlyRate: isHourlySvc ? (selectedService?.hourlyRate || 0) : undefined,
+        // Rental: price from specialist card; hourly svc: no fixedPrice; otherwise catalog price.
+        fixedPrice: isRental
+          ? (rentalPrice ?? 0)
+          : !isHourlySvc ? (selectedService?.workPrice || 0) : undefined,
         materialsCost: selectedService?.materialsCost || 0,
+        materialsPurchaseCost: selectedService?.materialsPurchaseCost || 0,
+        masterHourlyPay,
         comment: comment || undefined,
       };
       const rawSuppl = parseFloat(supplement);
       if (rawSuppl) body.supplement = supplementSign === "-" ? -Math.abs(rawSuppl) : Math.abs(rawSuppl);
       const eh = parseFloat(extraHours);
       if (eh) body.extraHours = eh;
-      const valid = calcMaterials.filter((m) => m.materialId && m.amount > 0);
+      const valid = calcMaterials
+        .filter((m) => m.materialId && m.amount > 0)
+        .map((m) => {
+          const mat = materials.find((x) => x.id === m.materialId);
+          return {
+            materialId: m.materialId,
+            amount: m.amount,
+            // costPerUnit: закупка / Всього мл/шт — snapshot for purchase cost calc
+            costPerUnit: mat && mat.totalVolume > 0 ? mat.costPrice / mat.totalVolume : 0,
+          };
+        });
       if (valid.length > 0) body.calcMaterials = valid;
 
       const res = await fetch("/api/journal", {
@@ -435,54 +495,63 @@ export default function ServiceEntryModal({
               </select>
             </div>
 
-            {/* Service */}
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-1.5">
-                <label className={labelCls + " mb-0"}>Послуга</label>
-                {selectedSpecialist?.role && ROLE_CATEGORIES[selectedSpecialist.role] && (
-                  <button
-                    type="button"
-                    onClick={() => setShowAllServices(!showAllServices)}
-                    className="text-[11px] text-brand-500 hover:text-brand-700 cursor-pointer font-medium"
-                  >
-                    {showAllServices ? "Тільки мої" : "Показати всі"}
-                  </button>
-                )}
+            {/* Service / Rental */}
+            {isRental ? (
+              <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center justify-between">
+                <div>
+                  <div className="text-[13px] font-semibold text-amber-800">Оренда робочого місця</div>
+                  <div className="text-[12px] text-amber-600 mt-0.5">Сума з картки спеціаліста</div>
+                </div>
+                <div className="text-[18px] font-bold text-amber-800 tabular-nums">{fmt(rentalPrice ?? 0)}</div>
               </div>
-              <SearchablePicker
-                items={filteredServices}
-                selectedId={serviceId}
-                onSelect={setServiceId}
-                placeholder="Пошук послуги..."
-                groupBy={(s) => s.category}
-                renderItem={(s) => (
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[14px] text-gray-900 truncate">{s.name}</span>
-                    <span className="text-[13px] text-gray-400 whitespace-nowrap tabular-nums">{fmt(s.totalPrice)}</span>
-                  </div>
-                )}
-                renderSelected={(s) => (
-                  <div>
-                    <div className="text-[14px] text-gray-900 font-medium leading-tight">{s.name}</div>
-                    <div className="text-[12px] text-gray-500 mt-0.5 tabular-nums">
-                      {s.hours > 0
-                        ? `${fmt(s.hourlyRate)} × ${s.hours} год`
-                        : `роб. ${fmt(s.workPrice)}`}
-                      {s.materialsCost > 0 && ` + мат. ${fmt(s.materialsCost)}`}
-                      {" = "}{fmt(s.totalPrice)}
+            ) : (
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className={labelCls + " mb-0"}>Послуга</label>
+                  {selectedSpecialist?.role && ROLE_CATEGORIES[selectedSpecialist.role] && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllServices(!showAllServices)}
+                      className="text-[11px] text-brand-500 hover:text-brand-700 cursor-pointer font-medium"
+                    >
+                      {showAllServices ? "Тільки мої" : "Показати всі"}
+                    </button>
+                  )}
+                </div>
+                <SearchablePicker
+                  items={filteredServices}
+                  selectedId={serviceId}
+                  onSelect={setServiceId}
+                  placeholder="Пошук послуги..."
+                  groupBy={(s) => s.category}
+                  renderItem={(s) => (
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[14px] text-gray-900 truncate">{s.name}</span>
+                      <span className="text-[13px] text-gray-400 whitespace-nowrap tabular-nums">{fmt(s.totalPrice)}</span>
                     </div>
-                  </div>
-                )}
-              />
-            </div>
+                  )}
+                  renderSelected={(s) => (
+                    <div>
+                      <div className="text-[14px] text-gray-900 font-medium leading-tight">{s.name}</div>
+                      <div className="text-[12px] text-gray-500 mt-0.5 tabular-nums">
+                        {s.hours > 0
+                          ? `${fmt(s.hourlyRate)} × ${s.hours} год`
+                          : `роб. ${fmt(s.workPrice)}`}
+                        {s.materialsCost > 0 && ` + мат. ${fmt(s.materialsCost)}`}
+                        {" = "}{fmt(s.totalPrice)}
+                      </div>
+                    </div>
+                  )}
+                />
+              </div>
+            )}
 
-            {/* Details (shown when service selected) */}
-            {selectedService && (
+            {/* Details (shown when service selected or rental auto-selected) */}
+            {(selectedService || isRental) && (
               <>
-                {/* Divider */}
                 <div className="border-t border-black/5 my-5" />
 
-                {/* Supplement sign toggle */}
+                {/* Supplement — always shown; extra hours hidden for rental */}
                 <div className="mb-3">
                   <label className={labelCls}>Доповнення</label>
                   <div className="flex gap-2 mb-2">
@@ -506,10 +575,8 @@ export default function ServiceEntryModal({
                     </button>
                   </div>
                 </div>
-
-                {/* Supplement & Extra Hours */}
-                <div className="grid grid-cols-2 gap-3 mb-5">
-                  <div>
+                <div className={`gap-3 mb-5 ${isRental ? "flex" : "grid grid-cols-2"}`}>
+                  <div className="flex-1">
                     <label className={labelCls}>Сума</label>
                     <input
                       type="number"
@@ -520,17 +587,19 @@ export default function ServiceEntryModal({
                       className={`${inputCls} tabular-nums`}
                     />
                   </div>
-                  <div>
-                    <label className={labelCls}>Додат. години</label>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      value={extraHours}
-                      onChange={(e) => setExtraHours(e.target.value)}
-                      placeholder="0"
-                      className={`${inputCls} tabular-nums`}
-                    />
-                  </div>
+                  {!isRental && (
+                    <div>
+                      <label className={labelCls}>Додат. години</label>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        value={extraHours}
+                        onChange={(e) => setExtraHours(e.target.value)}
+                        placeholder="0"
+                        className={`${inputCls} tabular-nums`}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Calculation Materials */}
@@ -547,12 +616,22 @@ export default function ServiceEntryModal({
                     <div className="space-y-1.5 text-[13px]">
                       <div className="flex justify-between">
                         <span className="text-gray-500">
-                          {preview.isHourly
-                            ? `Робота (${fmt(preview.rate)} × ${preview.hrs} год${supplement ? ` ${supplementSign === "-" ? "−" : "+"}${supplement}` : ""})`
-                            : `Робота (фікс.${supplement ? ` ${supplementSign === "-" ? "−" : "+"}${supplement}` : ""})`}
+                          {isRental
+                            ? "Оренда (з картки спеціаліста)"
+                            : preview.isHourlySvc
+                              ? `Робота (${fmt(preview.rate)} × ${preview.hrs} год${supplement ? ` ${supplementSign === "-" ? "−" : "+"}${supplement}` : ""})`
+                              : `Робота (фікс.${supplement ? ` ${supplementSign === "-" ? "−" : "+"}${supplement}` : ""})`}
                         </span>
                         <span className="text-gray-900 tabular-nums font-medium">{fmt(preview.work)}</span>
                       </div>
+                      {preview.masterHourlyPay !== null && (
+                        <div className="flex justify-between text-[12px]">
+                          <span className="text-brand-500">
+                            Оплата майстру ({fmt(specHourlyRate)} × {preview.hrs} год)
+                          </span>
+                          <span className="text-brand-600 tabular-nums font-medium">{fmt(preview.masterHourlyPay!)}</span>
+                        </div>
+                      )}
                       {preview.totalMat > 0 && (
                         <div className="flex justify-between">
                           <span className="text-gray-500">

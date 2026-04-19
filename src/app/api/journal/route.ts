@@ -88,6 +88,7 @@ export async function GET(request: NextRequest) {
           "Фікс. % салону за продаж",
           "Додаткові матеріали(Калькуляція)",
           "Фікс. вартість матеріалів",
+          "Фікс. оплата майстру за послугу",
         ],
       }),
       fetchAllRecords(TABLES.specialists, { fields: ["Ім'я"] }),
@@ -253,10 +254,10 @@ export async function GET(request: NextRequest) {
         materialsCost,
         comment: (f["Коментарі"] as string) || undefined,
         // Калькуляція = base materials from service catalog (fixed/snapshot)
-        calculationCost: type !== "rental" ? ((f["Фікс. вартість матеріалів"] as number) || undefined) : undefined,
+        calculationCost: (f["Фікс. вартість матеріалів"] as number) || undefined,
         // Матеріали = extra materials added (total materials minus base)
+        // For rental: all materials are "extra" (rental service has no base materials)
         baseMaterialsCost: (() => {
-          if (type === "rental") return undefined;
           const total = (f["Загальна вартість матеріалів"] as number) || 0;
           const base = (f["Фікс. вартість матеріалів"] as number) || 0;
           const extra = total - base;
@@ -385,6 +386,11 @@ export async function POST(request: NextRequest) {
         if (body.fixedPrice !== undefined) fields["Фіксована вартість"] = body.fixedPrice;
         if (body.hourlyRate !== undefined) fields["Фікс. вартість години"] = body.hourlyRate;
         if (body.materialsCost !== undefined) fields["Фікс. вартість матеріалів"] = body.materialsCost;
+        // Snapshot of materials purchase cost from catalog (ex-formula {продажа}*0.55,
+        // now editable per-service `закупка` in Список послуг).
+        if (body.materialsPurchaseCost !== undefined)
+          fields["вартість матеріалів закупка (from Послуга)"] = body.materialsPurchaseCost;
+        if (body.masterHourlyPay !== undefined) fields["Фікс. оплата майстру за послугу"] = body.masterHourlyPay;
         if (body.supplement) fields["Доповнення"] = body.supplement;
         if (body.extraHours) fields["Додаткові години"] = body.extraHours;
         if (body.extraMaterialsCost) fields["Додаткові матеріали(Калькуляція)"] = body.extraMaterialsCost;
@@ -398,10 +404,19 @@ export async function POST(request: NextRequest) {
           if (body.costPrice) fields["Фікс. ціна закупки"] = body.costPrice;
         }
 
-        // Create Замовлення (order) records for calculation materials first
-        const calcMaterials = body.calcMaterials as { materialId: string; amount: number }[] | undefined;
+        // Create Замовлення (order) records for calculation materials.
+        // Client sends costPerUnit + totalVolume so we can compute purchase cost
+        // without an extra Airtable round-trip.
+        const calcMaterials = body.calcMaterials as {
+          materialId: string;
+          amount: number;
+          costPerUnit?: number; // закупка / Всього мл/шт
+        }[] | undefined;
+
         if (calcMaterials && calcMaterials.length > 0) {
           const orderIds: string[] = [];
+          let totalPurchaseCost = 0;
+
           for (const mat of calcMaterials) {
             if (mat.amount > 0) {
               const order = await createRecord(TABLES.orders, {
@@ -409,10 +424,18 @@ export async function POST(request: NextRequest) {
                 "Калькуляція": [mat.materialId],
               });
               orderIds.push(order.id);
+
+              // Purchase cost: amount × cost per unit (sent as snapshot from client)
+              if (mat.costPerUnit != null && mat.costPerUnit > 0) {
+                totalPurchaseCost += mat.amount * mat.costPerUnit;
+              }
             }
           }
           if (orderIds.length > 0) {
             fields["Замовлення"] = orderIds;
+          }
+          if (totalPurchaseCost > 0) {
+            fields["Фікс. собівартість матеріалів"] = Math.round(totalPurchaseCost);
           }
         }
         break;

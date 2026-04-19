@@ -6,6 +6,7 @@ import { Button, Field, Input, Modal, Select } from "./ui";
 import type { Settings } from "@/app/api/settings/route";
 import CatalogScreen from "./CatalogScreen";
 import ServicesCatalogScreen from "./ServicesCatalogScreen";
+import PinPad from "./PinPad";
 
 /* ─── Business-type presets ─── */
 
@@ -277,11 +278,165 @@ function BusinessSettingsModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+/* ─── Modal: "Безпека" (PIN) ─── */
+
+function SecurityModal({ onClose }: { onClose: () => void }) {
+  const { settings, reload } = useSettings();
+  const hasPin = Boolean(settings?.hasPin);
+
+  const [mode, setMode] = useState<"idle" | "enter-current" | "enter-new" | "confirm-new" | "saving">(
+    hasPin ? "enter-current" : "enter-new",
+  );
+  const [currentPin, setCurrentPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [error, setError] = useState("");
+  const [resetSignal, setReset] = useState(0);
+
+  async function removePin() {
+    if (!hasPin) return;
+    if (!currentPin) {
+      setError("Введіть поточний PIN");
+      return;
+    }
+    setMode("saving");
+    setError("");
+    try {
+      const res = await fetch("/api/settings/pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPin, newPin: "" }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Помилка");
+        setMode("enter-current");
+        setReset((n) => n + 1);
+        return;
+      }
+      await reload();
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Помилка мережі");
+      setMode("enter-current");
+    }
+  }
+
+  async function savePin() {
+    setMode("saving");
+    setError("");
+    try {
+      const res = await fetch("/api/settings/pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPin, newPin }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Помилка");
+        // On wrong current PIN we bounce back to step 1.
+        if (res.status === 403) {
+          setMode("enter-current");
+          setCurrentPin("");
+        } else {
+          setMode("enter-new");
+          setNewPin("");
+        }
+        setReset((n) => n + 1);
+        return;
+      }
+      await reload();
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Помилка мережі");
+      setMode("enter-new");
+    }
+  }
+
+  let title = "Безпека";
+  let caption = "";
+  let pad: React.ReactNode = null;
+
+  if (mode === "enter-current") {
+    title = "Поточний PIN";
+    caption = "Введіть поточний PIN, щоб змінити або видалити";
+    pad = (
+      <PinPad
+        onComplete={(pin) => {
+          setCurrentPin(pin);
+          setError("");
+          setMode("enter-new");
+          setReset((n) => n + 1);
+        }}
+        resetSignal={resetSignal}
+      />
+    );
+  } else if (mode === "enter-new") {
+    title = hasPin ? "Новий PIN" : "Встановити PIN";
+    caption = "4 цифри — потрібні для входу в аналітику власника";
+    pad = (
+      <PinPad
+        onComplete={(pin) => {
+          setNewPin(pin);
+          setError("");
+          setMode("confirm-new");
+          setReset((n) => n + 1);
+        }}
+        resetSignal={resetSignal}
+      />
+    );
+  } else if (mode === "confirm-new") {
+    title = "Повторіть PIN";
+    caption = "Ще раз — для підтвердження";
+    pad = (
+      <PinPad
+        onComplete={(pin) => {
+          if (pin !== newPin) {
+            setError("PIN не збігається");
+            setMode("enter-new");
+            setNewPin("");
+            setReset((n) => n + 1);
+            return;
+          }
+          savePin();
+        }}
+        resetSignal={resetSignal}
+      />
+    );
+  } else if (mode === "saving") {
+    caption = "Зберігаю…";
+  }
+
+  return (
+    <Modal title={title} onClose={onClose}>
+      <div className="py-2">
+        <p className="text-[12px] text-gray-500 text-center mb-4">{caption}</p>
+        {pad}
+        {error && (
+          <div className="mt-4 text-[12px] text-red-500 text-center">{error}</div>
+        )}
+
+        {hasPin && mode === "enter-current" && (
+          <div className="mt-5 pt-4 border-t border-black/5">
+            <button
+              onClick={removePin}
+              disabled={!currentPin}
+              className="w-full text-[12px] text-red-500 hover:text-red-600 disabled:text-gray-300 cursor-pointer disabled:cursor-not-allowed transition-colors"
+            >
+              Видалити PIN
+            </button>
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
 /* ─── Entry list ─── */
 
 export default function SettingsScreen() {
   const { settings } = useSettings();
   const [showBusiness, setShowBusiness] = useState(false);
+  const [showSecurity, setShowSecurity] = useState(false);
   const [catalogTab, setCatalogTab] = useState<"products" | "materials" | null>(null);
   const [showServicesCatalog, setShowServicesCatalog] = useState(false);
 
@@ -323,6 +478,12 @@ export default function SettingsScreen() {
       onClick: () => setCatalogTab("products"),
     },
     { icon: "👥", title: "Управління персоналом", desc: `${specialistTerm}и · ставки, %` },
+    {
+      icon: "🔒",
+      title: "Безпека",
+      desc: settings?.hasPin ? "PIN встановлено · змінити або видалити" : "Встановити PIN для аналітики власника",
+      onClick: () => setShowSecurity(true),
+    },
   ];
 
   return (
@@ -352,6 +513,7 @@ export default function SettingsScreen() {
       </div>
 
       {showBusiness && <BusinessSettingsModal onClose={() => setShowBusiness(false)} />}
+      {showSecurity && <SecurityModal onClose={() => setShowSecurity(false)} />}
     </div>
   );
 }
