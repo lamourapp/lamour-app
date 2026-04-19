@@ -51,7 +51,7 @@ export default function ServicesBlock({ top, types, settings, loading }: Props) 
               <span className="w-5"></span>
               <div className="flex-1 flex items-center justify-between gap-2">
                 <span>Послуга</span>
-                <span className="text-gray-400">К-сть · оборот роботи</span>
+                <span className="text-gray-400">К-сть · оборот</span>
               </div>
               <span className="w-20 text-right">Чистий салону</span>
             </div>

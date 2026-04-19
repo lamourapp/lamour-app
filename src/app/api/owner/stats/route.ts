@@ -288,8 +288,9 @@ function byService(records: Row[], nameMap: Map<string, string>): ServiceRow[] {
 
     row.count += 1;
     const total = (f["Всього вартість послуги"] as number) || 0;
-    const mats = (f["Загальна вартість матеріалів"] as number) || 0;
-    row.revenue += Math.max(total - mats, 0);
+    // Оборот = повна вартість послуги (робота + матеріали, тобто все що клієнт заплатив).
+    // Це консистентно з тим, що net менший за оборот.
+    row.revenue += total;
     row.netMaterials += (f["Дохід Матеріали"] as number) || 0;
     // Канонічний `Чистий дохід салону` — та сама формула, що в daily() і aggregate().
     // Для оренди `Салону за послугу` і `Дохід Матеріали` дублюють повну суму, тож
