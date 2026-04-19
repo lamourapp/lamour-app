@@ -393,16 +393,20 @@ export default function ServiceEntryModal({
     }, 0);
     const totalMat = baseMat + Math.round(calcCost);
 
-    // For hourly specialist: master pay = spec rate × hours in this service
-    const svcHours = isHourlySvc ? hrs : (selectedService.hours || 1);
+    // For hourly specialist: master pay = spec rate × actual hours worked.
+    // Години беремо з послуги + доп.годин. Жодного дефолту в 1 — якщо 0, то й оплата 0
+    // (хай майстер заповнить "Додат. години" або послуга має свій час).
+    const totalHrs = isHourlySvc
+      ? hrs
+      : (selectedService.hours || 0) + (parseFloat(extraHours) || 0);
     const masterHourlyPay = isHourlySpec
-      ? Math.round(specHourlyRate * (svcHours + (isHourlySvc ? 0 : parseFloat(extraHours) || 0)))
+      ? Math.round(specHourlyRate * totalHrs)
       : null;
 
     return {
       work, baseMat, calcCost: Math.round(calcCost), totalMat,
       total: work + totalMat,
-      hrs: isHourlySvc ? hrs : (selectedService.hours + (parseFloat(extraHours) || 0)),
+      hrs: totalHrs,
       rate, isHourlySvc, masterHourlyPay,
     };
   }, [selectedService, supplement, extraHours, calcMaterials, materials, isRental, isHourlySpec, specHourlyRate, rentalPrice, supplementSign]);
@@ -415,9 +419,9 @@ export default function ServiceEntryModal({
     setSaving(true);
     try {
       const isHourlySvc = !isRental && selectedService && selectedService.hours > 0;
-      const totalHrs = isHourlySvc
-        ? (selectedService?.hours || 0) + (parseFloat(extraHours) || 0)
-        : (selectedService?.hours || 1) + (parseFloat(extraHours) || 0);
+      // Гол. години = години послуги + додат. години. Без дефолту в 1 —
+      // щоб не було розсинхрону з прев'ю, де показується 0.
+      const totalHrs = (selectedService?.hours || 0) + (parseFloat(extraHours) || 0);
       const masterHourlyPay = isHourlySpec ? Math.round(specHourlyRate * totalHrs) : undefined;
 
       const body: Record<string, unknown> = {
@@ -637,12 +641,19 @@ export default function ServiceEntryModal({
                         <span className="text-gray-900 tabular-nums font-medium">{fmt(preview.work)}</span>
                       </div>
                       {preview.masterHourlyPay !== null && (
-                        <div className="flex justify-between text-[12px]">
-                          <span className="text-brand-500">
-                            Оплата майстру ({fmt(specHourlyRate)} × {preview.hrs} год)
-                          </span>
-                          <span className="text-brand-600 tabular-nums font-medium">{fmt(preview.masterHourlyPay!)}</span>
-                        </div>
+                        <>
+                          <div className="flex justify-between text-[12px]">
+                            <span className="text-brand-500">
+                              Оплата майстру ({fmt(specHourlyRate)} × {preview.hrs} год)
+                            </span>
+                            <span className="text-brand-600 tabular-nums font-medium">{fmt(preview.masterHourlyPay!)}</span>
+                          </div>
+                          {preview.hrs === 0 && (
+                            <div className="text-[11px] text-amber-600 bg-amber-50 rounded-lg px-2.5 py-1.5">
+                              ⚠️ У цієї послуги не задано тривалість. Введи &laquo;Додат. години&raquo;, інакше оплата майстру буде 0.
+                            </div>
+                          )}
+                        </>
                       )}
                       {preview.totalMat > 0 && (
                         <div className="flex justify-between">
