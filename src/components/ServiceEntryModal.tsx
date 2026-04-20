@@ -18,6 +18,7 @@ const ROLE_CATEGORIES: Record<string, string[]> = {
   "Перукарі": ["Фарбування", "Стрижки", "Лікування", "Зачіски, укладки"],
   "Візажисти, бровісти": ["Брови", "Мейкап"],
   "Нігтьовий сервіс": ["Нігтьовий сервіс"],
+  "Лешмейкер": ["Вії"],
 };
 
 interface ServiceCatalogItem {
@@ -30,6 +31,7 @@ interface ServiceCatalogItem {
   hours: number;
   totalPrice: number;
   category: string;
+  duration?: number; // в хвилинах, fallback для розрахунку погодинної оплати
 }
 
 interface CalcMaterial {
@@ -394,11 +396,13 @@ export default function ServiceEntryModal({
     const totalMat = baseMat + Math.round(calcCost);
 
     // For hourly specialist: master pay = spec rate × actual hours worked.
-    // Години беремо з послуги + доп.годин. Жодного дефолту в 1 — якщо 0, то й оплата 0
-    // (хай майстер заповнить "Додат. години" або послуга має свій час).
-    const totalHrs = isHourlySvc
-      ? hrs
-      : (selectedService.hours || 0) + (parseFloat(extraHours) || 0);
+    // Порядок джерел годин: (1) К-сть годин на послузі + додат., (2) тривалість/60 як fallback.
+    // Якщо жодного джерела — показуємо попередження і платимо 0 (хай заповнить).
+    const extraH = parseFloat(extraHours) || 0;
+    const svcHours = selectedService.hours || 0;
+    const durH = (selectedService.duration || 0) / 60;
+    const fallbackH = svcHours > 0 ? svcHours : durH;
+    const totalHrs = isHourlySvc ? hrs : fallbackH + extraH;
     const masterHourlyPay = isHourlySpec
       ? Math.round(specHourlyRate * totalHrs)
       : null;
@@ -419,9 +423,11 @@ export default function ServiceEntryModal({
     setSaving(true);
     try {
       const isHourlySvc = !isRental && selectedService && selectedService.hours > 0;
-      // Гол. години = години послуги + додат. години. Без дефолту в 1 —
-      // щоб не було розсинхрону з прев'ю, де показується 0.
-      const totalHrs = (selectedService?.hours || 0) + (parseFloat(extraHours) || 0);
+      // Джерело годин: К-сть годин або тривалість/60 як fallback. Узгоджено з прев'ю.
+      const svcHours = selectedService?.hours || 0;
+      const durH = (selectedService?.duration || 0) / 60;
+      const fallbackH = svcHours > 0 ? svcHours : durH;
+      const totalHrs = fallbackH + (parseFloat(extraHours) || 0);
       const masterHourlyPay = isHourlySpec ? Math.round(specHourlyRate * totalHrs) : undefined;
 
       const body: Record<string, unknown> = {
