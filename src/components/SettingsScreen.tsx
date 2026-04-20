@@ -6,6 +6,7 @@ import { Button, Field, Input, Modal, Select } from "./ui";
 import type { Settings } from "@/app/api/settings/route";
 import CatalogScreen from "./CatalogScreen";
 import ServicesCatalogScreen from "./ServicesCatalogScreen";
+import SpecializationsScreen from "./SpecializationsScreen";
 import PinPad from "./PinPad";
 
 /* ─── Business-type presets ─── */
@@ -564,6 +565,7 @@ export default function SettingsScreen() {
   const [showAlerts, setShowAlerts] = useState(false);
   const [catalogTab, setCatalogTab] = useState<"products" | "materials" | null>(null);
   const [showServicesCatalog, setShowServicesCatalog] = useState(false);
+  const [showSpecializations, setShowSpecializations] = useState(false);
 
   const specialistTerm = settings?.specialistTerm || "Спеціаліст";
   const businessName = businessPresets[settings?.businessType || "beauty"].label;
@@ -571,6 +573,9 @@ export default function SettingsScreen() {
   // Show sub-views
   if (showServicesCatalog) {
     return <ServicesCatalogScreen onBack={() => setShowServicesCatalog(false)} />;
+  }
+  if (showSpecializations) {
+    return <SpecializationsScreen onBack={() => setShowSpecializations(false)} />;
   }
   if (catalogTab) {
     return (
@@ -602,7 +607,12 @@ export default function SettingsScreen() {
       desc: "Товари для продажу · матеріали для послуг",
       onClick: () => setCatalogTab("products"),
     },
-    { icon: "👥", title: "Управління персоналом", desc: `${specialistTerm}и · ставки, %` },
+    {
+      icon: "🎯",
+      title: "Спеціалізації",
+      desc: "Ролі майстрів і які послуги вони виконують",
+      onClick: () => setShowSpecializations(true),
+    },
     {
       icon: "⚠️",
       title: "Пороги сигналів",
@@ -628,9 +638,7 @@ export default function SettingsScreen() {
           <div
             key={card.title}
             onClick={card.onClick}
-            className={`bg-white rounded-xl border border-black/[0.06] p-4 transition-all ${
-              card.onClick ? "cursor-pointer hover:shadow-[0_2px_12px_rgba(0,0,0,0.06)]" : "opacity-70"
-            }`}
+            className="bg-white rounded-xl border border-black/[0.06] p-4 transition-all cursor-pointer hover:shadow-[0_2px_12px_rgba(0,0,0,0.06)]"
           >
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 bg-brand-50 rounded-lg flex items-center justify-center text-base">

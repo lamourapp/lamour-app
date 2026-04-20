@@ -292,7 +292,9 @@ export default function ServiceEntryModal({
   onCreated: () => void;
 }) {
   const { settings } = useSettings();
-  const { specializations } = useSpecializations();
+  // include archived — a linked-but-archived спеціалізація still gives the
+  // specialist service access until the owner explicitly unlinks it.
+  const { specializations } = useSpecializations(true);
   const fmt = moneyFormatter(settings);
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [specialistId, setSpecialistId] = useState("");

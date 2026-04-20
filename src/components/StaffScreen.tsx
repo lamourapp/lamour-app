@@ -66,7 +66,8 @@ export default function StaffScreen() {
   const sym = currencySymbol(settings?.currency);
   const specialistTerm = settings?.specialistTerm || "Спеціаліст";
   const { specialists, loading, error, reload } = useSpecialists(showInactive);
-  const { specializations } = useSpecializations();
+  // include archived so names of archived linked specializations still render in labels
+  const { specializations } = useSpecializations(true);
 
   // Resolve display label for a specialist's role(s) — joins names of linked
   // Спеціалізації, falling back to the legacy `role` string if nothing is linked.

@@ -40,7 +40,12 @@ export default function ProductsBlock({ top, settings, loading }: Props) {
             <span className="w-5"></span>
             <div className="flex-1 flex items-center justify-between gap-2">
               <span>Товар</span>
-              <span className="text-gray-400">К-сть · чистий</span>
+              <span
+                className="text-gray-400"
+                title="Гросс-маржа = виручка − закупка. Не враховує % майстра за продаж."
+              >
+                К-сть · маржа
+              </span>
             </div>
             <span className="w-20 text-right">Виручка</span>
           </div>
@@ -54,8 +59,11 @@ export default function ProductsBlock({ top, settings, loading }: Props) {
                     <span className="text-gray-900 truncate" title={p.name}>
                       {p.name}
                     </span>
-                    <span className="text-gray-500 text-[11px] whitespace-nowrap">
-                      {p.quantity} шт · чистий {money(p.netProfit)}
+                    <span
+                      className="text-gray-500 text-[11px] whitespace-nowrap"
+                      title="Виручка мінус закупка. До виплати % майстру за продаж."
+                    >
+                      {p.quantity} шт · маржа {money(p.netProfit)}
                     </span>
                   </div>
                   <div className="relative h-1.5 bg-gray-100 rounded-full mt-1 overflow-hidden">

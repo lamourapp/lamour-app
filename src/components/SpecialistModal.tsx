@@ -23,7 +23,18 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
   const isEdit = !!specialist;
   const { settings } = useSettings();
   const sym = currencySymbol(settings?.currency);
-  const { specializations, create: createSpecialization } = useSpecializations();
+  // include archived so existing specialists with archived link keep the chip.
+  const { specializations: allSpecs, create: createSpecialization } = useSpecializations(true);
+  // Only active ones are offered for new selection.
+  const activeSpecs = useMemo(() => allSpecs.filter((s) => s.isActive), [allSpecs]);
+  // Render currently-selected IDs even if archived, so data isn't silently lost.
+  const visibleSpecs = useMemo(() => {
+    const linkedArchived = allSpecs.filter(
+      (s) => !s.isActive && (specialist?.specializationIds || []).includes(s.id),
+    );
+    return [...activeSpecs, ...linkedArchived];
+  }, [allSpecs, activeSpecs, specialist?.specializationIds]);
+  const specializations = allSpecs; // backwards-compat alias for other refs below
   const { categories: availableCategories } = useServicesCatalog();
 
   const [name, setName] = useState(specialist?.name || "");
@@ -175,20 +186,24 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
             </div>
           ) : (
             <div className="flex flex-wrap gap-1.5">
-              {specializations.map((s) => {
+              {visibleSpecs.map((s) => {
                 const on = specializationIds.includes(s.id);
+                const archived = !s.isActive;
                 return (
                   <button
                     key={s.id}
                     type="button"
                     onClick={() => toggleSpec(s.id)}
+                    title={archived ? "Архівна — залишена на майстрі для історії" : undefined}
                     className={`px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors cursor-pointer border ${
                       on
-                        ? "bg-brand-600 text-white border-brand-600"
+                        ? archived
+                          ? "bg-gray-400 text-white border-gray-400"
+                          : "bg-brand-600 text-white border-brand-600"
                         : "bg-white text-gray-700 border-black/10 hover:border-brand-500"
                     }`}
                   >
-                    {s.name}
+                    {s.name}{archived && " (архів)"}
                   </button>
                 );
               })}
