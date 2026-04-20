@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useSpecialists, useSettings } from "@/lib/hooks";
+import { useSpecialists, useSettings, useSpecializations } from "@/lib/hooks";
 import type { Specialist } from "@/lib/demo-data";
 import { moneyFormatter, currencySymbol } from "@/lib/format";
 
@@ -66,6 +66,20 @@ export default function StaffScreen() {
   const sym = currencySymbol(settings?.currency);
   const specialistTerm = settings?.specialistTerm || "Спеціаліст";
   const { specialists, loading, error, reload } = useSpecialists(showInactive);
+  const { specializations } = useSpecializations();
+
+  // Resolve display label for a specialist's role(s) — joins names of linked
+  // Спеціалізації, falling back to the legacy `role` string if nothing is linked.
+  function roleLabel(s: Specialist): string {
+    const ids = s.specializationIds || [];
+    if (ids.length > 0) {
+      const names = ids
+        .map((id) => specializations.find((x) => x.id === id)?.name)
+        .filter(Boolean) as string[];
+      if (names.length > 0) return names.join(" · ");
+    }
+    return s.role || "";
+  }
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSpecialist, setEditingSpecialist] = useState<Specialist | null>(null);
 
@@ -127,7 +141,7 @@ export default function StaffScreen() {
                   <div className="min-w-0">
                     <div className="text-[13px] font-semibold text-gray-900 truncate">{s.name}</div>
                     <div className="text-[11px] text-gray-400 truncate">
-                      {s.role} ·{" "}
+                      {roleLabel(s)} ·{" "}
                       {highlight ? (
                         <span className={highlight}>{label}</span>
                       ) : (
@@ -190,7 +204,7 @@ export default function StaffScreen() {
                       </div>
                       <div className="min-w-0">
                         <div className="text-[13px] font-semibold text-gray-500 truncate">{s.name}</div>
-                        <div className="text-[11px] text-gray-400 truncate">{s.role} · {label}</div>
+                        <div className="text-[11px] text-gray-400 truncate">{roleLabel(s)} · {label}</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-4 shrink-0">

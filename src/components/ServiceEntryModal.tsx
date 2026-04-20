@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { inputCls, selectCls, labelCls } from "./ui";
-import { useSettings } from "@/lib/hooks";
+import { useSettings, useSpecializations } from "@/lib/hooks";
 import { moneyFormatter } from "@/lib/format";
 
 interface Specialist {
@@ -12,14 +12,8 @@ interface Specialist {
   compensationType?: "commission" | "hourly" | "rental" | "salary";
   rentalRate?: number;
   hourlyRate?: number;
+  specializationIds?: string[];
 }
-
-const ROLE_CATEGORIES: Record<string, string[]> = {
-  "Перукарі": ["Фарбування", "Стрижки", "Лікування", "Зачіски, укладки"],
-  "Візажисти, бровісти": ["Брови", "Мейкап"],
-  "Нігтьовий сервіс": ["Нігтьовий сервіс"],
-  "Лешмейкер": ["Вії", "Лешмейкер"],
-};
 
 interface ServiceCatalogItem {
   id: string;
@@ -298,6 +292,7 @@ export default function ServiceEntryModal({
   onCreated: () => void;
 }) {
   const { settings } = useSettings();
+  const { specializations } = useSpecializations();
   const fmt = moneyFormatter(settings);
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [specialistId, setSpecialistId] = useState("");
@@ -348,25 +343,32 @@ export default function ServiceEntryModal({
   const filteredServices = useMemo(() => {
     // Rental specialists: only show "Оренда" category — no regular services.
     if (isRental) return services.filter((s) => s.category === "Оренда");
-    // "Показати всі" toggle — override role-based filter (works for any comp type)
+    // "Показати всі" toggle — override specialization-based filter (works for any comp type)
     if (showAllServices) {
       return isHourlySpec ? services.filter((s) => s.category !== "Оренда") : services;
     }
-    // No role set → show all (fallback to avoid empty list for misconfigured specs)
-    if (!selectedSpecialist?.role) {
+    // Resolve allowed categories from the specialist's linked Спеціалізації.
+    // Union of categories across all of their specializations (admin + лешмейкер,
+    // бровіст + візажист, etc. — multi-specialization is a hard requirement).
+    const specIds = selectedSpecialist?.specializationIds || [];
+    const allowedCats = new Set<string>();
+    specIds.forEach((id) => {
+      const spec = specializations.find((s) => s.id === id);
+      spec?.categories.forEach((c) => allowedCats.add(c));
+    });
+
+    // No specializations configured → show all (avoid empty list for misconfigured specs)
+    if (allowedCats.size === 0) {
       return isHourlySpec ? services.filter((s) => s.category !== "Оренда") : services;
     }
-    const cats = ROLE_CATEGORIES[selectedSpecialist.role];
-    if (!cats) {
-      return isHourlySpec ? services.filter((s) => s.category !== "Оренда") : services;
-    }
-    // Role-based filter applies to BOTH hourly and commission specialists.
+
+    // Specialization filter applies to BOTH hourly and commission specialists.
     // Hourly excludes "Оренда" (it's only for rental-type specialists).
     return services.filter((s) => {
-      if (s.category === "Оренда") return !isHourlySpec; // hide rental for hourly
-      return cats.includes(s.category);
+      if (s.category === "Оренда") return !isHourlySpec;
+      return allowedCats.has(s.category);
     });
-  }, [services, selectedSpecialist, showAllServices, isRental, isHourlySpec]);
+  }, [services, selectedSpecialist, specializations, showAllServices, isRental, isHourlySpec]);
 
   const preview = useMemo(() => {
     if (!selectedService) return null;
@@ -530,7 +532,7 @@ export default function ServiceEntryModal({
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-1.5">
                   <label className={labelCls + " mb-0"}>Послуга</label>
-                  {selectedSpecialist?.role && ROLE_CATEGORIES[selectedSpecialist.role] && (
+                  {(selectedSpecialist?.specializationIds?.length ?? 0) > 0 && (
                     <button
                       type="button"
                       onClick={() => setShowAllServices(!showAllServices)}

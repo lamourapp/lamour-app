@@ -18,6 +18,12 @@ export interface Specialist {
   birthday: string;
   avatarColor: "brand" | "amber" | "gray";
   isActive?: boolean;
+  /**
+   * IDs of linked Спеціалізації records. Replaces the legacy single `role`
+   * string (kept for back-compat during transition). A specialist can have
+   * multiple спеціалізації (admin who also does brows, manicurist who does brows, etc.).
+   */
+  specializationIds?: string[];
 }
 
 export interface JournalEntry {

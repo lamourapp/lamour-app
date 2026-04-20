@@ -33,10 +33,26 @@ function mapSpecialist(r: { id: string; fields: Record<string, unknown> }) {
   // (Airtable stores false as absent, so undefined also means "unchecked")
   const isActive = f["is_active"] === true;
 
+  // Linked field → array of { id, name } objects. We only need IDs here;
+  // the PWA joins against useSpecializations() to resolve categories.
+  const rawSpec = f["Спеціалізації"];
+  const specializationIds: string[] = Array.isArray(rawSpec)
+    ? rawSpec
+        .map((s) =>
+          typeof s === "string"
+            ? s
+            : s && typeof s === "object" && "id" in (s as Record<string, unknown>)
+              ? (s as { id: string }).id
+              : "",
+        )
+        .filter(Boolean)
+    : [];
+
   return {
     id: r.id,
     name: (f["Ім'я"] as string) || "",
     role: (f["Вид діяльності"] as string) || "",
+    specializationIds,
     compensationType: type,
     serviceCommission: salonPercent,
     salesCommission: salesPercent,
@@ -69,6 +85,7 @@ export async function GET(request: NextRequest) {
         "Дата народження",
         "is_active",
         "Тип оплати",
+        "Спеціалізації",
       ],
       sort: [{ field: "Ім'я", direction: "asc" }],
     });
@@ -89,7 +106,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, role, compensationType, serviceCommission, salesCommission, productSalesCommission, conditions, birthday } = body;
+    const { name, role, compensationType, serviceCommission, salesCommission, productSalesCommission, conditions, birthday, specializationIds } = body;
 
     if (!name) {
       return NextResponse.json({ error: "name is required" }, { status: 400 });
@@ -102,6 +119,9 @@ export async function POST(request: NextRequest) {
 
     if (role) fields["Вид діяльності"] = role;
     if (birthday) fields["Дата народження"] = birthday;
+    if (Array.isArray(specializationIds)) {
+      fields["Спеціалізації"] = specializationIds;
+    }
 
     // Compensation type
     const typeMap: Record<string, string> = {
@@ -141,6 +161,11 @@ export async function PATCH(request: NextRequest) {
     if (updates.name !== undefined) fields["Ім'я"] = updates.name;
     if (updates.role !== undefined) fields["Вид діяльності"] = updates.role;
     if (updates.birthday !== undefined) fields["Дата народження"] = updates.birthday || null;
+    if (updates.specializationIds !== undefined) {
+      fields["Спеціалізації"] = Array.isArray(updates.specializationIds)
+        ? updates.specializationIds
+        : [];
+    }
     if (updates.isActive !== undefined) fields["is_active"] = updates.isActive;
 
     if (updates.compensationType !== undefined) {

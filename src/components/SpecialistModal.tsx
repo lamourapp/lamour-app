@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { Specialist, CompensationType } from "@/lib/demo-data";
-import { Button, Field, Input, Modal, Segmented, Select, type SegmentedOption } from "./ui";
-import { useSettings } from "@/lib/hooks";
+import { Button, Field, Input, Modal, Segmented, type SegmentedOption } from "./ui";
+import { useSettings, useSpecializations, useServicesCatalog } from "@/lib/hooks";
 import { currencySymbol } from "@/lib/format";
 
 interface SpecialistModalProps {
@@ -11,14 +11,6 @@ interface SpecialistModalProps {
   onClose: () => void;
   onSaved: () => void;
 }
-
-const ROLES = [
-  "Перукарі",
-  "Візажисти, бровісти",
-  "Нігтьовий сервіс",
-  "Лешмейкер",
-  "Адміністратори",
-];
 
 const COMP_TYPES: SegmentedOption<CompensationType>[] = [
   { id: "commission", label: "Комісія (%)" },
@@ -31,9 +23,13 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
   const isEdit = !!specialist;
   const { settings } = useSettings();
   const sym = currencySymbol(settings?.currency);
+  const { specializations, create: createSpecialization } = useSpecializations();
+  const { categories: availableCategories } = useServicesCatalog();
 
   const [name, setName] = useState(specialist?.name || "");
-  const [role, setRole] = useState(specialist?.role || ROLES[0]);
+  const [specializationIds, setSpecializationIds] = useState<string[]>(
+    specialist?.specializationIds || [],
+  );
   const [compensationType, setCompensationType] = useState<CompensationType>(specialist?.compensationType || "commission");
   const [serviceCommission, setServiceCommission] = useState(specialist?.serviceCommission ?? 30);
   const [salesCommission, setSalesCommission] = useState(specialist?.salesCommission ?? 10);
@@ -44,6 +40,53 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
   const [error, setError] = useState("");
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
 
+  // Inline "create new specialization" form
+  const [showNewSpec, setShowNewSpec] = useState(false);
+  const [newSpecName, setNewSpecName] = useState("");
+  const [newSpecCategories, setNewSpecCategories] = useState<string[]>([]);
+  const [creatingSpec, setCreatingSpec] = useState(false);
+
+  // Union of all categories from existing specializations + services catalog,
+  // so the tenant can compose a new спеціалізація from any active service category.
+  const categoryOptions = useMemo(() => {
+    const set = new Set<string>();
+    specializations.forEach((s) => s.categories.forEach((c) => set.add(c)));
+    availableCategories.forEach((c) => set.add(c));
+    return Array.from(set).sort();
+  }, [specializations, availableCategories]);
+
+  function toggleSpec(id: string) {
+    setSpecializationIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }
+
+  function toggleNewSpecCategory(cat: string) {
+    setNewSpecCategories((prev) =>
+      prev.includes(cat) ? prev.filter((x) => x !== cat) : [...prev, cat],
+    );
+  }
+
+  async function handleCreateSpec() {
+    if (!newSpecName.trim()) return;
+    setCreatingSpec(true);
+    try {
+      const created = await createSpecialization({
+        name: newSpecName.trim(),
+        categories: newSpecCategories,
+        sortOrder: (specializations[specializations.length - 1]?.sortOrder ?? 0) + 1,
+      });
+      setSpecializationIds((prev) => [...prev, created.id]);
+      setNewSpecName("");
+      setNewSpecCategories([]);
+      setShowNewSpec(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не вдалося створити спеціалізацію");
+    } finally {
+      setCreatingSpec(false);
+    }
+  }
+
   async function handleSave() {
     if (!name.trim()) {
       setError("Вкажіть ім'я");
@@ -53,9 +96,16 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
     setError("");
 
     try {
+      // Derive a legacy `role` value for back-compat with the deprecated
+      // "Вид діяльності" singleSelect — first selected specialization's name,
+      // or keep whatever was there before. Will be dropped once we stop reading it.
+      const firstSpec = specializations.find((s) => s.id === specializationIds[0]);
+      const legacyRole = firstSpec?.name || specialist?.role || "";
+
       const payload: Record<string, unknown> = {
         name: name.trim(),
-        role,
+        role: legacyRole,
+        specializationIds,
         compensationType,
         // For rental masters we force 100% salon cut so the rental line
         // ("Оренда робочого місця" as a service) counts fully as salon income.
@@ -117,12 +167,100 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
         />
       </Field>
 
-      <Field label="Спеціалізація">
-        <Select value={role} onChange={(e) => setRole(e.target.value)}>
-          {ROLES.map((r) => (
-            <option key={r} value={r}>{r}</option>
-          ))}
-        </Select>
+      <Field label="Спеціалізації">
+        <div className="space-y-1.5">
+          {specializations.length === 0 ? (
+            <div className="text-[13px] text-gray-400 italic px-1">
+              Ще немає спеціалізацій. Додайте першу нижче.
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {specializations.map((s) => {
+                const on = specializationIds.includes(s.id);
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => toggleSpec(s.id)}
+                    className={`px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors cursor-pointer border ${
+                      on
+                        ? "bg-brand-600 text-white border-brand-600"
+                        : "bg-white text-gray-700 border-black/10 hover:border-brand-500"
+                    }`}
+                  >
+                    {s.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {!showNewSpec ? (
+            <button
+              type="button"
+              onClick={() => setShowNewSpec(true)}
+              className="text-[12px] text-brand-600 hover:text-brand-700 cursor-pointer pt-1"
+            >
+              + Нова спеціалізація
+            </button>
+          ) : (
+            <div className="border border-black/10 rounded-xl p-3 space-y-2.5 bg-gray-50/50">
+              <Input
+                type="text"
+                value={newSpecName}
+                onChange={(e) => setNewSpecName(e.target.value)}
+                placeholder="Назва (напр. Бровіст)"
+                autoFocus
+              />
+              {categoryOptions.length > 0 && (
+                <div>
+                  <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+                    Які послуги може виконувати
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {categoryOptions.map((cat) => {
+                      const on = newSpecCategories.includes(cat);
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => toggleNewSpecCategory(cat)}
+                          className={`px-2.5 py-1 rounded-full text-[12px] transition-colors cursor-pointer border ${
+                            on
+                              ? "bg-brand-600 text-white border-brand-600"
+                              : "bg-white text-gray-600 border-black/10 hover:border-brand-500"
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              <div className="flex gap-2 pt-1">
+                <Button
+                  size="sm"
+                  onClick={handleCreateSpec}
+                  disabled={creatingSpec || !newSpecName.trim()}
+                >
+                  {creatingSpec ? "Створюю..." : "Додати"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setShowNewSpec(false);
+                    setNewSpecName("");
+                    setNewSpecCategories([]);
+                  }}
+                >
+                  Скасувати
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       </Field>
 
       <Field label="Дата народження">

@@ -196,6 +196,69 @@ export function useServicesCatalog() {
   return { services: data, categories, loading, error, reload };
 }
 
+/* ─── Specializations (tenant-defined roles) ─── */
+
+export interface Specialization {
+  id: string;
+  name: string;
+  categories: string[];
+  description: string;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export function useSpecializations(includeInactive = false) {
+  const [data, setData] = useState<Specialization[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const reload = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    const params = new URLSearchParams();
+    if (includeInactive) params.set("all", "1");
+    params.set("_t", String(Date.now()));
+    fetch(`/api/specializations?${params.toString()}`, { cache: "no-store" })
+      .then((res) => { if (!res.ok) throw new Error("Failed"); return res.json(); })
+      .then((d) => { setData(d); setLoading(false); })
+      .catch((e) => { setError(e.message); setLoading(false); });
+  }, [includeInactive]);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  const create = useCallback(async (payload: {
+    name: string;
+    categories?: string[];
+    description?: string;
+    sortOrder?: number;
+  }): Promise<Specialization> => {
+    const res = await fetch("/api/specializations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || "Failed");
+    const { id } = (await res.json()) as { id: string };
+    // Refetch so the new record (with server-resolved categories) appears.
+    await new Promise<void>((resolve) => {
+      fetch(`/api/specializations?_t=${Date.now()}`, { cache: "no-store" })
+        .then((r) => r.json())
+        .then((d: Specialization[]) => { setData(d); resolve(); })
+        .catch(() => resolve());
+    });
+    return {
+      id,
+      name: payload.name,
+      categories: payload.categories || [],
+      description: payload.description || "",
+      isActive: true,
+      sortOrder: payload.sortOrder ?? 0,
+    };
+  }, []);
+
+  return { specializations: data, loading, error, reload, create };
+}
+
 export function useSpecialists(includeInactive = false) {
   const [data, setData] = useState<Specialist[]>([]);
   const [loading, setLoading] = useState(true);
