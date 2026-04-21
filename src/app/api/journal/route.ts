@@ -112,6 +112,7 @@ export async function GET(request: NextRequest) {
           SERVICE_FIELDS.fixedMaterialsCost,
           SERVICE_FIELDS.fixedMasterPayForService,
           SERVICE_FIELDS.isCanceled,
+          SERVICE_FIELDS.extraHours,
         ],
       }),
       fetchAllRecords(TABLES.specialists, { fields: [SPECIALIST_FIELDS.name] }),
@@ -306,6 +307,12 @@ export async function GET(request: NextRequest) {
         paymentType: (f[SERVICE_FIELDS.paymentType] as string) || undefined,
         // Експозим для edit-modal: treba zrozumity який «Вид витрати» був у записі.
         expenseType: type === "expense" ? ((f[SERVICE_FIELDS.expenseType] as string) || undefined) : undefined,
+        // Для edit-mode: service/rental-редактор потребує ID послуги, щоб
+        // префілити вибір + додаткові години (якщо вводились).
+        serviceId: (type === "service" || type === "rental") && serviceLinks && serviceLinks.length > 0
+          ? serviceLinks[0]
+          : undefined,
+        extraHours: ((f[SERVICE_FIELDS.extraHours] as number) || undefined),
         // Прапорець soft-delete. Нормально не виставлений (ми фільтруємо),
         // але коли клієнт просить ?includeCanceled=1 — треба знати, які
         // записи показати сірим і з кнопкою «Відновити».
@@ -435,7 +442,7 @@ export async function POST(request: NextRequest) {
           fields[SERVICE_FIELDS.materialsPurchaseCostFromService] = body.materialsPurchaseCost;
         if (body.masterHourlyPay !== undefined) fields[SERVICE_FIELDS.fixedMasterPayForService] = body.masterHourlyPay;
         if (body.supplement) fields[SERVICE_FIELDS.addonServicePrice] = body.supplement;
-        if (body.extraHours) fields["Додаткові години"] = body.extraHours; // TODO: add to airtable-fields.ts
+        if (body.extraHours) fields[SERVICE_FIELDS.extraHours] = body.extraHours;
         if (body.extraMaterialsCost) fields[SERVICE_FIELDS.additionalMaterials] = body.extraMaterialsCost;
         if (body.paymentType) fields[SERVICE_FIELDS.paymentType] = body.paymentType;
 

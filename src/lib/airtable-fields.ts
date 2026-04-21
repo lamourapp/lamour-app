@@ -59,6 +59,9 @@ export const SERVICE_FIELDS = {
    * змогу відновити. Див. /api/journal DELETE — ставить true замість hard-delete.
    */
   isCanceled: "isCanceled",
+  // Додаткові години, введені майстром поверх каталогу (для hourly послуг
+  // або погодинних спеціалістів). Зберігається рядком, ми читаємо як number.
+  extraHours: "Додаткові години",
 } as const;
 
 // ─── Співробітники / tblsfMMvXdTp1DkjY ─────────────────────────────────────

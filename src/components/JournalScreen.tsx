@@ -532,7 +532,25 @@ export default function JournalScreen() {
         />
       )}
 
-      {editingEntry && (
+      {/* Service / rental — повноцінний ServiceEntryModal в edit-mode
+          (create-new + cancel-old). Інші типи — легкий QuickEditEntryModal. */}
+      {editingEntry && (editingEntry.type === "service" || editingEntry.type === "rental") && (
+        <ServiceEntryModal
+          specialists={specialists}
+          onClose={() => setEditingEntry(null)}
+          onCreated={reload}
+          initial={{
+            replaceEntryId: editingEntry.id,
+            date: editingEntry.date,
+            specialistId: editingEntry.specialistId,
+            serviceId: editingEntry.serviceId,
+            supplement: editingEntry.supplement,
+            extraHours: editingEntry.extraHours,
+            comment: editingEntry.comment,
+          }}
+        />
+      )}
+      {editingEntry && editingEntry.type !== "service" && editingEntry.type !== "rental" && (
         <QuickEditEntryModal
           entry={editingEntry}
           specialists={specialists}

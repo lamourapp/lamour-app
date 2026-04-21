@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { Button, Field, Input, Modal, Select } from "./ui";
 import { useExpenseTypes } from "@/lib/hooks";
 import type { JournalEntry } from "@/lib/types";
+import SingleDatePicker from "./SingleDatePicker";
 
 interface Specialist {
   id: string;
@@ -130,7 +131,7 @@ export default function QuickEditEntryModal({
 
       <div className="space-y-3">
         <Field label="Дата">
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <SingleDatePicker value={date} onChange={setDate} />
         </Field>
 
         <Field label="Спеціаліст" hint={entry.type === "expense" ? "(опціонально, для ЗП)" : undefined}>
@@ -231,11 +232,9 @@ export default function QuickEditEntryModal({
           />
         </Field>
 
-        {(entry.type === "sale" || entry.type === "service") && (
+        {entry.type === "sale" && (
           <div className="text-[11px] text-gray-500 bg-gray-50 rounded-lg px-3 py-2 leading-relaxed">
-            {entry.type === "sale"
-              ? "Щоб змінити склад або кількість товарів — скасуй запис і створи заново."
-              : "Щоб змінити послугу, майстра калькуляції чи додаткові матеріали — скасуй запис і створи заново."}
+            Щоб змінити склад або кількість товарів — скасуй запис і створи заново.
           </div>
         )}
       </div>

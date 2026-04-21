@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { inputCls, selectCls, labelCls } from "./ui";
 import { useSettings, useSpecializations, useCategories } from "@/lib/hooks";
 import { moneyFormatter } from "@/lib/format";
+import SingleDatePicker from "./SingleDatePicker";
 
 interface Specialist {
   id: string;
@@ -282,15 +283,39 @@ function CalcMaterialsSection({
 }
 
 /* ─── Main Modal ─── */
+
+/**
+ * Дані для edit-mode — коли користувач натиснув олівець на service/rental
+ * запис у журналі. Модал префіліть поля й після успішного POST кансельне
+ * старий запис (soft-delete через DELETE /api/journal).
+ *
+ * Важливо: ми не робимо in-place PATCH існуючого запису, бо фіксовані
+ * snapshot-поля (fixedPrice, fixedMaterialsCost, specialist shares…) живуть
+ * формулами — їх легко порушити. Create-new + cancel-old дає чисту історію
+ * і страхує калькуляцію.
+ */
+export interface ServiceEntryInitial {
+  replaceEntryId: string;   // id старого запису → soft-cancel на успіху
+  date?: string;
+  specialistId?: string;
+  serviceId?: string;
+  supplement?: number;      // + або −
+  extraHours?: number;
+  comment?: string;
+}
+
 export default function ServiceEntryModal({
   specialists,
   onClose,
   onCreated,
+  initial,
 }: {
   specialists: Specialist[];
   onClose: () => void;
   onCreated: () => void;
+  initial?: ServiceEntryInitial;
 }) {
+  const isEdit = !!initial;
   const { settings } = useSettings();
   // include archived — a linked-but-archived спеціалізація still gives the
   // specialist service access until the owner explicitly unlinks it.
@@ -309,14 +334,20 @@ export default function ServiceEntryModal({
     () => allCategories.find((c) => c.isRental)?.id || "",
     [allCategories],
   );
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [specialistId, setSpecialistId] = useState("");
-  const [serviceId, setServiceId] = useState("");
-  const [supplement, setSupplement] = useState("");
-  const [supplementSign, setSupplementSign] = useState<"+" | "-">("+");
-  const [extraHours, setExtraHours] = useState("");
+  const [date, setDate] = useState(() => initial?.date || new Date().toISOString().slice(0, 10));
+  const [specialistId, setSpecialistId] = useState(() => initial?.specialistId || "");
+  const [serviceId, setServiceId] = useState(() => initial?.serviceId || "");
+  const [supplement, setSupplement] = useState(() =>
+    initial?.supplement ? String(Math.abs(initial.supplement)) : "",
+  );
+  const [supplementSign, setSupplementSign] = useState<"+" | "-">(() =>
+    (initial?.supplement ?? 0) < 0 ? "-" : "+",
+  );
+  const [extraHours, setExtraHours] = useState(() =>
+    initial?.extraHours ? String(initial.extraHours) : "",
+  );
   const [calcMaterials, setCalcMaterials] = useState<MaterialUsage[]>([]);
-  const [comment, setComment] = useState("");
+  const [comment, setComment] = useState(() => initial?.comment || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -479,6 +510,22 @@ export default function ServiceEntryModal({
         body: JSON.stringify(body),
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Failed"); }
+
+      // Edit-mode: новий запис створено → скасуємо старий. Якщо cancel впаде —
+      // це не критично, користувач побачить обидва записи й зможе скасувати
+      // вручну; показуємо попередження, але не відкочуємо створення.
+      if (initial?.replaceEntryId) {
+        try {
+          await fetch("/api/journal", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: initial.replaceEntryId }),
+          });
+        } catch (err) {
+          console.warn("Cancel of old service entry failed:", err);
+        }
+      }
+
       await new Promise((r) => setTimeout(r, 800));
       onCreated();
       onClose();
@@ -497,7 +544,7 @@ export default function ServiceEntryModal({
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-[17px] font-semibold text-gray-900">Нова послуга</h2>
+          <h2 className="text-[17px] font-semibold text-gray-900">{isEdit ? "Редагувати послугу" : "Нова послуга"}</h2>
           <button
             onClick={onClose}
             className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 cursor-pointer transition-colors"
@@ -513,8 +560,16 @@ export default function ServiceEntryModal({
             {/* Date */}
             <div className="mb-4">
               <label className={labelCls}>Дата</label>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
+              <SingleDatePicker value={date} onChange={setDate} />
             </div>
+
+            {isEdit && (
+              <div className="mb-4 text-[12px] text-amber-700 bg-amber-50 rounded-xl px-3 py-2 leading-relaxed">
+                Редагування створить <b>новий</b> запис і скасує старий (він
+                лишиться в архіві). Якщо потрібно — перевір додаткові матеріали:
+                їх треба ввести заново.
+              </div>
+            )}
 
             {/* Specialist */}
             <div className="mb-4">

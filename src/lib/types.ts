@@ -50,6 +50,11 @@ export interface JournalEntry {
   time?: string;
   /** Тип витрати (Вид витрати) — тільки для type === "expense". */
   expenseType?: string;
+  /** ID послуги з каталогу (для service/rental) — потрібне edit-mode, щоб
+   * префілити ServiceEntryModal вибраною послугою. */
+  serviceId?: string;
+  /** Додаткові години поверх каталогу (для service/rental). */
+  extraHours?: number;
   /**
    * true = запис soft-deleted (скасований). За замовчуванням такі не приходять
    * у журнал; з'являються лише коли UI просить ?includeCanceled=1 — щоб
