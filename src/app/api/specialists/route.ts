@@ -51,7 +51,6 @@ function mapSpecialist(r: { id: string; fields: Record<string, unknown> }) {
   return {
     id: r.id,
     name: (f["Ім'я"] as string) || "",
-    role: (f["Вид діяльності"] as string) || "",
     specializationIds,
     compensationType: type,
     serviceCommission: salonPercent,
@@ -76,7 +75,6 @@ export async function GET(request: NextRequest) {
     const records = await fetchAllRecords(TABLES.specialists, {
       fields: [
         "Ім'я",
-        "Вид діяльності",
         "% cалону за послугу",
         "% майстру за продаж матеріалів",
         "% за продаж",
@@ -106,7 +104,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, role, compensationType, serviceCommission, salesCommission, productSalesCommission, conditions, birthday, specializationIds } = body;
+    const { name, compensationType, serviceCommission, salesCommission, productSalesCommission, conditions, birthday, specializationIds } = body;
 
     if (!name) {
       return NextResponse.json({ error: "name is required" }, { status: 400 });
@@ -117,7 +115,6 @@ export async function POST(request: NextRequest) {
       "is_active": true,
     };
 
-    if (role) fields["Вид діяльності"] = role;
     if (birthday) fields["Дата народження"] = birthday;
     if (Array.isArray(specializationIds)) {
       fields["Спеціалізації"] = specializationIds;
@@ -159,7 +156,6 @@ export async function PATCH(request: NextRequest) {
     const fields: Record<string, unknown> = {};
 
     if (updates.name !== undefined) fields["Ім'я"] = updates.name;
-    if (updates.role !== undefined) fields["Вид діяльності"] = updates.role;
     if (updates.birthday !== undefined) fields["Дата народження"] = updates.birthday || null;
     if (updates.specializationIds !== undefined) {
       fields["Спеціалізації"] = Array.isArray(updates.specializationIds)

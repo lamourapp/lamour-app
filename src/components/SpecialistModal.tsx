@@ -99,15 +99,8 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
     setError("");
 
     try {
-      // Derive a legacy `role` value for back-compat with the deprecated
-      // "Вид діяльності" singleSelect — first selected specialization's name,
-      // or keep whatever was there before. Will be dropped once we stop reading it.
-      const firstSpec = specializations.find((s) => s.id === specializationIds[0]);
-      const legacyRole = firstSpec?.name || specialist?.role || "";
-
       const payload: Record<string, unknown> = {
         name: name.trim(),
-        role: legacyRole,
         specializationIds,
         compensationType,
         // For rental masters we force 100% salon cut so the rental line

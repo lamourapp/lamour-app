@@ -70,16 +70,14 @@ export default function StaffScreen() {
   const { specializations } = useSpecializations(true);
 
   // Resolve display label for a specialist's role(s) — joins names of linked
-  // Спеціалізації, falling back to the legacy `role` string if nothing is linked.
+  // Спеціалізації.
   function roleLabel(s: Specialist): string {
     const ids = s.specializationIds || [];
-    if (ids.length > 0) {
-      const names = ids
-        .map((id) => specializations.find((x) => x.id === id)?.name)
-        .filter(Boolean) as string[];
-      if (names.length > 0) return names.join(" · ");
-    }
-    return s.role || "";
+    if (ids.length === 0) return "";
+    const names = ids
+      .map((id) => specializations.find((x) => x.id === id)?.name)
+      .filter(Boolean) as string[];
+    return names.join(" · ");
   }
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSpecialist, setEditingSpecialist] = useState<Specialist | null>(null);

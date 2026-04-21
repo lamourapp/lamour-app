@@ -80,7 +80,6 @@ const FIELDS = [
   "Дохід Продажі",
   "Дохід Матеріали",
   "Салону за послугу",
-  "Вид послуги",
   "Продажі деталі",
   "Чистий дохід салону",
   "Оплата майстру - всього",
@@ -303,7 +302,7 @@ function byService(records: Row[], nameMap: Map<string, string>): ServiceRow[] {
   return [...map.values()].sort((a, b) => b.netSalon - a.netSalon);
 }
 
-function byServiceType(records: Row[]): ServiceTypeSlice[] {
+function byServiceType(records: Row[], serviceToCategoryName: Map<string, string>): ServiceTypeSlice[] {
   const map = new Map<string, number>();
   for (const r of records) {
     const f = r.fields;
@@ -314,14 +313,8 @@ function byServiceType(records: Row[]): ServiceTypeSlice[] {
     const serviceLinks = f["Послуга"] as string[] | undefined;
     if (!serviceLinks || serviceLinks.length === 0) continue;
 
-    // `Вид послуги` — lookup, може бути масивом рядків або масивом масивів.
-    const raw = f["Вид послуги"];
-    let type = "Без виду";
-    if (Array.isArray(raw) && raw.length > 0) {
-      const first = raw[0];
-      if (Array.isArray(first)) type = String(first[0] || "Без виду");
-      else type = String(first || "Без виду");
-    }
+    // Resolve service → category name via pre-built map (replaces deprecated `Вид послуги` lookup).
+    const type = serviceToCategoryName.get(serviceLinks[0]) || "Без виду";
 
     const total = (f["Всього вартість послуги"] as number) || 0;
     map.set(type, (map.get(type) || 0) + total);
@@ -500,7 +493,7 @@ export async function GET(request: NextRequest) {
 
     const prev = prevRange(from, to);
 
-    const [currentRecs, prevRecs, specRecs, svcCatalog, saleDetails, priceList, settingsRecs] = await Promise.all([
+    const [currentRecs, prevRecs, specRecs, svcCatalog, categoryRecs, saleDetails, priceList, settingsRecs] = await Promise.all([
       fetchAllRecords(TABLES.services, {
         filterByFormula: dateFilter(from, to),
         fields: FIELDS,
@@ -510,7 +503,8 @@ export async function GET(request: NextRequest) {
         fields: FIELDS,
       }),
       fetchAllRecords(TABLES.specialists, { fields: ["Ім'я"] }),
-      fetchAllRecords(TABLES.servicesCatalog, { fields: ["Назва"] }),
+      fetchAllRecords(TABLES.servicesCatalog, { fields: ["Назва", "Категорія"] }),
+      fetchAllRecords(TABLES.categories, { fields: ["Назва"] }),
       fetchAllRecords(TABLES.saleDetails, {
         fields: ["к-сть", "Прайс", "Фікс. ціна продажу", "Фікс. ціна закупки", "До оплати"],
       }),
@@ -538,6 +532,18 @@ export async function GET(request: NextRequest) {
 
     const svcNameMap = new Map<string, string>();
     for (const s of svcCatalog) svcNameMap.set(s.id, (s.fields["Назва"] as string) || "—");
+
+    // Resolve service → category name via linked field on Список послуг (replaces the
+    // deprecated `Вид послуги` multiSelect + lookup chain). Client-side join keeps
+    // the analytics independent of Airtable lookup config.
+    const categoryNameById = new Map<string, string>();
+    for (const c of categoryRecs) categoryNameById.set(c.id, (c.fields["Назва"] as string) || "—");
+    const serviceToCategoryName = new Map<string, string>();
+    for (const s of svcCatalog) {
+      const catLinks = s.fields["Категорія"] as string[] | undefined;
+      const catName = catLinks && catLinks.length > 0 ? categoryNameById.get(catLinks[0]) : undefined;
+      if (catName) serviceToCategoryName.set(s.id, catName);
+    }
 
     const productInfo = new Map<string, ProductInfo>();
     for (const p of priceList) {
@@ -587,7 +593,7 @@ export async function GET(request: NextRequest) {
       daily: daily(currentRecs, from, to),
       specialists: bySpecialist(currentRecs, nameMap),
       topServices: byService(currentRecs, svcNameMap).slice(0, 10),
-      serviceTypes: byServiceType(currentRecs),
+      serviceTypes: byServiceType(currentRecs, serviceToCategoryName),
       topProducts: topProducts.slice(0, 10),
       alerts: buildAlerts(
         current,
