@@ -299,11 +299,15 @@ export default function JournalScreen() {
   }
   const { specialists } = useSpecialists();
 
-  // Client-side type filter
+  // Client-side type filter + «Скасовані» toggle.
+  // Семантика кнопки: OFF = тільки активні (API навіть не тягне скасовані),
+  // ON = ТІЛЬКИ скасовані (не змішуємо з активними, бо саме в цьому була
+  // плутанина — юзер очікував перемикач «показати лише скасовані»).
   const filtered = useMemo(() => {
-    if (!selectedType) return entries;
-    return entries.filter((e) => e.type === selectedType);
-  }, [entries, selectedType]);
+    let list = showCanceled ? entries.filter((e) => e.isCanceled) : entries;
+    if (selectedType) list = list.filter((e) => e.type === selectedType);
+    return list;
+  }, [entries, selectedType, showCanceled]);
 
   // Group entries by date
   const grouped = filtered.reduce<Record<string, JournalEntry[]>>((acc, entry) => {
