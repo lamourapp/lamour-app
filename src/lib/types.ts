@@ -55,6 +55,9 @@ export interface JournalEntry {
   serviceId?: string;
   /** Додаткові години поверх каталогу (для service/rental). */
   extraHours?: number;
+  /** Додаткові матеріали (калькуляція), прив'язані до запису —
+   *  потрібні edit-mode для префілу. */
+  calcMaterials?: { materialId: string; amount: number }[];
   /**
    * true = запис soft-deleted (скасований). За замовчуванням такі не приходять
    * у журнал; з'являються лише коли UI просить ?includeCanceled=1 — щоб

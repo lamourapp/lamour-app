@@ -547,6 +547,7 @@ export default function JournalScreen() {
             supplement: editingEntry.supplement,
             extraHours: editingEntry.extraHours,
             comment: editingEntry.comment,
+            calcMaterials: editingEntry.calcMaterials,
           }}
         />
       )}

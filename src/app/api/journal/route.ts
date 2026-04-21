@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch journal, specialists, services, price list, and sale details in parallel
-    const [records, specialistRecords, serviceCatalog, priceList, saleDetailRecords, categoryRecords] = await Promise.all([
+    const [records, specialistRecords, serviceCatalog, priceList, saleDetailRecords, categoryRecords, orderRecords] = await Promise.all([
       fetchAllRecords(TABLES.services, {
         filterByFormula: dateFilter,
         sort: [{ field: SERVICE_FIELDS.date, direction: "desc" }],
@@ -113,6 +113,7 @@ export async function GET(request: NextRequest) {
           SERVICE_FIELDS.fixedMasterPayForService,
           SERVICE_FIELDS.isCanceled,
           SERVICE_FIELDS.extraHours,
+          SERVICE_FIELDS.orders,
         ],
       }),
       fetchAllRecords(TABLES.specialists, { fields: [SPECIALIST_FIELDS.name] }),
@@ -120,6 +121,9 @@ export async function GET(request: NextRequest) {
       fetchAllRecords(TABLES.priceList, { fields: [PRICE_LIST_FIELDS.name] }),
       fetchAllRecords(TABLES.saleDetails, { fields: [SALE_DETAIL_FIELDS.quantity, SALE_DETAIL_FIELDS.priceListItem, SALE_DETAIL_FIELDS.fixedSalePrice, SALE_DETAIL_FIELDS.totalDue] }),
       fetchAllRecords(TABLES.categories, { fields: [CATEGORY_FIELDS.isRental] }),
+      // Замовлення = додаткові матеріали (калькуляція) для послуг. Потрібні
+      // в edit-mode, щоб префілити ServiceEntryModal існуючими usages.
+      fetchAllRecords(TABLES.orders, { fields: [ORDER_FIELDS.quantity, ORDER_FIELDS.material] }),
     ]);
 
     // Build lookup maps
@@ -131,6 +135,17 @@ export async function GET(request: NextRequest) {
 
     // Build serviceId → isRental map via Категорії (single source of truth,
     // replaces legacy title.includes("оренда") detection).
+    // orderId → {materialId, amount}. Порожні amount або відсутній material
+    // відсікаємо — не має сенсу тягти їх у UI як «0 мл нічого».
+    const orderMap = new Map<string, { materialId: string; amount: number }>();
+    orderRecords.forEach((r) => {
+      const matLinks = r.fields[ORDER_FIELDS.material] as string[] | undefined;
+      const qty = (r.fields[ORDER_FIELDS.quantity] as number) || 0;
+      if (matLinks && matLinks.length > 0 && qty > 0) {
+        orderMap.set(r.id, { materialId: matLinks[0], amount: qty });
+      }
+    });
+
     const rentalCategoryIds = new Set<string>();
     categoryRecords.forEach((r) => {
       if (r.fields[CATEGORY_FIELDS.isRental] === true) rentalCategoryIds.add(r.id);
@@ -313,6 +328,17 @@ export async function GET(request: NextRequest) {
           ? serviceLinks[0]
           : undefined,
         extraHours: ((f[SERVICE_FIELDS.extraHours] as number) || undefined),
+        // Додаткові матеріали (калькуляція) — linked records у Замовленнях.
+        // Для service/rental витягуємо {materialId, amount} для префілу edit-mode.
+        calcMaterials: (() => {
+          if (type !== "service" && type !== "rental") return undefined;
+          const orderLinks = f[SERVICE_FIELDS.orders] as string[] | undefined;
+          if (!orderLinks || orderLinks.length === 0) return undefined;
+          const items = orderLinks
+            .map((id) => orderMap.get(id))
+            .filter((x): x is NonNullable<typeof x> => !!x);
+          return items.length > 0 ? items : undefined;
+        })(),
         // Прапорець soft-delete. Нормально не виставлений (ми фільтруємо),
         // але коли клієнт просить ?includeCanceled=1 — треба знати, які
         // записи показати сірим і з кнопкою «Відновити».

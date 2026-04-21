@@ -302,6 +302,8 @@ export interface ServiceEntryInitial {
   supplement?: number;      // + або −
   extraHours?: number;
   comment?: string;
+  /** Додаткові матеріали з попереднього запису (prefilled для edit-mode). */
+  calcMaterials?: { materialId: string; amount: number }[];
 }
 
 export default function ServiceEntryModal({
@@ -346,7 +348,9 @@ export default function ServiceEntryModal({
   const [extraHours, setExtraHours] = useState(() =>
     initial?.extraHours ? String(initial.extraHours) : "",
   );
-  const [calcMaterials, setCalcMaterials] = useState<MaterialUsage[]>([]);
+  const [calcMaterials, setCalcMaterials] = useState<MaterialUsage[]>(
+    () => initial?.calcMaterials?.map((m) => ({ materialId: m.materialId, amount: m.amount })) || [],
+  );
   const [comment, setComment] = useState(() => initial?.comment || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -565,9 +569,8 @@ export default function ServiceEntryModal({
 
             {isEdit && (
               <div className="mb-4 text-[12px] text-amber-700 bg-amber-50 rounded-xl px-3 py-2 leading-relaxed">
-                Редагування створить <b>новий</b> запис і скасує старий (він
-                лишиться в архіві). Якщо потрібно — перевір додаткові матеріали:
-                їх треба ввести заново.
+                Редагування створить <b>новий</b> запис і скасує старий — він
+                лишиться в архіві з кнопкою «Відновити».
               </div>
             )}
 
