@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchAllRecords, createRecord, updateRecord, TABLES } from "@/lib/airtable";
 import { EXPENSE_TYPE_FIELDS } from "@/lib/airtable-fields";
 
+// Next.js 16: маршрути Route Handlers кешуються за замовчуванням (full route cache).
+// Після PATCH /api/expense-types (архівація) клієнт просить GET — і отримує стару
+// кеш-копію, через це UI не бачить зміну. Вимикаємо кеш явно.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 /**
  * Види витрат — довідник типів витрат, керується з Налаштувань.
  *

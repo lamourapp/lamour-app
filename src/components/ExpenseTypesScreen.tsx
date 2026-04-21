@@ -95,7 +95,13 @@ export default function ExpenseTypesScreen({ onBack }: { onBack: () => void }) {
               await patch(c.id, { name });
               setEditingId(null);
             }}
-            onArchive={() => patch(c.id, { isActive: false })}
+            onArchive={async () => {
+              await patch(c.id, { isActive: false });
+              setEditingId(null);
+              // Розгортаємо архів щоб користувач побачив куди поділось — інакше
+              // рядок просто зникає з активного списку і виглядає як «нічого не сталось».
+              setShowArchived(true);
+            }}
           />
         ))}
       </div>
