@@ -44,16 +44,21 @@ function TypeLabel({ type }: { type: JournalEntry["type"] }) {
   );
 }
 
-function EntryCard({ entry, onDelete, onEdit, fmt }: { entry: JournalEntry; onDelete: (id: string) => void; onEdit?: (entry: JournalEntry) => void; fmt: Fmt }) {
+function EntryCard({ entry, onDelete, onEdit, onRestore, fmt }: { entry: JournalEntry; onDelete: (id: string) => void; onEdit?: (entry: JournalEntry) => void; onRestore?: (id: string) => void; fmt: Fmt }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const isRental = entry.type === "rental";
   const hasMaterials = isRental && entry.materialsCost && entry.materialsCost > 0;
   const hasMultiProducts = entry.saleItems && entry.saleItems.length > 1;
+  const isCanceled = !!entry.isCanceled;
 
   return (
     <div
-      className="bg-white rounded-xl border border-black/[0.06] px-4 py-3 transition-all hover:shadow-[0_2px_12px_rgba(0,0,0,0.06)] group relative"
+      className={`bg-white rounded-xl border px-4 py-3 transition-all group relative ${
+        isCanceled
+          ? "border-dashed border-black/[0.12] opacity-60"
+          : "border-black/[0.06] hover:shadow-[0_2px_12px_rgba(0,0,0,0.06)]"
+      }`}
       onClick={(e) => {
         // Multi-product sale: toggle expand on tap
         if (hasMultiProducts && !confirmDelete) {
@@ -61,6 +66,8 @@ function EntryCard({ entry, onDelete, onEdit, fmt }: { entry: JournalEntry; onDe
           setExpanded(!expanded);
           return;
         }
+        // Скасований запис не відкриває confirmDelete — у нього інші дії (restore).
+        if (isCanceled) return;
         // On mobile: tap card to show delete confirm (only if not already showing)
         if (window.innerWidth < 640 && !confirmDelete) {
           e.preventDefault();
@@ -118,9 +125,20 @@ function EntryCard({ entry, onDelete, onEdit, fmt }: { entry: JournalEntry; onDe
               <TypeLabel type={entry.type} />
             )}
           </div>
+          {/* Canceled-entry: кнопка «Відновити». Замінює edit/delete — з архіву
+              немає сенсу редагувати, спершу відновлюєш. */}
+          {isCanceled && onRestore && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onRestore(entry.id); }}
+              className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-brand-50 text-brand-600 hover:bg-brand-100 border border-brand-200 cursor-pointer transition-colors whitespace-nowrap"
+              title="Відновити скасований запис"
+            >
+              Відновити
+            </button>
+          )}
           {/* Edit button — лише для expense-записів. На мобільних завжди видимий
               (бо тап по картці відкриває видалити), на десктопі — тільки на hover. */}
-          {onEdit && entry.type === "expense" && (
+          {!isCanceled && onEdit && entry.type === "expense" && (
             <button
               onClick={(e) => { e.stopPropagation(); onEdit(entry); }}
               className="p-1.5 rounded-lg hover:bg-brand-50 text-gray-300 hover:text-brand-500 cursor-pointer transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
@@ -133,15 +151,17 @@ function EntryCard({ entry, onDelete, onEdit, fmt }: { entry: JournalEntry; onDe
             </button>
           )}
           {/* Desktop only: hover trash icon */}
-          <button
-            onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }}
-            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 cursor-pointer hidden sm:block"
-            title="Видалити запис"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-            </svg>
-          </button>
+          {!isCanceled && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }}
+              className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 cursor-pointer hidden sm:block"
+              title="Скасувати запис"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
@@ -218,6 +238,9 @@ export default function JournalScreen() {
   const [selectedType, setSelectedType] = useState("");
   const [showCalendar, setShowCalendar] = useState(false);
   const [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null);
+  // Показувати скасовані (soft-deleted) записи. OFF за замовчуванням — в журналі
+  // видно лише «живі»; вмикається окремим тогглом для перегляду архіву/відновлення.
+  const [showCanceled, setShowCanceled] = useState(false);
 
   const { settings } = useSettings();
   const fmt = useMemo(() => moneyFormatter(settings), [settings]);
@@ -226,6 +249,7 @@ export default function JournalScreen() {
     selectedSpecialist,
     customRange?.from,
     customRange?.to,
+    showCanceled,
   );
   const [deleting, setDeleting] = useState<string | null>(null);
   const [createType, setCreateType] = useState<"expense" | "debt" | "sale" | "service" | null>(null);
@@ -245,6 +269,26 @@ export default function JournalScreen() {
     } catch (err) {
       console.error(err);
       alert("Не вдалося видалити запис");
+    } finally {
+      setDeleting(null);
+    }
+  }
+
+  // Restore = скинути isCanceled у false. Ендпоінт той самий /api/journal DELETE
+  // з `restore: true` — щоб не плодити окремий роут для пари "toggle".
+  async function handleRestore(id: string) {
+    setDeleting(id);
+    try {
+      const res = await fetch("/api/journal", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, restore: true }),
+      });
+      if (!res.ok) throw new Error("Failed to restore");
+      reload();
+    } catch (err) {
+      console.error(err);
+      alert("Не вдалося відновити запис");
     } finally {
       setDeleting(null);
     }
@@ -370,6 +414,22 @@ export default function JournalScreen() {
             </select>
             <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
           </div>
+          {/* Toggle «Показати скасовані» — компактний перемикач. Підсвічений = ON,
+              картки скасованих з'являться в стрічці з опцією «Відновити». */}
+          <button
+            type="button"
+            onClick={() => setShowCanceled((v) => !v)}
+            className={`shrink-0 px-2.5 py-2 rounded-xl text-[11px] font-medium cursor-pointer transition-colors border inline-flex items-center gap-1
+              ${showCanceled
+                ? "bg-brand-50 text-brand-600 border-brand-200"
+                : "bg-white text-gray-500 border-black/[0.08] hover:border-brand-300"}`}
+            title="Показати скасовані записи"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+            </svg>
+            <span className="hidden sm:inline">Скасовані</span>
+          </button>
         </div>
 
       </div>
@@ -410,7 +470,7 @@ export default function JournalScreen() {
           <div className="space-y-1.5 mb-1">
             {grouped[date].map((entry) => (
               <div key={entry.id} className={deleting === entry.id ? "opacity-50 pointer-events-none" : ""}>
-                <EntryCard entry={entry} onDelete={handleDelete} onEdit={setEditingExpense} fmt={fmt} />
+                <EntryCard entry={entry} onDelete={handleDelete} onEdit={setEditingExpense} onRestore={handleRestore} fmt={fmt} />
               </div>
             ))}
           </div>

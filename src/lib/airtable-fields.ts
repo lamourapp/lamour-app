@@ -53,6 +53,12 @@ export const SERVICE_FIELDS = {
   incomeSales: "Дохід Продажі",
   incomeMaterials: "Дохід Матеріали",
   netSalon: "Чистий дохід салону",
+  /**
+   * Soft-delete flag. true = запис «скасовано» — фільтруємо з усіх GET-ів і
+   * агрегацій. Не видаляємо фізично, щоб не ламати історичні числа й мати
+   * змогу відновити. Див. /api/journal DELETE — ставить true замість hard-delete.
+   */
+  isCanceled: "isCanceled",
 } as const;
 
 // ─── Співробітники / tblsfMMvXdTp1DkjY ─────────────────────────────────────

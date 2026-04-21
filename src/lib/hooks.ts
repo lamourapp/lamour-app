@@ -348,6 +348,7 @@ export function useJournal(
   specialistId: string = "",
   dateFrom?: string,
   dateTo?: string,
+  includeCanceled: boolean = false,
 ) {
   const [data, setData] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -370,6 +371,7 @@ export function useJournal(
 
     if (specialistId) params.set("specialist", specialistId);
     if (tz) params.set("tz", tz);
+    if (includeCanceled) params.set("includeCanceled", "1");
 
     params.set("_t", String(Date.now())); // cache-bust
     fetch(`/api/journal?${params.toString()}`)
@@ -386,7 +388,7 @@ export function useJournal(
         setError(err.message);
         setLoading(false);
       });
-  }, [period, specialistId, dateFrom, dateTo, tz]);
+  }, [period, specialistId, dateFrom, dateTo, tz, includeCanceled]);
 
   useEffect(() => {
     reload();

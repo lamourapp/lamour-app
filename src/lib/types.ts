@@ -50,4 +50,10 @@ export interface JournalEntry {
   time?: string;
   /** Тип витрати (Вид витрати) — тільки для type === "expense". */
   expenseType?: string;
+  /**
+   * true = запис soft-deleted (скасований). За замовчуванням такі не приходять
+   * у журнал; з'являються лише коли UI просить ?includeCanceled=1 — щоб
+   * показати архів і кнопку «Відновити».
+   */
+  isCanceled?: boolean;
 }

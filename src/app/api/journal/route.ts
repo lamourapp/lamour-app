@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchAllRecords, fetchRecords, createRecord, updateRecord, deleteRecord, TABLES } from "@/lib/airtable";
+import { fetchAllRecords, fetchRecords, createRecord, updateRecord, TABLES } from "@/lib/airtable";
 import {
   SERVICE_FIELDS,
   SPECIALIST_FIELDS,
@@ -38,6 +38,9 @@ export async function GET(request: NextRequest) {
     const dateFrom = searchParams.get("from") || "";
     const dateTo = searchParams.get("to") || "";
     const tz = searchParams.get("tz") || "Europe/Kyiv";
+    // За замовчуванням ховаємо скасовані — journal UI передає ?includeCanceled=1
+    // коли користувач хоче побачити архів і кнопки «Відновити».
+    const includeCanceled = searchParams.get("includeCanceled") === "1";
     const timeFormatter = getTimeFormatter(tz);
 
     // Build date filter only — specialist filtering is done client-side
@@ -66,6 +69,13 @@ export async function GET(request: NextRequest) {
         default:
           dateFilter = `IS_AFTER({Дата}, DATEADD(TODAY(), -30, 'day'))`;
       }
+    }
+
+    // Exclude canceled (soft-deleted) записи за замовчуванням.
+    // Airtable: пуста checkbox = "" (falsy), поставлена = 1. NOT({isCanceled})
+    // ловить обидва «не скасовано» стани.
+    if (!includeCanceled) {
+      dateFilter = `AND(${dateFilter}, NOT({isCanceled}))`;
     }
 
     // Fetch journal, specialists, services, price list, and sale details in parallel
@@ -101,6 +111,7 @@ export async function GET(request: NextRequest) {
           SERVICE_FIELDS.additionalMaterials,
           SERVICE_FIELDS.fixedMaterialsCost,
           SERVICE_FIELDS.fixedMasterPayForService,
+          SERVICE_FIELDS.isCanceled,
         ],
       }),
       fetchAllRecords(TABLES.specialists, { fields: [SPECIALIST_FIELDS.name] }),
@@ -295,6 +306,10 @@ export async function GET(request: NextRequest) {
         paymentType: (f[SERVICE_FIELDS.paymentType] as string) || undefined,
         // Експозим для edit-modal: treba zrozumity який «Вид витрати» був у записі.
         expenseType: type === "expense" ? ((f[SERVICE_FIELDS.expenseType] as string) || undefined) : undefined,
+        // Прапорець soft-delete. Нормально не виставлений (ми фільтруємо),
+        // але коли клієнт просить ?includeCanceled=1 — треба знати, які
+        // записи показати сірим і з кнопкою «Відновити».
+        isCanceled: f[SERVICE_FIELDS.isCanceled] === true ? true : undefined,
       };
     });
 
@@ -537,45 +552,37 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
+/**
+ * Soft-delete: ставить {isCanceled}=true замість фізичного видалення.
+ *
+ * Чому soft: hard-delete у середині звітного періоду змінює історичні числа
+ * (вчорашня каса) — власник дивиться на дашборд і бачить іншу цифру, ніж
+ * учора. Збереження рядка з прапорцем дозволяє:
+ *   - фільтрувати з поточних GET-ів (каса/журнал/дашборд) — ефект як delete
+ *   - відновити випадкове скасування (PATCH isCanceled=false)
+ *   - у майбутньому — заблокувати скасування для дат старших за N днів
+ *
+ * Linked saleDetails/orders лишаються прив'язаними — ми їх бачимо тільки
+ * через батьківський рядок, який тепер прихований. Якщо колись знадобиться
+ * реальне видалення — окремий admin-endpoint.
+ *
+ * Body: { id, restore?: boolean } — restore=true → isCanceled=false
+ */
 export async function DELETE(request: NextRequest) {
   try {
-    const { id } = await request.json();
+    const { id, restore } = await request.json();
     if (!id || typeof id !== "string" || !id.startsWith("rec")) {
       return NextResponse.json({ error: "Invalid record ID" }, { status: 400 });
     }
 
-    // Fetch linked sale details + orders so we can cascade-delete them.
-    // (Airtable won't orphan-clean linked records when the parent is deleted.)
-    const parent = await fetchRecords(TABLES.services, {
-      filterByFormula: `RECORD_ID()='${id}'`,
-      fields: [SERVICE_FIELDS.saleDetails, SERVICE_FIELDS.orders],
-      maxRecords: 1,
+    await updateRecord(TABLES.services, id, {
+      [SERVICE_FIELDS.isCanceled]: restore === true ? false : true,
     });
-    const parentFields = parent.records[0]?.fields ?? {};
-    const detailIds = (parentFields[SERVICE_FIELDS.saleDetails] as string[] | undefined) ?? [];
-    const orderIds = (parentFields[SERVICE_FIELDS.orders] as string[] | undefined) ?? [];
 
-    // Delete parent first (unlinks children so their deletion is permitted)
-    await deleteRecord(TABLES.services, id);
-
-    // Best-effort cleanup of child records. Log but don't fail the request.
-    await Promise.all([
-      ...detailIds.map((did) =>
-        deleteRecord(TABLES.saleDetails, did).catch((err) =>
-          console.error(`Failed to delete sale detail ${did}:`, err),
-        ),
-      ),
-      ...orderIds.map((oid) =>
-        deleteRecord(TABLES.orders, oid).catch((err) =>
-          console.error(`Failed to delete order ${oid}:`, err),
-        ),
-      ),
-    ]);
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, canceled: restore !== true });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
-    console.error("Failed to delete record:", msg);
+    console.error("Failed to soft-delete record:", msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

@@ -107,7 +107,9 @@ function parseISO(s: string): Date {
 }
 
 function dateFilter(from: string, to: string): string {
-  return `AND(IS_AFTER({Дата}, DATEADD('${from}', -1, 'day')), IS_BEFORE({Дата}, DATEADD('${to}', 1, 'day')))`;
+  // Skip soft-deleted (isCanceled=true) — дашборд має показувати тільки активні
+  // записи, консистентно з журналом.
+  return `AND(IS_AFTER({Дата}, DATEADD('${from}', -1, 'day')), IS_BEFORE({Дата}, DATEADD('${to}', 1, 'day')), NOT({isCanceled}))`;
 }
 
 function empty(): Aggregates {
