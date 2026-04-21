@@ -504,7 +504,7 @@ export async function GET(request: NextRequest) {
       }),
       fetchAllRecords(TABLES.specialists, { fields: ["Ім'я"] }),
       fetchAllRecords(TABLES.servicesCatalog, { fields: ["Назва", "Категорія"] }),
-      fetchAllRecords(TABLES.categories, { fields: ["Назва"] }),
+      fetchAllRecords(TABLES.categories, { fields: ["name"] }),
       fetchAllRecords(TABLES.saleDetails, {
         fields: ["к-сть", "Прайс", "Фікс. ціна продажу", "Фікс. ціна закупки", "До оплати"],
       }),
@@ -537,7 +537,7 @@ export async function GET(request: NextRequest) {
     // deprecated `Вид послуги` multiSelect + lookup chain). Client-side join keeps
     // the analytics independent of Airtable lookup config.
     const categoryNameById = new Map<string, string>();
-    for (const c of categoryRecs) categoryNameById.set(c.id, (c.fields["Назва"] as string) || "—");
+    for (const c of categoryRecs) categoryNameById.set(c.id, (c.fields["name"] as string) || "—");
     const serviceToCategoryName = new Map<string, string>();
     for (const s of svcCatalog) {
       const catLinks = s.fields["Категорія"] as string[] | undefined;
