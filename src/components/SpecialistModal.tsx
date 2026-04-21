@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import type { Specialist, CompensationType } from "@/lib/demo-data";
+import type { Specialist, CompensationType } from "@/lib/types";
 import { Button, Field, Input, Modal, Segmented, type SegmentedOption } from "./ui";
 import { useSettings, useSpecializations, useCategories } from "@/lib/hooks";
 import { currencySymbol } from "@/lib/format";

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useSpecialists, useSettings, useSpecializations } from "@/lib/hooks";
-import type { Specialist } from "@/lib/demo-data";
+import type { Specialist } from "@/lib/types";
 import { moneyFormatter, currencySymbol } from "@/lib/format";
 
 type Fmt = (amount: number, opts?: { signed?: boolean; maximumFractionDigits?: number }) => string;

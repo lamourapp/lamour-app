@@ -1,6 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAllRecords, fetchRecords, createRecord, deleteRecord, TABLES } from "@/lib/airtable";
 
+// Intl.DateTimeFormat constructor is surprisingly slow; cache per tz so each
+// request with the same tz reuses the formatter across invocations.
+const timeFormatterCache = new Map<string, Intl.DateTimeFormat>();
+function getTimeFormatter(tz: string): Intl.DateTimeFormat {
+  const cached = timeFormatterCache.get(tz);
+  if (cached) return cached;
+  try {
+    const fmt = new Intl.DateTimeFormat("uk-UA", {
+      timeZone: tz,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    timeFormatterCache.set(tz, fmt);
+    return fmt;
+  } catch {
+    return getTimeFormatter("Europe/Kyiv");
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -9,23 +29,7 @@ export async function GET(request: NextRequest) {
     const dateFrom = searchParams.get("from") || "";
     const dateTo = searchParams.get("to") || "";
     const tz = searchParams.get("tz") || "Europe/Kyiv";
-    // Validate timezone — Intl throws on unknown zones.
-    let timeFormatter: Intl.DateTimeFormat;
-    try {
-      timeFormatter = new Intl.DateTimeFormat("uk-UA", {
-        timeZone: tz,
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      });
-    } catch {
-      timeFormatter = new Intl.DateTimeFormat("uk-UA", {
-        timeZone: "Europe/Kyiv",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      });
-    }
+    const timeFormatter = getTimeFormatter(tz);
 
     // Build date filter only — specialist filtering is done client-side
     // because Airtable linked record formula is unreliable with IDs
@@ -56,7 +60,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch journal, specialists, services, price list, and sale details in parallel
-    const [records, specialistRecords, serviceCatalog, priceList, saleDetailRecords] = await Promise.all([
+    const [records, specialistRecords, serviceCatalog, priceList, saleDetailRecords, categoryRecords] = await Promise.all([
       fetchAllRecords(TABLES.services, {
         filterByFormula: dateFilter,
         sort: [{ field: "Дата", direction: "desc" }],
@@ -91,9 +95,10 @@ export async function GET(request: NextRequest) {
         ],
       }),
       fetchAllRecords(TABLES.specialists, { fields: ["Ім'я"] }),
-      fetchAllRecords(TABLES.servicesCatalog, { fields: ["Назва"] }),
+      fetchAllRecords(TABLES.servicesCatalog, { fields: ["Назва", "Категорія"] }),
       fetchAllRecords(TABLES.priceList, { fields: ["Назва"] }),
       fetchAllRecords(TABLES.saleDetails, { fields: ["к-сть", "Прайс", "Фікс. ціна продажу", "До оплати"] }),
+      fetchAllRecords(TABLES.categories, { fields: ["isRental"] }),
     ]);
 
     // Build lookup maps
@@ -102,6 +107,20 @@ export async function GET(request: NextRequest) {
 
     const serviceMap = new Map<string, string>();
     serviceCatalog.forEach((r) => serviceMap.set(r.id, (r.fields["Назва"] as string) || ""));
+
+    // Build serviceId → isRental map via Категорії (single source of truth,
+    // replaces legacy title.includes("оренда") detection).
+    const rentalCategoryIds = new Set<string>();
+    categoryRecords.forEach((r) => {
+      if (r.fields["isRental"] === true) rentalCategoryIds.add(r.id);
+    });
+    const rentalServiceIds = new Set<string>();
+    serviceCatalog.forEach((r) => {
+      const catLinks = r.fields["Категорія"] as string[] | undefined;
+      if (catLinks && catLinks.some((id) => rentalCategoryIds.has(id))) {
+        rentalServiceIds.add(r.id);
+      }
+    });
 
     const priceMap = new Map<string, string>();
     priceList.forEach((r) => priceMap.set(r.id, (r.fields["Назва"] as string) || ""));
@@ -183,8 +202,9 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Check if rental
-      if (title.toLowerCase().includes("оренда")) {
+      // Rental detection via linked service → category.isRental (set explicitly
+      // на Категорії.isRental). Безпечно до перейменування назв.
+      if (serviceLinks && serviceLinks.some((id) => rentalServiceIds.has(id))) {
         type = "rental";
       }
 
@@ -210,7 +230,6 @@ export async function GET(request: NextRequest) {
       } else if (type === "rental") {
         // For rental: show total but pass breakdown (rental fee + materials)
         amount = (f["Всього вартість послуги"] as number) || 0;
-        const workCost = (f["Загальна вартість роботи"] as number) || 0;
         const matCost = (f["Загальна вартість матеріалів"] as number) || 0;
         if (matCost > 0) {
           materialsCost = matCost;

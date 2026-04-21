@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useJournal, useSpecialists, useSettings } from "@/lib/hooks";
-import type { JournalEntry } from "@/lib/demo-data";
+import type { JournalEntry } from "@/lib/types";
 import { moneyFormatter } from "@/lib/format";
 
 type Fmt = (amount: number, opts?: { signed?: boolean; maximumFractionDigits?: number }) => string;

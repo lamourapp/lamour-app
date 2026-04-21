@@ -32,7 +32,7 @@ interface CalcMaterial {
   id: string;
   name: string;
   totalVolume: number;
-  totalCost: number;   // sell price per package
+  salePrice: number;   // sell price per package
   costPrice: number;   // purchase price per package (закупка)
   pricePerUnit: number;
   costPerUnit: number; // costPrice / totalVolume
@@ -193,7 +193,7 @@ function CalcMaterialsSection({
   const totalCalcCost = usages.reduce((sum, u) => {
     const mat = materials.find((m) => m.id === u.materialId);
     if (!mat || u.amount <= 0) return sum;
-    return sum + (u.amount * mat.totalCost) / mat.totalVolume;
+    return sum + (u.amount * mat.salePrice) / mat.totalVolume;
   }, 0);
 
   return (
@@ -209,7 +209,7 @@ function CalcMaterialsSection({
         <div className="space-y-2 mb-3">
           {usages.map((usage, index) => {
             const mat = materials.find((m) => m.id === usage.materialId);
-            const cost = mat && usage.amount > 0 ? (usage.amount * mat.totalCost) / mat.totalVolume : 0;
+            const cost = mat && usage.amount > 0 ? (usage.amount * mat.salePrice) / mat.totalVolume : 0;
 
             return (
               <div key={index} className="bg-gray-50/80 rounded-xl p-3 relative group">
@@ -303,11 +303,10 @@ export default function ServiceEntryModal({
     allCategories.forEach((c) => m.set(c.id, c.name));
     return m;
   }, [allCategories]);
-  // Identify "Оренда" by name match (case-insensitive). Single source of truth
-  // is the Категорії table, but rental behaviour is a system concept — MVP
-  // flags it by name. Later: move to a `isRental` flag on categories.
+  // Rental detection via explicit flag on Категорії (fld isRental) — single
+  // source of truth, не зав'язана на орфографію назви категорії.
   const rentalCategoryId = useMemo(
-    () => allCategories.find((c) => c.name.trim().toLowerCase() === "оренда")?.id || "",
+    () => allCategories.find((c) => c.isRental)?.id || "",
     [allCategories],
   );
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -406,7 +405,7 @@ export default function ServiceEntryModal({
     const baseMat = selectedService.materialsCost || 0;
     const calcCost = calcMaterials.reduce((s, u) => {
       const m = materials.find((x) => x.id === u.materialId);
-      return !m || u.amount <= 0 ? s : s + (u.amount * m.totalCost) / m.totalVolume;
+      return !m || u.amount <= 0 ? s : s + (u.amount * m.salePrice) / m.totalVolume;
     }, 0);
     const totalMat = baseMat + Math.round(calcCost);
 

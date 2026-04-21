@@ -1,17 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAllRecords, createRecord, updateRecord, TABLES } from "@/lib/airtable";
+import { compensationTypeFromLabel, labelFromCompensationType } from "@/lib/compensation";
 
 function mapSpecialist(r: { id: string; fields: Record<string, unknown> }) {
   const f = r.fields;
-  const compensationType = (f["Тип оплати"] as string) || "комісія";
   const salonPercent = (f["% cалону за послугу"] as number) || 0;
   const salesPercent = (f["% майстру за продаж матеріалів"] as number) || 0;
   const productSalesPercent = (f["% за продаж"] as number) || 0;
 
-  let type: "commission" | "hourly" | "rental" | "salary" = "commission";
-  if (compensationType === "оренда") type = "rental";
-  else if (compensationType === "погодинна") type = "hourly";
-  else if (compensationType === "зарплата") type = "salary";
+  const type = compensationTypeFromLabel(f["Тип оплати"] as string | undefined);
 
   let avatarColor: "brand" | "amber" | "gray" = "brand";
   if (type === "rental") avatarColor = "amber";
@@ -120,14 +117,7 @@ export async function POST(request: NextRequest) {
       fields["Спеціалізації"] = specializationIds;
     }
 
-    // Compensation type
-    const typeMap: Record<string, string> = {
-      commission: "комісія",
-      rental: "оренда",
-      hourly: "погодинна",
-      salary: "зарплата",
-    };
-    fields["Тип оплати"] = typeMap[compensationType] || "комісія";
+    fields["Тип оплати"] = labelFromCompensationType(compensationType);
 
     // Percentages
     if (serviceCommission !== undefined) fields["% cалону за послугу"] = serviceCommission;
@@ -165,13 +155,7 @@ export async function PATCH(request: NextRequest) {
     if (updates.isActive !== undefined) fields["is_active"] = updates.isActive;
 
     if (updates.compensationType !== undefined) {
-      const typeMap: Record<string, string> = {
-        commission: "комісія",
-        rental: "оренда",
-        hourly: "погодинна",
-        salary: "зарплата",
-      };
-      fields["Тип оплати"] = typeMap[updates.compensationType] || "комісія";
+      fields["Тип оплати"] = labelFromCompensationType(updates.compensationType);
     }
 
     if (updates.serviceCommission !== undefined) fields["% cалону за послугу"] = updates.serviceCommission;

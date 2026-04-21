@@ -29,8 +29,6 @@ function mapMaterial(r: { id: string; fields: Record<string, unknown> }) {
     // Per-unit prices for convenience
     pricePerUnit: totalVolume > 0 ? salePrice / totalVolume : 0,
     costPerUnit: totalVolume > 0 ? costPrice / totalVolume : 0,
-    // Legacy compat for ServiceEntryModal calc materials
-    totalCost: salePrice,
     sku: (f["sku"] as string) || "",
     article: (f["артикул"] as string) || "",
     barcode: (f["штрих-код"] as string) || "",

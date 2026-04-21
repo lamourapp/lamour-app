@@ -9,7 +9,7 @@ import { fetchAllRecords, createRecord, updateRecord, TABLES } from "@/lib/airta
  * Soft-delete через isActive=false, історію не втрачаємо.
  */
 
-const FIELDS = ["name", "isActive", "sortOrder", "description"];
+const FIELDS = ["name", "isActive", "sortOrder", "description", "isRental"];
 
 function mapCategory(r: { id: string; fields: Record<string, unknown> }) {
   const f = r.fields;
@@ -19,6 +19,7 @@ function mapCategory(r: { id: string; fields: Record<string, unknown> }) {
     isActive: f["isActive"] !== false,
     sortOrder: (f["sortOrder"] as number) ?? 0,
     description: (f["description"] as string) || "",
+    isRental: f["isRental"] === true,
   };
 }
 
@@ -73,6 +74,7 @@ export async function PATCH(request: NextRequest) {
     if (updates.description !== undefined) fields["description"] = updates.description;
     if (updates.sortOrder !== undefined) fields["sortOrder"] = updates.sortOrder;
     if (updates.isActive !== undefined) fields["isActive"] = updates.isActive;
+    if (updates.isRental !== undefined) fields["isRental"] = updates.isRental;
     await updateRecord(TABLES.categories, id, fields);
     return NextResponse.json({ success: true });
   } catch (error) {

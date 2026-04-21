@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
-import type { Specialist, JournalEntry } from "./demo-data";
+import type { Specialist, JournalEntry } from "./types";
 import type { Settings } from "@/app/api/settings/route";
 
 /* ─── Settings (tenant-wide, shared cache) ─── */
@@ -143,7 +143,7 @@ export interface CatalogMaterial {
   id: string; name: string; salePrice: number; costPrice: number;
   totalVolume: number; pricePerUnit: number; costPerUnit: number;
   group: string; unit: string; sku: string; article: string; barcode: string;
-  totalCost: number; isActive: boolean;
+  isActive: boolean;
 }
 
 export function useCatalog<T extends "products" | "materials">(type: T) {
@@ -201,6 +201,11 @@ export interface Category {
   isActive: boolean;
   sortOrder: number;
   description: string;
+  /**
+   * true для категорії що представляє оренду робочого місця. Master/salon split
+   * рахується інакше (вся сума йде салону). Замінює магічну перевірку по name.
+   */
+  isRental: boolean;
 }
 
 export function useCategories(includeInactive = false) {

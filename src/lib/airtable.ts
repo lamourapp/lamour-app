@@ -1,8 +1,16 @@
 // Airtable API client for Lamour
 // Base: Lamour Claude Cone (appfAFxTcU6NOTNIZ)
 
-const BASE_ID = "appfAFxTcU6NOTNIZ";
 const API_URL = "https://api.airtable.com/v0";
+
+// Default fallback — поточний tenant (Лямурчик). Міграція на мульти-тенантність
+// передбачає повне витіснення цього хардкоду через env; fallback залишений щоб
+// не ламати локальну розробку без .env.local.
+const DEFAULT_BASE_ID = "appfAFxTcU6NOTNIZ";
+
+function getBaseId(): string {
+  return process.env.AIRTABLE_BASE_ID || DEFAULT_BASE_ID;
+}
 
 function getToken(): string {
   const token = process.env.AIRTABLE_TOKEN;
@@ -68,7 +76,7 @@ export async function fetchRecords(
     params.set("offset", options.offset);
   }
 
-  const url = `${API_URL}/${BASE_ID}/${tableId}?${params.toString()}`;
+  const url = `${API_URL}/${getBaseId()}/${tableId}?${params.toString()}`;
   const res = await fetch(url, {
     headers: {
       Authorization: `Bearer ${getToken()}`,
@@ -111,7 +119,7 @@ export async function createRecord(
   tableId: string,
   fields: Record<string, unknown>,
 ): Promise<{ id: string; fields: Record<string, unknown> }> {
-  const url = `${API_URL}/${BASE_ID}/${tableId}`;
+  const url = `${API_URL}/${getBaseId()}/${tableId}`;
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -138,7 +146,7 @@ export async function updateRecord(
   recordId: string,
   fields: Record<string, unknown>,
 ): Promise<{ id: string; fields: Record<string, unknown> }> {
-  const url = `${API_URL}/${BASE_ID}/${tableId}/${recordId}`;
+  const url = `${API_URL}/${getBaseId()}/${tableId}/${recordId}`;
   const res = await fetch(url, {
     method: "PATCH",
     headers: {
@@ -164,7 +172,7 @@ export async function batchUpdateRecords(
   // Airtable allows max 10 records per batch
   for (let i = 0; i < updates.length; i += 10) {
     const batch = updates.slice(i, i + 10);
-    const url = `${API_URL}/${BASE_ID}/${tableId}`;
+    const url = `${API_URL}/${getBaseId()}/${tableId}`;
     const res = await fetch(url, {
       method: "PATCH",
       headers: {
@@ -184,7 +192,7 @@ export async function batchUpdateRecords(
 // Delete a record
 export async function deleteRecord(tableId: string, recordId: string): Promise<void> {
   // Airtable API: batch delete format with records[] query param
-  const url = `${API_URL}/${BASE_ID}/${tableId}?records[]=${recordId}`;
+  const url = `${API_URL}/${getBaseId()}/${tableId}?records[]=${recordId}`;
   const res = await fetch(url, {
     method: "DELETE",
     headers: {

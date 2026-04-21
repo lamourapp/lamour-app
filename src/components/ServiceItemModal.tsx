@@ -81,15 +81,17 @@ export default function ServiceItemModal({ item, categories, onClose, onSaved }:
         isActive,
       };
 
+      // Always write the full pricing triple so toggling fixed↔hourly
+      // doesn't leave stale values from the other mode lingering in Airtable.
       if (pricingMode === "hourly") {
         const rate = parseFloat(hourlyRate) || 0;
         const h = parseFloat(hours) || 0;
-        payload.workPrice = rate || undefined;
-        payload.hourlyRate = rate || undefined;
-        payload.hours = h || undefined;
+        payload.workPrice = rate;
+        payload.hourlyRate = rate;
+        payload.hours = h;
       } else {
         const wp = parseFloat(workPrice) || 0;
-        payload.workPrice = wp || undefined;
+        payload.workPrice = wp;
         payload.hourlyRate = 0;
         payload.hours = 0;
       }
