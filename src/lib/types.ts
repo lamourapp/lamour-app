@@ -48,4 +48,6 @@ export interface JournalEntry {
   saleItems?: { productName: string; quantity: number; lineTotal: number }[];
   source?: "bot" | "admin";
   time?: string;
+  /** Тип витрати (Вид витрати) — тільки для type === "expense". */
+  expenseType?: string;
 }

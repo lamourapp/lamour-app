@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchAllRecords, fetchRecords, createRecord, deleteRecord, TABLES } from "@/lib/airtable";
+import { fetchAllRecords, fetchRecords, createRecord, updateRecord, deleteRecord, TABLES } from "@/lib/airtable";
 import {
   SERVICE_FIELDS,
   SPECIALIST_FIELDS,
@@ -293,6 +293,8 @@ export async function GET(request: NextRequest) {
         source,
         time,
         paymentType: (f[SERVICE_FIELDS.paymentType] as string) || undefined,
+        // Експозим для edit-modal: treba zrozumity який «Вид витрати» був у записі.
+        expenseType: type === "expense" ? ((f[SERVICE_FIELDS.expenseType] as string) || undefined) : undefined,
       };
     });
 
@@ -476,6 +478,61 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     console.error("Failed to create record:", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+/**
+ * Редагування запису журналу. Наразі підтримуємо лише витрати (expense) —
+ * послуги/продажі мають складні пов'язані side-effects (saleDetails, orders),
+ * їх простіше видалити й створити наново.
+ *
+ * Body: { id, kind: "expense", date?, amount?, expenseType?, specialistId?, comment? }
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id, kind } = body;
+    if (!id || typeof id !== "string" || !id.startsWith("rec")) {
+      return NextResponse.json({ error: "Invalid record ID" }, { status: 400 });
+    }
+    if (kind !== "expense") {
+      return NextResponse.json(
+        { error: "Only expense entries are editable. Delete & recreate for services/sales/debts." },
+        { status: 400 },
+      );
+    }
+
+    const fields: Record<string, unknown> = {};
+    if (body.date !== undefined) fields[SERVICE_FIELDS.date] = body.date;
+    if (body.amount !== undefined) {
+      const amt = Number(body.amount);
+      if (!Number.isFinite(amt) || amt <= 0) {
+        return NextResponse.json({ error: "amount must be a positive number" }, { status: 400 });
+      }
+      fields[SERVICE_FIELDS.expenseAmount] = Math.abs(amt);
+    }
+    if (body.expenseType !== undefined) {
+      // Empty string → clear category; non-empty → set.
+      fields[SERVICE_FIELDS.expenseType] = body.expenseType || null;
+    }
+    if (body.comment !== undefined) {
+      fields[SERVICE_FIELDS.comments] = body.comment || null;
+    }
+    if (body.specialistId !== undefined) {
+      // Empty → unlink; non-empty → link single specialist.
+      fields[SERVICE_FIELDS.master] = body.specialistId ? [body.specialistId] : [];
+    }
+
+    if (Object.keys(fields).length === 0) {
+      return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+    }
+
+    await updateRecord(TABLES.services, id, fields);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    console.error("Failed to update journal entry:", msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

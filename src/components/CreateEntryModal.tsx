@@ -179,24 +179,42 @@ function ProductPicker({
 }
 
 /* ─── Main Modal ─── */
+
+/**
+ * Дані для edit-режиму. Наразі редагуємо лише expense — інші типи краще
+ * видалити й створити наново (бо мають складні side-effects).
+ */
+export interface EntryEditInitial {
+  id: string;
+  date: string;
+  amount: number;         // додатне число (не перевертаємо знак)
+  expenseType?: string;
+  specialistId?: string;
+  comment?: string;
+}
+
 export default function CreateEntryModal({
   type,
   specialists,
   onClose,
   onCreated,
+  initial,
 }: {
   type: EntryType;
   specialists: Specialist[];
   onClose: () => void;
   onCreated: () => void;
+  /** Якщо передано — модал у edit-mode, PATCH замість POST. Тільки для expense. */
+  initial?: EntryEditInitial;
 }) {
+  const isEdit = !!initial;
   const { settings } = useSettings();
   const fmt = moneyFormatter(settings);
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [amount, setAmount] = useState("");
-  const [specialistId, setSpecialistId] = useState("");
-  const [expenseType, setExpenseType] = useState("");
-  const [comment, setComment] = useState("");
+  const [date, setDate] = useState(() => initial?.date || new Date().toISOString().slice(0, 10));
+  const [amount, setAmount] = useState(() => initial ? String(Math.abs(initial.amount)) : "");
+  const [specialistId, setSpecialistId] = useState(() => initial?.specialistId || "");
+  const [expenseType, setExpenseType] = useState(() => initial?.expenseType || "");
+  const [comment, setComment] = useState(() => initial?.comment || "");
   const [saleItems, setSaleItems] = useState<{ productId: string; quantity: number }[]>([{ productId: "", quantity: 1 }]);
   const [products, setProducts] = useState<Product[]>([]);
   const [supplement, setSupplement] = useState("");
@@ -249,6 +267,30 @@ export default function CreateEntryModal({
 
     setSaving(true);
     try {
+      // Edit-mode: тільки expense, PATCH з id і явним kind.
+      if (isEdit && initial) {
+        const patchBody: Record<string, unknown> = {
+          id: initial.id,
+          kind: "expense",
+          date,
+          amount: parseFloat(amount),
+          // '' → очищення відповідного поля на бекенді (явно, щоб не писати undefined).
+          expenseType: expenseType,
+          specialistId: specialistId,
+          comment: comment,
+        };
+        const res = await fetch("/api/journal", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patchBody),
+        });
+        if (!res.ok) throw new Error((await res.json()).error || "Failed");
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        onCreated();
+        onClose();
+        return;
+      }
+
       const body: Record<string, unknown> = { type, date, comment: comment || undefined };
 
       if (type === "expense") {
@@ -297,7 +339,7 @@ export default function CreateEntryModal({
   }
 
   const titles: Record<EntryType, string> = {
-    expense: "Нова витрата",
+    expense: isEdit ? "Редагувати витрату" : "Нова витрата",
     debt: "Новий борг",
     sale: "Новий продаж",
   };
@@ -507,7 +549,7 @@ export default function CreateEntryModal({
       )}
 
       <Button onClick={handleSubmit} disabled={saving} fullWidth size="lg">
-        {saving ? "Збереження..." : "Зберегти"}
+        {saving ? "Збереження..." : isEdit ? "Оновити" : "Зберегти"}
       </Button>
     </Modal>
   );
