@@ -9,6 +9,7 @@ type Fmt = (amount: number, opts?: { signed?: boolean; maximumFractionDigits?: n
 import CalendarPicker from "./CalendarPicker";
 import CreateEntryModal from "./CreateEntryModal";
 import ServiceEntryModal from "./ServiceEntryModal";
+import QuickEditEntryModal from "./QuickEditEntryModal";
 import ScrollToTop from "./ScrollToTop";
 
 function TypeDot({ type }: { type: JournalEntry["type"] }) {
@@ -136,14 +137,15 @@ function EntryCard({ entry, onDelete, onEdit, onRestore, fmt }: { entry: Journal
               Відновити
             </button>
           )}
-          {/* Edit button — лише для expense-записів. На мобільних завжди видимий
-              (бо тап по картці відкриває видалити), на десктопі — тільки на hover. */}
-          {!isCanceled && onEdit && entry.type === "expense" && (
+          {/* Edit button — доступний для всіх типів (QuickEditEntryModal
+              редагує безпечні метадані; складні зміни = delete+recreate). На
+              мобільних завжди видимий, на десктопі — тільки на hover. */}
+          {!isCanceled && onEdit && (
             <button
               onClick={(e) => { e.stopPropagation(); onEdit(entry); }}
               className="p-1.5 rounded-lg hover:bg-brand-50 text-gray-300 hover:text-brand-500 cursor-pointer transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
-              title="Редагувати витрату"
-              aria-label="Редагувати витрату"
+              title="Редагувати запис"
+              aria-label="Редагувати запис"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
@@ -253,8 +255,10 @@ export default function JournalScreen() {
   );
   const [deleting, setDeleting] = useState<string | null>(null);
   const [createType, setCreateType] = useState<"expense" | "debt" | "sale" | "service" | null>(null);
-  // Expense edit — редагувати можна лише expense, інші типи: delete+recreate.
-  const [editingExpense, setEditingExpense] = useState<JournalEntry | null>(null);
+  // Quick-edit для будь-якого типу — редагуємо метадані (дата/майстер/коментар)
+  // + прості числа (expense amount, debt amount, supplement). Складні зміни
+  // (склад продажу, калькуляція послуги) — через delete+recreate.
+  const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
 
   async function handleDelete(id: string) {
     setDeleting(id);
@@ -470,7 +474,7 @@ export default function JournalScreen() {
           <div className="space-y-1.5 mb-1">
             {grouped[date].map((entry) => (
               <div key={entry.id} className={deleting === entry.id ? "opacity-50 pointer-events-none" : ""}>
-                <EntryCard entry={entry} onDelete={handleDelete} onEdit={setEditingExpense} onRestore={handleRestore} fmt={fmt} />
+                <EntryCard entry={entry} onDelete={handleDelete} onEdit={setEditingEntry} onRestore={handleRestore} fmt={fmt} />
               </div>
             ))}
           </div>
@@ -528,20 +532,12 @@ export default function JournalScreen() {
         />
       )}
 
-      {editingExpense && (
-        <CreateEntryModal
-          type="expense"
+      {editingEntry && (
+        <QuickEditEntryModal
+          entry={editingEntry}
           specialists={specialists}
-          initial={{
-            id: editingExpense.id,
-            date: editingExpense.date,
-            amount: Math.abs(editingExpense.amount),
-            expenseType: editingExpense.expenseType,
-            specialistId: editingExpense.specialistId,
-            comment: editingExpense.comment,
-          }}
-          onClose={() => setEditingExpense(null)}
-          onCreated={reload}
+          onClose={() => setEditingEntry(null)}
+          onSaved={reload}
         />
       )}
     </div>

@@ -498,11 +498,21 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Редагування запису журналу. Наразі підтримуємо лише витрати (expense) —
- * послуги/продажі мають складні пов'язані side-effects (saleDetails, orders),
- * їх простіше видалити й створити наново.
+ * Редагування запису журналу.
  *
- * Body: { id, kind: "expense", date?, amount?, expenseType?, specialistId?, comment? }
+ * Scope — "safe-fields only". Міняємо метадані (дата, спеціаліст, коментар)
+ * + спрощені числа для простих типів (expense amount, debt amount, supplement).
+ * Калькуляцію послуги / склад продажу НЕ чіпаємо — для таких змін делете+ресторе.
+ * Причина: формули/snapshot-пули закладалися 2-3 роки, переобраховувати з
+ * PATCH-у ризиковано, а простий use case «поправити дату» працює всюди.
+ *
+ * Whitelist полів за типом:
+ *   - expense: date, expenseAmount, expenseType, comment, master
+ *   - debt:    date, debtAmount (signed), comment, master
+ *   - sale:    date, addonSalePrice (supplement), comment, master
+ *   - service/rental: date, addonServicePrice (supplement), comment, master
+ *
+ * Body: { id, kind, date?, amount?, expenseType?, supplement?, comment?, specialistId? }
  */
 export async function PATCH(request: NextRequest) {
   try {
@@ -511,32 +521,51 @@ export async function PATCH(request: NextRequest) {
     if (!id || typeof id !== "string" || !id.startsWith("rec")) {
       return NextResponse.json({ error: "Invalid record ID" }, { status: 400 });
     }
-    if (kind !== "expense") {
-      return NextResponse.json(
-        { error: "Only expense entries are editable. Delete & recreate for services/sales/debts." },
-        { status: 400 },
-      );
+    const allowedKinds = ["expense", "debt", "sale", "service", "rental"] as const;
+    if (!allowedKinds.includes(kind)) {
+      return NextResponse.json({ error: `Unsupported kind: ${kind}` }, { status: 400 });
     }
 
     const fields: Record<string, unknown> = {};
+
+    // Спільні для всіх типів ─ дата, спеціаліст, коментар.
     if (body.date !== undefined) fields[SERVICE_FIELDS.date] = body.date;
-    if (body.amount !== undefined) {
-      const amt = Number(body.amount);
-      if (!Number.isFinite(amt) || amt <= 0) {
-        return NextResponse.json({ error: "amount must be a positive number" }, { status: 400 });
-      }
-      fields[SERVICE_FIELDS.expenseAmount] = Math.abs(amt);
-    }
-    if (body.expenseType !== undefined) {
-      // Empty string → clear category; non-empty → set.
-      fields[SERVICE_FIELDS.expenseType] = body.expenseType || null;
-    }
-    if (body.comment !== undefined) {
-      fields[SERVICE_FIELDS.comments] = body.comment || null;
-    }
+    if (body.comment !== undefined) fields[SERVICE_FIELDS.comments] = body.comment || null;
     if (body.specialistId !== undefined) {
-      // Empty → unlink; non-empty → link single specialist.
       fields[SERVICE_FIELDS.master] = body.specialistId ? [body.specialistId] : [];
+    }
+
+    // Тип-специфічні поля.
+    if (kind === "expense") {
+      if (body.amount !== undefined) {
+        const amt = Number(body.amount);
+        if (!Number.isFinite(amt) || amt <= 0) {
+          return NextResponse.json({ error: "amount must be a positive number" }, { status: 400 });
+        }
+        fields[SERVICE_FIELDS.expenseAmount] = Math.abs(amt);
+      }
+      if (body.expenseType !== undefined) {
+        fields[SERVICE_FIELDS.expenseType] = body.expenseType || null;
+      }
+    } else if (kind === "debt") {
+      if (body.amount !== undefined) {
+        const amt = Number(body.amount);
+        if (!Number.isFinite(amt) || amt === 0) {
+          return NextResponse.json({ error: "amount must be a non-zero number" }, { status: 400 });
+        }
+        // Debt amount: signed (+ ми винні / − нам винні). Фронт формує знак.
+        fields[SERVICE_FIELDS.debtAmount] = amt;
+      }
+    } else if (kind === "sale") {
+      if (body.supplement !== undefined) {
+        const s = Number(body.supplement);
+        fields[SERVICE_FIELDS.addonSalePrice] = Number.isFinite(s) ? s : 0;
+      }
+    } else if (kind === "service" || kind === "rental") {
+      if (body.supplement !== undefined) {
+        const s = Number(body.supplement);
+        fields[SERVICE_FIELDS.addonServicePrice] = Number.isFinite(s) ? s : 0;
+      }
     }
 
     if (Object.keys(fields).length === 0) {
