@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAllRecords, fetchRecords, createRecord, deleteRecord, TABLES } from "@/lib/airtable";
+import {
+  SERVICE_FIELDS,
+  SPECIALIST_FIELDS,
+  SERVICE_CATALOG_FIELDS,
+  PRICE_LIST_FIELDS,
+  SALE_DETAIL_FIELDS,
+  CATEGORY_FIELDS,
+  ORDER_FIELDS,
+} from "@/lib/airtable-fields";
 
 // Intl.DateTimeFormat constructor is surprisingly slow; cache per tz so each
 // request with the same tz reuses the formatter across invocations.
@@ -63,77 +72,77 @@ export async function GET(request: NextRequest) {
     const [records, specialistRecords, serviceCatalog, priceList, saleDetailRecords, categoryRecords] = await Promise.all([
       fetchAllRecords(TABLES.services, {
         filterByFormula: dateFilter,
-        sort: [{ field: "Дата", direction: "desc" }],
+        sort: [{ field: SERVICE_FIELDS.date, direction: "desc" }],
         fields: [
-          "Дата",
-          "Майстер",
-          "Послуга",
-          "Всього вартість послуги",
-          "Доповнення",
-          "Салону за послугу",
-          "Оплата майстру - всього",
-          "Сума витрат",
-          "Вид витрати",
-          "Cума боргу",
-          "Продажі",
-          "Продажі деталі",
-          "Всього ціна продажі",
-          "Доповнення(продажі)",
-          "Created",
-          "вид оплати",
-          "Коментарі",
-          "Загальна вартість роботи",
-          "Загальна вартість матеріалів",
-          "% майстру за послуги",
-          "% майстру за матеріали",
-          "% салону за матеріали",
-          "Фікс. % майстру за продаж",
-          "Фікс. % салону за продаж",
-          "Додаткові матеріали(Калькуляція)",
-          "Фікс. вартість матеріалів",
-          "Фікс. оплата майстру за послугу",
+          SERVICE_FIELDS.date,
+          SERVICE_FIELDS.master,
+          SERVICE_FIELDS.service,
+          SERVICE_FIELDS.totalServicePrice,
+          SERVICE_FIELDS.addonServicePrice,
+          SERVICE_FIELDS.salonForService,
+          SERVICE_FIELDS.masterPayTotal,
+          SERVICE_FIELDS.expenseAmount,
+          SERVICE_FIELDS.expenseType,
+          SERVICE_FIELDS.debtAmount,
+          SERVICE_FIELDS.sales,
+          SERVICE_FIELDS.saleDetails,
+          SERVICE_FIELDS.totalSalePrice,
+          SERVICE_FIELDS.addonSalePrice,
+          SERVICE_FIELDS.created,
+          SERVICE_FIELDS.paymentType,
+          SERVICE_FIELDS.comments,
+          SERVICE_FIELDS.totalWorkCost,
+          SERVICE_FIELDS.totalMaterialsCost,
+          SERVICE_FIELDS.masterPctForServices,
+          SERVICE_FIELDS.masterPctForMaterials,
+          SERVICE_FIELDS.salonPctForMaterials,
+          SERVICE_FIELDS.fixedMasterPctForSale,
+          SERVICE_FIELDS.fixedSalonPctForSale,
+          SERVICE_FIELDS.additionalMaterials,
+          SERVICE_FIELDS.fixedMaterialsCost,
+          SERVICE_FIELDS.fixedMasterPayForService,
         ],
       }),
-      fetchAllRecords(TABLES.specialists, { fields: ["Ім'я"] }),
-      fetchAllRecords(TABLES.servicesCatalog, { fields: ["Назва", "Категорія"] }),
-      fetchAllRecords(TABLES.priceList, { fields: ["Назва"] }),
-      fetchAllRecords(TABLES.saleDetails, { fields: ["к-сть", "Прайс", "Фікс. ціна продажу", "До оплати"] }),
-      fetchAllRecords(TABLES.categories, { fields: ["isRental"] }),
+      fetchAllRecords(TABLES.specialists, { fields: [SPECIALIST_FIELDS.name] }),
+      fetchAllRecords(TABLES.servicesCatalog, { fields: [SERVICE_CATALOG_FIELDS.name, SERVICE_CATALOG_FIELDS.category] }),
+      fetchAllRecords(TABLES.priceList, { fields: [PRICE_LIST_FIELDS.name] }),
+      fetchAllRecords(TABLES.saleDetails, { fields: [SALE_DETAIL_FIELDS.quantity, SALE_DETAIL_FIELDS.priceListItem, SALE_DETAIL_FIELDS.fixedSalePrice, SALE_DETAIL_FIELDS.totalDue] }),
+      fetchAllRecords(TABLES.categories, { fields: [CATEGORY_FIELDS.isRental] }),
     ]);
 
     // Build lookup maps
     const specialistMap = new Map<string, string>();
-    specialistRecords.forEach((r) => specialistMap.set(r.id, (r.fields["Ім'я"] as string) || ""));
+    specialistRecords.forEach((r) => specialistMap.set(r.id, (r.fields[SPECIALIST_FIELDS.name] as string) || ""));
 
     const serviceMap = new Map<string, string>();
-    serviceCatalog.forEach((r) => serviceMap.set(r.id, (r.fields["Назва"] as string) || ""));
+    serviceCatalog.forEach((r) => serviceMap.set(r.id, (r.fields[SERVICE_CATALOG_FIELDS.name] as string) || ""));
 
     // Build serviceId → isRental map via Категорії (single source of truth,
     // replaces legacy title.includes("оренда") detection).
     const rentalCategoryIds = new Set<string>();
     categoryRecords.forEach((r) => {
-      if (r.fields["isRental"] === true) rentalCategoryIds.add(r.id);
+      if (r.fields[CATEGORY_FIELDS.isRental] === true) rentalCategoryIds.add(r.id);
     });
     const rentalServiceIds = new Set<string>();
     serviceCatalog.forEach((r) => {
-      const catLinks = r.fields["Категорія"] as string[] | undefined;
+      const catLinks = r.fields[SERVICE_CATALOG_FIELDS.category] as string[] | undefined;
       if (catLinks && catLinks.some((id) => rentalCategoryIds.has(id))) {
         rentalServiceIds.add(r.id);
       }
     });
 
     const priceMap = new Map<string, string>();
-    priceList.forEach((r) => priceMap.set(r.id, (r.fields["Назва"] as string) || ""));
+    priceList.forEach((r) => priceMap.set(r.id, (r.fields[PRICE_LIST_FIELDS.name] as string) || ""));
 
     // Build sale details map: detailId → { productName, quantity, lineTotal }
     const saleDetailMap = new Map<string, { productName: string; quantity: number; lineTotal: number }>();
     saleDetailRecords.forEach((r) => {
-      const priceLinks = r.fields["Прайс"] as string[] | undefined;
+      const priceLinks = r.fields[SALE_DETAIL_FIELDS.priceListItem] as string[] | undefined;
       const productName = priceLinks && priceLinks.length > 0 ? (priceMap.get(priceLinks[0]) || "") : "";
       saleDetailMap.set(r.id, {
         productName,
-        quantity: (r.fields["к-сть"] as number) || 1,
-        lineTotal: (r.fields["До оплати"] as number) || (r.fields["Фікс. ціна продажу"] as number) || 0,
+        quantity: (r.fields[SALE_DETAIL_FIELDS.quantity] as number) || 1,
+        lineTotal: (r.fields[SALE_DETAIL_FIELDS.totalDue] as number) || (r.fields[SALE_DETAIL_FIELDS.fixedSalePrice] as number) || 0,
       });
     });
 
@@ -142,10 +151,10 @@ export async function GET(request: NextRequest) {
 
       // Determine type
       let type: "service" | "sale" | "expense" | "rental" | "debt" = "service";
-      const expenseAmount = f["Сума витрат"] as number | undefined;
-      const debtAmount = f["Cума боргу"] as number | undefined;
-      const salesLinks = f["Продажі"] as string[] | undefined;
-      const serviceLinks = f["Послуга"] as string[] | undefined;
+      const expenseAmount = f[SERVICE_FIELDS.expenseAmount] as number | undefined;
+      const debtAmount = f[SERVICE_FIELDS.debtAmount] as number | undefined;
+      const salesLinks = f[SERVICE_FIELDS.sales] as string[] | undefined;
+      const serviceLinks = f[SERVICE_FIELDS.service] as string[] | undefined;
 
       if (expenseAmount && expenseAmount !== 0) {
         type = "expense";
@@ -156,7 +165,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Get specialist
-      const masterLinks = f["Майстер"] as string[] | undefined;
+      const masterLinks = f[SERVICE_FIELDS.master] as string[] | undefined;
       let specialistName = "";
       let specialistRecId = "";
       if (masterLinks && masterLinks.length > 0) {
@@ -171,7 +180,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Get product name for sales + build saleItems from detail records
-      const detailLinks = f["Продажі деталі"] as string[] | undefined;
+      const detailLinks = f[SERVICE_FIELDS.saleDetails] as string[] | undefined;
       let saleItems: { productName: string; quantity: number; lineTotal: number }[] | undefined;
 
       if (type === "sale") {
@@ -210,7 +219,7 @@ export async function GET(request: NextRequest) {
 
       // For expenses, use type as title
       if (type === "expense") {
-        title = (f["Вид витрати"] as string) || "Витрата";
+        title = (f[SERVICE_FIELDS.expenseType] as string) || "Витрата";
       }
 
       // For debts
@@ -226,16 +235,16 @@ export async function GET(request: NextRequest) {
       } else if (type === "debt") {
         amount = debtAmount || 0;
       } else if (type === "sale") {
-        amount = (f["Всього ціна продажі"] as number) || 0;
+        amount = (f[SERVICE_FIELDS.totalSalePrice] as number) || 0;
       } else if (type === "rental") {
         // For rental: show total but pass breakdown (rental fee + materials)
-        amount = (f["Всього вартість послуги"] as number) || 0;
-        const matCost = (f["Загальна вартість матеріалів"] as number) || 0;
+        amount = (f[SERVICE_FIELDS.totalServicePrice] as number) || 0;
+        const matCost = (f[SERVICE_FIELDS.totalMaterialsCost] as number) || 0;
         if (matCost > 0) {
           materialsCost = matCost;
         }
       } else {
-        amount = (f["Всього вартість послуги"] as number) || 0;
+        amount = (f[SERVICE_FIELDS.totalServicePrice] as number) || 0;
       }
 
       // Source — all records now come from PWA (bot not connected to this base)
@@ -244,46 +253,46 @@ export async function GET(request: NextRequest) {
       // Time from Created, formatted in the tenant's timezone.
       // `Created` is always a UTC ISO string from Airtable; Intl handles the shift.
       let time = "";
-      const created = f["Created"] as string;
+      const created = f[SERVICE_FIELDS.created] as string;
       if (created) {
         time = timeFormatter.format(new Date(created));
       }
 
       return {
         id: r.id,
-        date: (f["Дата"] as string) || "",
+        date: (f[SERVICE_FIELDS.date] as string) || "",
         type,
         title,
         specialistId: specialistRecId,
         specialistName,
         amount,
-        supplement: (f["Доповнення"] as number) || (f["Доповнення(продажі)"] as number) || undefined,
+        supplement: (f[SERVICE_FIELDS.addonServicePrice] as number) || (f[SERVICE_FIELDS.addonSalePrice] as number) || undefined,
         // Service-side aggregates. For sales these are 0/undefined —
         // the sale split lives in specialistSalesShare/salonSalesShare.
-        specialistShare: type === "sale" ? undefined : ((f["Оплата майстру - всього"] as number) || undefined),
-        salonShare: type === "sale" ? undefined : ((f["Салону за послугу"] as number) || undefined),
+        specialistShare: type === "sale" ? undefined : ((f[SERVICE_FIELDS.masterPayTotal] as number) || undefined),
+        salonShare: type === "sale" ? undefined : ((f[SERVICE_FIELDS.salonForService] as number) || undefined),
         // Detailed breakdowns for dashboard
-        specialistServiceShare: (f["% майстру за послуги"] as number) || undefined,
-        specialistMaterialShare: (f["% майстру за матеріали"] as number) || undefined,
-        specialistSalesShare: (f["Фікс. % майстру за продаж"] as number) || undefined,
-        salonMaterialShare: (f["% салону за матеріали"] as number) || undefined,
-        salonSalesShare: (f["Фікс. % салону за продаж"] as number) || undefined,
+        specialistServiceShare: (f[SERVICE_FIELDS.masterPctForServices] as number) || undefined,
+        specialistMaterialShare: (f[SERVICE_FIELDS.masterPctForMaterials] as number) || undefined,
+        specialistSalesShare: (f[SERVICE_FIELDS.fixedMasterPctForSale] as number) || undefined,
+        salonMaterialShare: (f[SERVICE_FIELDS.salonPctForMaterials] as number) || undefined,
+        salonSalesShare: (f[SERVICE_FIELDS.fixedSalonPctForSale] as number) || undefined,
         materialsCost,
-        comment: (f["Коментарі"] as string) || undefined,
+        comment: (f[SERVICE_FIELDS.comments] as string) || undefined,
         // Калькуляція = base materials from service catalog (fixed/snapshot)
-        calculationCost: (f["Фікс. вартість матеріалів"] as number) || undefined,
+        calculationCost: (f[SERVICE_FIELDS.fixedMaterialsCost] as number) || undefined,
         // Матеріали = extra materials added (total materials minus base)
         // For rental: all materials are "extra" (rental service has no base materials)
         baseMaterialsCost: (() => {
-          const total = (f["Загальна вартість матеріалів"] as number) || 0;
-          const base = (f["Фікс. вартість матеріалів"] as number) || 0;
+          const total = (f[SERVICE_FIELDS.totalMaterialsCost] as number) || 0;
+          const base = (f[SERVICE_FIELDS.fixedMaterialsCost] as number) || 0;
           const extra = total - base;
           return extra > 0 ? extra : undefined;
         })(),
         saleItems: saleItems && saleItems.length > 1 ? saleItems : undefined,
         source,
         time,
-        paymentType: (f["вид оплати"] as string) || undefined,
+        paymentType: (f[SERVICE_FIELDS.paymentType] as string) || undefined,
       };
     });
 
@@ -309,23 +318,23 @@ export async function POST(request: NextRequest) {
     }
 
     const fields: Record<string, unknown> = {
-      "Дата": date,
+      [SERVICE_FIELDS.date]: date,
     };
 
-    if (comment) fields["Коментарі"] = comment;
-    if (specialistId) fields["Майстер"] = [specialistId];
+    if (comment) fields[SERVICE_FIELDS.comments] = comment;
+    if (specialistId) fields[SERVICE_FIELDS.master] = [specialistId];
 
     switch (type) {
       case "expense":
         if (!amount) return NextResponse.json({ error: "amount is required" }, { status: 400 });
-        fields["Сума витрат"] = Math.abs(amount);
-        if (body.expenseType) fields["Вид витрати"] = body.expenseType;
+        fields[SERVICE_FIELDS.expenseAmount] = Math.abs(amount);
+        if (body.expenseType) fields[SERVICE_FIELDS.expenseType] = body.expenseType;
         break;
 
       case "debt":
         if (amount === undefined) return NextResponse.json({ error: "amount is required" }, { status: 400 });
         if (!specialistId) return NextResponse.json({ error: "specialistId is required" }, { status: 400 });
-        fields["Cума боргу"] = amount; // + ми винні, - нам винні
+        fields[SERVICE_FIELDS.debtAmount] = amount; // + ми винні, - нам винні
         break;
 
       case "sale": {
@@ -344,11 +353,11 @@ export async function POST(request: NextRequest) {
             const lineTotal = item.salePrice * item.quantity;
             const lineCost = item.costPrice * item.quantity;
             const detail = await createRecord(TABLES.saleDetails, {
-              "к-сть": item.quantity,
-              "Прайс": [item.productId],
-              "Фікс. ціна продажу": item.salePrice,
-              "Фікс. ціна закупки": item.costPrice,
-              "До оплати": lineTotal,
+              [SALE_DETAIL_FIELDS.quantity]: item.quantity,
+              [SALE_DETAIL_FIELDS.priceListItem]: [item.productId],
+              [SALE_DETAIL_FIELDS.fixedSalePrice]: item.salePrice,
+              [SALE_DETAIL_FIELDS.fixedCostPrice]: item.costPrice,
+              [SALE_DETAIL_FIELDS.totalDue]: lineTotal,
             });
             detailIds.push(detail.id);
             if (!productIds.includes(item.productId)) productIds.push(item.productId);
@@ -358,39 +367,39 @@ export async function POST(request: NextRequest) {
 
           if (detailIds.length === 0) return NextResponse.json({ error: "No valid sale items" }, { status: 400 });
 
-          fields["Продажі деталі"] = detailIds;
-          fields["Продажі"] = productIds;
-          fields["Фікс. ціна продажу"] = totalSalePrice;
-          fields["Фікс. ціна закупки"] = totalCostPrice;
+          fields[SERVICE_FIELDS.saleDetails] = detailIds;
+          fields[SERVICE_FIELDS.sales] = productIds;
+          fields[SERVICE_FIELDS.fixedSalePrice] = totalSalePrice;
+          fields[SERVICE_FIELDS.fixedCostPrice] = totalCostPrice;
         } else if (body.productId) {
           // Legacy single-product sale (backward compat)
-          fields["Продажі"] = [body.productId];
-          if (body.salePrice) fields["Фікс. ціна продажу"] = body.salePrice;
-          if (body.costPrice) fields["Фікс. ціна закупки"] = body.costPrice;
+          fields[SERVICE_FIELDS.sales] = [body.productId];
+          if (body.salePrice) fields[SERVICE_FIELDS.fixedSalePrice] = body.salePrice;
+          if (body.costPrice) fields[SERVICE_FIELDS.fixedCostPrice] = body.costPrice;
         } else {
           return NextResponse.json({ error: "saleItems or productId is required" }, { status: 400 });
         }
 
-        if (body.supplement) fields["Доповнення(продажі)"] = body.supplement;
+        if (body.supplement) fields[SERVICE_FIELDS.addonSalePrice] = body.supplement;
 
         // Calculate specialist/salon split based on specialist's "% за продаж"
-        const totalSaleAmount = (fields["Фікс. ціна продажу"] as number) || 0;
+        const totalSaleAmount = (fields[SERVICE_FIELDS.fixedSalePrice] as number) || 0;
         const supplement = body.supplement || 0;
         const saleTotal = totalSaleAmount + supplement;
         if (specialistId && saleTotal > 0) {
           // Fetch specialist's sales commission rate
           const specResult = await fetchRecords(TABLES.specialists, {
             filterByFormula: `RECORD_ID()='${specialistId}'`,
-            fields: ["% за продаж"],
+            fields: [SPECIALIST_FIELDS.masterPctForSale],
             maxRecords: 1,
           });
           const specRate = specResult.records.length > 0
-            ? (specResult.records[0].fields["% за продаж"] as number) || 0
+            ? (specResult.records[0].fields[SPECIALIST_FIELDS.masterPctForSale] as number) || 0
             : 0;
           const specialistAmount = Math.round(saleTotal * specRate / 100);
           const salonAmount = saleTotal - specialistAmount;
-          fields["Фікс. % майстру за продаж"] = specialistAmount;
-          fields["Фікс. % салону за продаж"] = salonAmount;
+          fields[SERVICE_FIELDS.fixedMasterPctForSale] = specialistAmount;
+          fields[SERVICE_FIELDS.fixedSalonPctForSale] = salonAmount;
         }
         break;
       }
@@ -398,27 +407,27 @@ export async function POST(request: NextRequest) {
       case "service": {
         if (!body.serviceId) return NextResponse.json({ error: "serviceId is required" }, { status: 400 });
         if (!specialistId) return NextResponse.json({ error: "specialistId is required" }, { status: 400 });
-        fields["Послуга"] = [body.serviceId];
+        fields[SERVICE_FIELDS.service] = [body.serviceId];
         // Fixed values from catalog (formulas use these, not lookups)
-        if (body.fixedPrice !== undefined) fields["Фіксована вартість"] = body.fixedPrice;
-        if (body.hourlyRate !== undefined) fields["Фікс. вартість години"] = body.hourlyRate;
-        if (body.materialsCost !== undefined) fields["Фікс. вартість матеріалів"] = body.materialsCost;
+        if (body.fixedPrice !== undefined) fields[SERVICE_FIELDS.fixedPrice] = body.fixedPrice;
+        if (body.hourlyRate !== undefined) fields[SERVICE_FIELDS.fixedHourlyRate] = body.hourlyRate;
+        if (body.materialsCost !== undefined) fields[SERVICE_FIELDS.fixedMaterialsCost] = body.materialsCost;
         // Snapshot of materials purchase cost from catalog (ex-formula {продажа}*0.55,
         // now editable per-service `закупка` in Список послуг).
         if (body.materialsPurchaseCost !== undefined)
-          fields["вартість матеріалів закупка (from Послуга)"] = body.materialsPurchaseCost;
-        if (body.masterHourlyPay !== undefined) fields["Фікс. оплата майстру за послугу"] = body.masterHourlyPay;
-        if (body.supplement) fields["Доповнення"] = body.supplement;
-        if (body.extraHours) fields["Додаткові години"] = body.extraHours;
-        if (body.extraMaterialsCost) fields["Додаткові матеріали(Калькуляція)"] = body.extraMaterialsCost;
-        if (body.paymentType) fields["вид оплати"] = body.paymentType;
+          fields[SERVICE_FIELDS.materialsPurchaseCostFromService] = body.materialsPurchaseCost;
+        if (body.masterHourlyPay !== undefined) fields[SERVICE_FIELDS.fixedMasterPayForService] = body.masterHourlyPay;
+        if (body.supplement) fields[SERVICE_FIELDS.addonServicePrice] = body.supplement;
+        if (body.extraHours) fields["Додаткові години"] = body.extraHours; // TODO: add to airtable-fields.ts
+        if (body.extraMaterialsCost) fields[SERVICE_FIELDS.additionalMaterials] = body.extraMaterialsCost;
+        if (body.paymentType) fields[SERVICE_FIELDS.paymentType] = body.paymentType;
 
         // If product is sold alongside
         if (body.productId) {
-          fields["Продажі"] = [body.productId];
-          if (body.productSupplement) fields["Доповнення(продажі)"] = body.productSupplement;
-          if (body.salePrice) fields["Фікс. ціна продажу"] = body.salePrice;
-          if (body.costPrice) fields["Фікс. ціна закупки"] = body.costPrice;
+          fields[SERVICE_FIELDS.sales] = [body.productId];
+          if (body.productSupplement) fields[SERVICE_FIELDS.addonSalePrice] = body.productSupplement;
+          if (body.salePrice) fields[SERVICE_FIELDS.fixedSalePrice] = body.salePrice;
+          if (body.costPrice) fields[SERVICE_FIELDS.fixedCostPrice] = body.costPrice;
         }
 
         // Create Замовлення (order) records for calculation materials.
@@ -437,8 +446,8 @@ export async function POST(request: NextRequest) {
           for (const mat of calcMaterials) {
             if (mat.amount > 0) {
               const order = await createRecord(TABLES.orders, {
-                "мл/шт": mat.amount,
-                "Калькуляція": [mat.materialId],
+                [ORDER_FIELDS.quantity]: mat.amount,
+                [ORDER_FIELDS.material]: [mat.materialId],
               });
               orderIds.push(order.id);
 
@@ -449,10 +458,10 @@ export async function POST(request: NextRequest) {
             }
           }
           if (orderIds.length > 0) {
-            fields["Замовлення"] = orderIds;
+            fields[SERVICE_FIELDS.orders] = orderIds;
           }
           if (totalPurchaseCost > 0) {
-            fields["Фікс. собівартість матеріалів"] = Math.round(totalPurchaseCost);
+            fields[SERVICE_FIELDS.fixedMaterialsCostPrice] = Math.round(totalPurchaseCost);
           }
         }
         break;
@@ -482,12 +491,12 @@ export async function DELETE(request: NextRequest) {
     // (Airtable won't orphan-clean linked records when the parent is deleted.)
     const parent = await fetchRecords(TABLES.services, {
       filterByFormula: `RECORD_ID()='${id}'`,
-      fields: ["Продажі деталі", "Замовлення"],
+      fields: [SERVICE_FIELDS.saleDetails, SERVICE_FIELDS.orders],
       maxRecords: 1,
     });
     const parentFields = parent.records[0]?.fields ?? {};
-    const detailIds = (parentFields["Продажі деталі"] as string[] | undefined) ?? [];
-    const orderIds = (parentFields["Замовлення"] as string[] | undefined) ?? [];
+    const detailIds = (parentFields[SERVICE_FIELDS.saleDetails] as string[] | undefined) ?? [];
+    const orderIds = (parentFields[SERVICE_FIELDS.orders] as string[] | undefined) ?? [];
 
     // Delete parent first (unlinks children so their deletion is permitted)
     await deleteRecord(TABLES.services, id);

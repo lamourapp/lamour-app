@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAllRecords, createRecord, updateRecord, TABLES } from "@/lib/airtable";
+import { SPECIALIZATION_FIELDS } from "@/lib/airtable-fields";
 
 /**
  * Спеціалізації — tenant-defined roles (e.g. "Перукарі", "Лешмейкер", "Адміністратори").
@@ -9,20 +10,25 @@ import { fetchAllRecords, createRecord, updateRecord, TABLES } from "@/lib/airta
  * (multipleSelect) більше не читається/не пишеться.
  */
 
-const LINK_FIELD = "Категорії лінки";
-const FIELDS = ["name", LINK_FIELD, "description", "isActive", "sortOrder"];
+const FIELDS = [
+  SPECIALIZATION_FIELDS.name,
+  SPECIALIZATION_FIELDS.categoryLinks,
+  SPECIALIZATION_FIELDS.description,
+  SPECIALIZATION_FIELDS.isActive,
+  SPECIALIZATION_FIELDS.sortOrder,
+];
 
 function mapSpecialization(r: { id: string; fields: Record<string, unknown> }) {
   const f = r.fields;
-  const raw = f[LINK_FIELD];
+  const raw = f[SPECIALIZATION_FIELDS.categoryLinks];
   const categoryIds: string[] = Array.isArray(raw) ? (raw as string[]) : [];
   return {
     id: r.id,
-    name: (f["name"] as string) || "",
+    name: (f[SPECIALIZATION_FIELDS.name] as string) || "",
     categoryIds,
-    description: (f["description"] as string) || "",
-    isActive: f["isActive"] !== false,
-    sortOrder: (f["sortOrder"] as number) ?? 0,
+    description: (f[SPECIALIZATION_FIELDS.description] as string) || "",
+    isActive: f[SPECIALIZATION_FIELDS.isActive] !== false,
+    sortOrder: (f[SPECIALIZATION_FIELDS.sortOrder] as number) ?? 0,
   };
 }
 
@@ -32,8 +38,8 @@ export async function GET(request: NextRequest) {
     const records = await fetchAllRecords(TABLES.specializations, {
       fields: FIELDS,
       sort: [
-        { field: "sortOrder", direction: "asc" },
-        { field: "name", direction: "asc" },
+        { field: SPECIALIZATION_FIELDS.sortOrder, direction: "asc" },
+        { field: SPECIALIZATION_FIELDS.name, direction: "asc" },
       ],
     });
     let items = records.map(mapSpecialization);
@@ -55,12 +61,12 @@ export async function POST(request: NextRequest) {
     }
 
     const fields: Record<string, unknown> = {
-      name: name.trim(),
-      isActive: true,
+      [SPECIALIZATION_FIELDS.name]: name.trim(),
+      [SPECIALIZATION_FIELDS.isActive]: true,
     };
-    if (Array.isArray(categoryIds)) fields[LINK_FIELD] = categoryIds;
-    if (description) fields["description"] = description;
-    if (sortOrder !== undefined) fields["sortOrder"] = sortOrder;
+    if (Array.isArray(categoryIds)) fields[SPECIALIZATION_FIELDS.categoryLinks] = categoryIds;
+    if (description) fields[SPECIALIZATION_FIELDS.description] = description;
+    if (sortOrder !== undefined) fields[SPECIALIZATION_FIELDS.sortOrder] = sortOrder;
 
     const result = await createRecord(TABLES.specializations, fields);
     return NextResponse.json({ success: true, id: result.id });
@@ -80,11 +86,11 @@ export async function PATCH(request: NextRequest) {
     }
 
     const fields: Record<string, unknown> = {};
-    if (updates.name !== undefined) fields["name"] = updates.name;
-    if (updates.categoryIds !== undefined) fields[LINK_FIELD] = updates.categoryIds;
-    if (updates.description !== undefined) fields["description"] = updates.description;
-    if (updates.sortOrder !== undefined) fields["sortOrder"] = updates.sortOrder;
-    if (updates.isActive !== undefined) fields["isActive"] = updates.isActive;
+    if (updates.name !== undefined) fields[SPECIALIZATION_FIELDS.name] = updates.name;
+    if (updates.categoryIds !== undefined) fields[SPECIALIZATION_FIELDS.categoryLinks] = updates.categoryIds;
+    if (updates.description !== undefined) fields[SPECIALIZATION_FIELDS.description] = updates.description;
+    if (updates.sortOrder !== undefined) fields[SPECIALIZATION_FIELDS.sortOrder] = updates.sortOrder;
+    if (updates.isActive !== undefined) fields[SPECIALIZATION_FIELDS.isActive] = updates.isActive;
 
     await updateRecord(TABLES.specializations, id, fields);
     return NextResponse.json({ success: true });

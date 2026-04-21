@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAllRecords, createRecord, updateRecord, TABLES } from "@/lib/airtable";
+import { CATEGORY_FIELDS } from "@/lib/airtable-fields";
 
 /**
  * Категорії послуг — tenant-defined taxonomy for service types.
@@ -9,17 +10,23 @@ import { fetchAllRecords, createRecord, updateRecord, TABLES } from "@/lib/airta
  * Soft-delete через isActive=false, історію не втрачаємо.
  */
 
-const FIELDS = ["name", "isActive", "sortOrder", "description", "isRental"];
+const FIELDS = [
+  CATEGORY_FIELDS.name,
+  CATEGORY_FIELDS.isActive,
+  CATEGORY_FIELDS.sortOrder,
+  CATEGORY_FIELDS.description,
+  CATEGORY_FIELDS.isRental,
+];
 
 function mapCategory(r: { id: string; fields: Record<string, unknown> }) {
   const f = r.fields;
   return {
     id: r.id,
-    name: (f["name"] as string) || "",
-    isActive: f["isActive"] !== false,
-    sortOrder: (f["sortOrder"] as number) ?? 0,
-    description: (f["description"] as string) || "",
-    isRental: f["isRental"] === true,
+    name: (f[CATEGORY_FIELDS.name] as string) || "",
+    isActive: f[CATEGORY_FIELDS.isActive] !== false,
+    sortOrder: (f[CATEGORY_FIELDS.sortOrder] as number) ?? 0,
+    description: (f[CATEGORY_FIELDS.description] as string) || "",
+    isRental: f[CATEGORY_FIELDS.isRental] === true,
   };
 }
 
@@ -29,8 +36,8 @@ export async function GET(request: NextRequest) {
     const records = await fetchAllRecords(TABLES.categories, {
       fields: FIELDS,
       sort: [
-        { field: "sortOrder", direction: "asc" },
-        { field: "name", direction: "asc" },
+        { field: CATEGORY_FIELDS.sortOrder, direction: "asc" },
+        { field: CATEGORY_FIELDS.name, direction: "asc" },
       ],
     });
     let items = records.map(mapCategory);
@@ -50,9 +57,9 @@ export async function POST(request: NextRequest) {
     if (!name || typeof name !== "string" || !name.trim()) {
       return NextResponse.json({ error: "name is required" }, { status: 400 });
     }
-    const fields: Record<string, unknown> = { name: name.trim(), isActive: true };
-    if (description) fields["description"] = description;
-    if (sortOrder !== undefined) fields["sortOrder"] = sortOrder;
+    const fields: Record<string, unknown> = { [CATEGORY_FIELDS.name]: name.trim(), [CATEGORY_FIELDS.isActive]: true };
+    if (description) fields[CATEGORY_FIELDS.description] = description;
+    if (sortOrder !== undefined) fields[CATEGORY_FIELDS.sortOrder] = sortOrder;
     const result = await createRecord(TABLES.categories, fields);
     return NextResponse.json({ success: true, id: result.id });
   } catch (error) {
@@ -70,11 +77,11 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Invalid record ID" }, { status: 400 });
     }
     const fields: Record<string, unknown> = {};
-    if (updates.name !== undefined) fields["name"] = updates.name;
-    if (updates.description !== undefined) fields["description"] = updates.description;
-    if (updates.sortOrder !== undefined) fields["sortOrder"] = updates.sortOrder;
-    if (updates.isActive !== undefined) fields["isActive"] = updates.isActive;
-    if (updates.isRental !== undefined) fields["isRental"] = updates.isRental;
+    if (updates.name !== undefined) fields[CATEGORY_FIELDS.name] = updates.name;
+    if (updates.description !== undefined) fields[CATEGORY_FIELDS.description] = updates.description;
+    if (updates.sortOrder !== undefined) fields[CATEGORY_FIELDS.sortOrder] = updates.sortOrder;
+    if (updates.isActive !== undefined) fields[CATEGORY_FIELDS.isActive] = updates.isActive;
+    if (updates.isRental !== undefined) fields[CATEGORY_FIELDS.isRental] = updates.isRental;
     await updateRecord(TABLES.categories, id, fields);
     return NextResponse.json({ success: true });
   } catch (error) {

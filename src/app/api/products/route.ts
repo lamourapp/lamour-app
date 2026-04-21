@@ -1,27 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAllRecords, createRecord, updateRecord, deleteRecord, TABLES } from "@/lib/airtable";
+import { PRICE_LIST_FIELDS } from "@/lib/airtable-fields";
 
 const FIELDS = [
-  "Назва", "ціна продажу", "ціна закупки",
-  "sku", "артикул", "штрих-код", "неактивний",
+  PRICE_LIST_FIELDS.name,
+  PRICE_LIST_FIELDS.salePrice,
+  PRICE_LIST_FIELDS.costPrice,
+  PRICE_LIST_FIELDS.sku,
+  PRICE_LIST_FIELDS.article,
+  PRICE_LIST_FIELDS.barcode,
+  PRICE_LIST_FIELDS.inactive,
 ];
 
 function mapProduct(r: { id: string; fields: Record<string, unknown> }) {
   const f = r.fields;
   return {
     id: r.id,
-    name: (f["Назва"] as string) || "",
-    salePrice: (f["ціна продажу"] as number) || 0,
-    costPrice: (f["ціна закупки"] as number) || 0,
+    name: (f[PRICE_LIST_FIELDS.name] as string) || "",
+    salePrice: (f[PRICE_LIST_FIELDS.salePrice] as number) || 0,
+    costPrice: (f[PRICE_LIST_FIELDS.costPrice] as number) || 0,
     // `salonPercent` & `group` retained for legacy UI compat after Airtable cleanup.
     salonPercent: 0,
     group: "",
-    sku: (f["sku"] as string) || "",
-    article: (f["артикул"] as string) || "",
-    barcode: (f["штрих-код"] as string) || "",
-    isActive: !f["неактивний"],  // checkbox: checked = deactivated
+    sku: (f[PRICE_LIST_FIELDS.sku] as string) || "",
+    article: (f[PRICE_LIST_FIELDS.article] as string) || "",
+    barcode: (f[PRICE_LIST_FIELDS.barcode] as string) || "",
+    isActive: !f[PRICE_LIST_FIELDS.inactive],  // checkbox: checked = deactivated
     // Legacy compat: CreateEntryModal expects `price`
-    price: (f["ціна продажу"] as number) || 0,
+    price: (f[PRICE_LIST_FIELDS.salePrice] as number) || 0,
   };
 }
 
@@ -29,7 +35,7 @@ export async function GET() {
   try {
     const records = await fetchAllRecords(TABLES.priceList, {
       fields: FIELDS,
-      sort: [{ field: "Назва", direction: "asc" }],
+      sort: [{ field: PRICE_LIST_FIELDS.name, direction: "asc" }],
     });
     return NextResponse.json(records.map(mapProduct));
   } catch (error) {
@@ -55,18 +61,18 @@ export async function POST(request: NextRequest) {
     if (!name) return NextResponse.json({ error: "name is required" }, { status: 400 });
 
     // Fetch existing SKUs for auto-generation
-    const all = await fetchAllRecords(TABLES.priceList, { fields: ["sku"] });
-    const sku = await nextSku(all.map((r) => (r.fields["sku"] as string) || ""));
+    const all = await fetchAllRecords(TABLES.priceList, { fields: [PRICE_LIST_FIELDS.sku] });
+    const sku = await nextSku(all.map((r) => (r.fields[PRICE_LIST_FIELDS.sku] as string) || ""));
 
     const fields: Record<string, unknown> = {
-      "Назва": name,
-      "sku": sku,
+      [PRICE_LIST_FIELDS.name]: name,
+      [PRICE_LIST_FIELDS.sku]: sku,
       // неактивний defaults to unchecked = active, no need to set
     };
-    if (costPrice !== undefined) fields["ціна закупки"] = costPrice;
-    if (salePrice !== undefined) fields["ціна продажу"] = salePrice;
-    if (article) fields["артикул"] = article;
-    if (barcode) fields["штрих-код"] = barcode;
+    if (costPrice !== undefined) fields[PRICE_LIST_FIELDS.costPrice] = costPrice;
+    if (salePrice !== undefined) fields[PRICE_LIST_FIELDS.salePrice] = salePrice;
+    if (article) fields[PRICE_LIST_FIELDS.article] = article;
+    if (barcode) fields[PRICE_LIST_FIELDS.barcode] = barcode;
 
     const result = await createRecord(TABLES.priceList, fields);
     return NextResponse.json({ success: true, id: result.id, sku });
@@ -85,12 +91,12 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Invalid record ID" }, { status: 400 });
 
     const fields: Record<string, unknown> = {};
-    if (updates.name !== undefined) fields["Назва"] = updates.name;
-    if (updates.costPrice !== undefined) fields["ціна закупки"] = updates.costPrice;
-    if (updates.salePrice !== undefined) fields["ціна продажу"] = updates.salePrice;
-    if (updates.article !== undefined) fields["артикул"] = updates.article;
-    if (updates.barcode !== undefined) fields["штрих-код"] = updates.barcode;
-    if (updates.isActive !== undefined) fields["неактивний"] = !updates.isActive;
+    if (updates.name !== undefined) fields[PRICE_LIST_FIELDS.name] = updates.name;
+    if (updates.costPrice !== undefined) fields[PRICE_LIST_FIELDS.costPrice] = updates.costPrice;
+    if (updates.salePrice !== undefined) fields[PRICE_LIST_FIELDS.salePrice] = updates.salePrice;
+    if (updates.article !== undefined) fields[PRICE_LIST_FIELDS.article] = updates.article;
+    if (updates.barcode !== undefined) fields[PRICE_LIST_FIELDS.barcode] = updates.barcode;
+    if (updates.isActive !== undefined) fields[PRICE_LIST_FIELDS.inactive] = !updates.isActive;
     // SKU is immutable — never updated via PATCH
 
     await updateRecord(TABLES.priceList, id, fields);

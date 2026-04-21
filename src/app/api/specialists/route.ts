@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAllRecords, createRecord, updateRecord, TABLES } from "@/lib/airtable";
 import { compensationTypeFromLabel, labelFromCompensationType } from "@/lib/compensation";
+import { SPECIALIST_FIELDS } from "@/lib/airtable-fields";
 
 function mapSpecialist(r: { id: string; fields: Record<string, unknown> }) {
   const f = r.fields;
-  const salonPercent = (f["% cалону за послугу"] as number) || 0;
-  const salesPercent = (f["% майстру за продаж матеріалів"] as number) || 0;
-  const productSalesPercent = (f["% за продаж"] as number) || 0;
+  const salonPercent = (f[SPECIALIST_FIELDS.salonPctForService] as number) || 0;
+  const salesPercent = (f[SPECIALIST_FIELDS.masterPctForMaterialsSale] as number) || 0;
+  const productSalesPercent = (f[SPECIALIST_FIELDS.masterPctForSale] as number) || 0;
 
-  const type = compensationTypeFromLabel(f["Тип оплати"] as string | undefined);
+  const type = compensationTypeFromLabel(f[SPECIALIST_FIELDS.compensationType] as string | undefined);
 
   let avatarColor: "brand" | "amber" | "gray" = "brand";
   if (type === "rental") avatarColor = "amber";
@@ -17,8 +18,8 @@ function mapSpecialist(r: { id: string; fields: Record<string, unknown> }) {
 
   // Format birthday
   let birthday = "";
-  if (f["Дата народження"]) {
-    const date = new Date(f["Дата народження"] as string);
+  if (f[SPECIALIST_FIELDS.birthday]) {
+    const date = new Date(f[SPECIALIST_FIELDS.birthday] as string);
     const months = [
       "січня", "лютого", "березня", "квітня", "травня", "червня",
       "липня", "серпня", "вересня", "жовтня", "листопада", "грудня",
@@ -28,11 +29,11 @@ function mapSpecialist(r: { id: string; fields: Record<string, unknown> }) {
 
   // Airtable checkbox: true = active, false/undefined = inactive
   // (Airtable stores false as absent, so undefined also means "unchecked")
-  const isActive = f["is_active"] === true;
+  const isActive = f[SPECIALIST_FIELDS.isActive] === true;
 
   // Linked field → array of { id, name } objects. We only need IDs here;
   // the PWA joins against useSpecializations() to resolve categories.
-  const rawSpec = f["Спеціалізації"];
+  const rawSpec = f[SPECIALIST_FIELDS.specializations];
   const specializationIds: string[] = Array.isArray(rawSpec)
     ? rawSpec
         .map((s) =>
@@ -47,19 +48,19 @@ function mapSpecialist(r: { id: string; fields: Record<string, unknown> }) {
 
   return {
     id: r.id,
-    name: (f["Ім'я"] as string) || "",
+    name: (f[SPECIALIST_FIELDS.name] as string) || "",
     specializationIds,
     compensationType: type,
     serviceCommission: salonPercent,
     salesCommission: salesPercent,
     productSalesCommission: productSalesPercent,
-    rentalRate: type === "rental" ? (f["Умови співпраці"] as number) || 0 : undefined,
-    hourlyRate: type === "hourly" ? (f["Умови співпраці"] as number) || 0 : undefined,
-    salaryRate: type === "salary" ? (f["Умови співпраці"] as number) || 0 : undefined,
-    conditions: (f["Умови співпраці"] as number) || 0,
-    balance: (f["Баланс"] as number) || 0,
+    rentalRate: type === "rental" ? (f[SPECIALIST_FIELDS.terms] as number) || 0 : undefined,
+    hourlyRate: type === "hourly" ? (f[SPECIALIST_FIELDS.terms] as number) || 0 : undefined,
+    salaryRate: type === "salary" ? (f[SPECIALIST_FIELDS.terms] as number) || 0 : undefined,
+    conditions: (f[SPECIALIST_FIELDS.terms] as number) || 0,
+    balance: (f[SPECIALIST_FIELDS.balance] as number) || 0,
     birthday,
-    birthdayRaw: (f["Дата народження"] as string) || "",
+    birthdayRaw: (f[SPECIALIST_FIELDS.birthday] as string) || "",
     avatarColor,
     isActive,
   };
@@ -71,18 +72,18 @@ export async function GET(request: NextRequest) {
 
     const records = await fetchAllRecords(TABLES.specialists, {
       fields: [
-        "Ім'я",
-        "% cалону за послугу",
-        "% майстру за продаж матеріалів",
-        "% за продаж",
-        "Умови співпраці",
-        "Баланс",
-        "Дата народження",
-        "is_active",
-        "Тип оплати",
-        "Спеціалізації",
+        SPECIALIST_FIELDS.name,
+        SPECIALIST_FIELDS.salonPctForService,
+        SPECIALIST_FIELDS.masterPctForMaterialsSale,
+        SPECIALIST_FIELDS.masterPctForSale,
+        SPECIALIST_FIELDS.terms,
+        SPECIALIST_FIELDS.balance,
+        SPECIALIST_FIELDS.birthday,
+        SPECIALIST_FIELDS.isActive,
+        SPECIALIST_FIELDS.compensationType,
+        SPECIALIST_FIELDS.specializations,
       ],
-      sort: [{ field: "Ім'я", direction: "asc" }],
+      sort: [{ field: SPECIALIST_FIELDS.name, direction: "asc" }],
     });
 
     let specialists = records.map(mapSpecialist);
@@ -108,22 +109,22 @@ export async function POST(request: NextRequest) {
     }
 
     const fields: Record<string, unknown> = {
-      "Ім'я": name,
-      "is_active": true,
+      [SPECIALIST_FIELDS.name]: name,
+      [SPECIALIST_FIELDS.isActive]: true,
     };
 
-    if (birthday) fields["Дата народження"] = birthday;
+    if (birthday) fields[SPECIALIST_FIELDS.birthday] = birthday;
     if (Array.isArray(specializationIds)) {
-      fields["Спеціалізації"] = specializationIds;
+      fields[SPECIALIST_FIELDS.specializations] = specializationIds;
     }
 
-    fields["Тип оплати"] = labelFromCompensationType(compensationType);
+    fields[SPECIALIST_FIELDS.compensationType] = labelFromCompensationType(compensationType);
 
     // Percentages
-    if (serviceCommission !== undefined) fields["% cалону за послугу"] = serviceCommission;
-    if (salesCommission !== undefined) fields["% майстру за продаж матеріалів"] = salesCommission;
-    if (productSalesCommission !== undefined) fields["% за продаж"] = productSalesCommission;
-    if (conditions !== undefined) fields["Умови співпраці"] = conditions;
+    if (serviceCommission !== undefined) fields[SPECIALIST_FIELDS.salonPctForService] = serviceCommission;
+    if (salesCommission !== undefined) fields[SPECIALIST_FIELDS.masterPctForMaterialsSale] = salesCommission;
+    if (productSalesCommission !== undefined) fields[SPECIALIST_FIELDS.masterPctForSale] = productSalesCommission;
+    if (conditions !== undefined) fields[SPECIALIST_FIELDS.terms] = conditions;
 
     const result = await createRecord(TABLES.specialists, fields);
     return NextResponse.json({ success: true, id: result.id });
@@ -145,23 +146,23 @@ export async function PATCH(request: NextRequest) {
 
     const fields: Record<string, unknown> = {};
 
-    if (updates.name !== undefined) fields["Ім'я"] = updates.name;
-    if (updates.birthday !== undefined) fields["Дата народження"] = updates.birthday || null;
+    if (updates.name !== undefined) fields[SPECIALIST_FIELDS.name] = updates.name;
+    if (updates.birthday !== undefined) fields[SPECIALIST_FIELDS.birthday] = updates.birthday || null;
     if (updates.specializationIds !== undefined) {
-      fields["Спеціалізації"] = Array.isArray(updates.specializationIds)
+      fields[SPECIALIST_FIELDS.specializations] = Array.isArray(updates.specializationIds)
         ? updates.specializationIds
         : [];
     }
-    if (updates.isActive !== undefined) fields["is_active"] = updates.isActive;
+    if (updates.isActive !== undefined) fields[SPECIALIST_FIELDS.isActive] = updates.isActive;
 
     if (updates.compensationType !== undefined) {
-      fields["Тип оплати"] = labelFromCompensationType(updates.compensationType);
+      fields[SPECIALIST_FIELDS.compensationType] = labelFromCompensationType(updates.compensationType);
     }
 
-    if (updates.serviceCommission !== undefined) fields["% cалону за послугу"] = updates.serviceCommission;
-    if (updates.salesCommission !== undefined) fields["% майстру за продаж матеріалів"] = updates.salesCommission;
-    if (updates.productSalesCommission !== undefined) fields["% за продаж"] = updates.productSalesCommission;
-    if (updates.conditions !== undefined) fields["Умови співпраці"] = updates.conditions;
+    if (updates.serviceCommission !== undefined) fields[SPECIALIST_FIELDS.salonPctForService] = updates.serviceCommission;
+    if (updates.salesCommission !== undefined) fields[SPECIALIST_FIELDS.masterPctForMaterialsSale] = updates.salesCommission;
+    if (updates.productSalesCommission !== undefined) fields[SPECIALIST_FIELDS.masterPctForSale] = updates.productSalesCommission;
+    if (updates.conditions !== undefined) fields[SPECIALIST_FIELDS.terms] = updates.conditions;
 
     await updateRecord(TABLES.specialists, id, fields);
     return NextResponse.json({ success: true });
