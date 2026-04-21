@@ -11,6 +11,7 @@ import {
   SPECIALIZATION_FIELDS,
   SETTINGS_FIELDS,
   ORDER_FIELDS,
+  EXPENSE_TYPE_FIELDS,
 } from "@/lib/airtable-fields";
 
 export const runtime = "nodejs";
@@ -44,6 +45,7 @@ const CHECKS: Check[] = [
   { table: TABLES.specializations, fields: Object.values(SPECIALIZATION_FIELDS) },
   { table: TABLES.settings, fields: Object.values(SETTINGS_FIELDS) },
   { table: TABLES.orders, fields: Object.values(ORDER_FIELDS) },
+  { table: TABLES.expenseTypes, fields: Object.values(EXPENSE_TYPE_FIELDS) },
 ];
 
 // Людські імена для звіту — нехай ідентифікувати зламану таблицю без шпаргалки.
@@ -58,6 +60,7 @@ const TABLE_LABELS: Record<string, string> = {
   [TABLES.specializations]: "Спеціалізації",
   [TABLES.settings]: "Settings",
   [TABLES.orders]: "Замовлення",
+  [TABLES.expenseTypes]: "Види витрат",
 };
 
 type Result =

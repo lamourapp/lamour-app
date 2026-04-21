@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Button, Field, Input, Label, Modal, Select, inputCls } from "./ui";
-import { useSettings } from "@/lib/hooks";
+import { useSettings, useExpenseTypes } from "@/lib/hooks";
 import { moneyFormatter } from "@/lib/format";
 
 interface Specialist {
@@ -19,22 +19,6 @@ interface Product {
 }
 
 type EntryType = "expense" | "debt" | "sale";
-
-const EXPENSE_TYPES = [
-  "ЗП Адмін",
-  "Прибирання",
-  "Вода",
-  "Газ",
-  "Електрика",
-  "ФОП",
-  "Податки",
-  "Побутова хімія",
-  "Чай, вершки, миючий засіб",
-  "СМС сповіщення",
-  "Найманий працівник (податок)",
-  "QR",
-  "Інше",
-];
 
 /* ─── Searchable Product Picker ─── */
 function ProductPicker({
@@ -210,6 +194,10 @@ export default function CreateEntryModal({
   const isEdit = !!initial;
   const { settings } = useSettings();
   const fmt = moneyFormatter(settings);
+  // Види витрат: tenant-managed через Settings → Види витрат. Беремо активні;
+  // якщо редагуємо запис із неактивним (або перейменованим) видом — додаємо
+  // його як disabled-опцію нижче, щоб не загубити значення.
+  const { expenseTypes } = useExpenseTypes(false);
   const [date, setDate] = useState(() => initial?.date || new Date().toISOString().slice(0, 10));
   const [amount, setAmount] = useState(() => initial ? String(Math.abs(initial.amount)) : "");
   const [specialistId, setSpecialistId] = useState(() => initial?.specialistId || "");
@@ -368,9 +356,15 @@ export default function CreateEntryModal({
         <Field label="Вид витрати">
           <Select value={expenseType} onChange={(e) => setExpenseType(e.target.value)}>
             <option value="">Без категорії</option>
-            {EXPENSE_TYPES.map((t) => (
-              <option key={t} value={t}>{t}</option>
+            {expenseTypes.map((t) => (
+              <option key={t.id} value={t.name}>{t.name}</option>
             ))}
+            {/* Edit-mode fallback: якщо поточне значення відсутнє в активному
+                списку (архівоване / перейменоване), додаємо окрему опцію — щоб
+                select показав поточне значення, а не скинувся на «Без категорії». */}
+            {expenseType && !expenseTypes.some((t) => t.name === expenseType) && (
+              <option value={expenseType}>{expenseType} (архів)</option>
+            )}
           </Select>
         </Field>
       )}

@@ -32,6 +32,7 @@ export const TABLES = {
   settings: "tblSTSjnEbV37pWRP",        // Settings (single row "current")
   specializations: "tbllDjZGNnwXBTMB2", // Спеціалізації (tenant-defined roles)
   categories: "tblwzWzFfPsJqep6v",      // Категорії послуг (FK source of truth)
+  expenseTypes: "tbljEgUp3xOEi8ajX",    // Види витрат (довідник, керується з Налаштувань)
 } as const;
 
 interface AirtableRecord {

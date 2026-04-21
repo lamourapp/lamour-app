@@ -141,6 +141,17 @@ export const SPECIALIZATION_FIELDS = {
   sortOrder: "sortOrder",
 } as const;
 
+// ─── Види витрат / tbljEgUp3xOEi8ajX ───────────────────────────────────────
+// Довідник типів витрат для Налаштувань (ЗП Адмін, Вода, ...). Журнальне поле
+// «Вид витрати» — singleSelect, синхронізація опцій робиться typecast-ом
+// на POST/PATCH журналу — Airtable сам додасть нову опцію.
+export const EXPENSE_TYPE_FIELDS = {
+  name: "name",
+  isActive: "isActive",
+  sortOrder: "sortOrder",
+  description: "description",
+} as const;
+
 // ─── Settings (single-row) / tblSTSjnEbV37pWRP ─────────────────────────────
 export const SETTINGS_FIELDS = {
   key: "key",

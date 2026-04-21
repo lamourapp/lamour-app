@@ -309,6 +309,75 @@ export function useSpecializations(includeInactive = false) {
   return { specializations: data, loading, error, reload, create };
 }
 
+/* ─── Expense types (tenant-defined taxonomy) ─── */
+
+export interface ExpenseType {
+  id: string;
+  name: string;
+  isActive: boolean;
+  sortOrder: number;
+  description: string;
+}
+
+export function useExpenseTypes(includeInactive = false) {
+  const [data, setData] = useState<ExpenseType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const reload = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    const params = new URLSearchParams();
+    if (includeInactive) params.set("all", "1");
+    params.set("_t", String(Date.now()));
+    fetch(`/api/expense-types?${params.toString()}`, { cache: "no-store" })
+      .then((res) => { if (!res.ok) throw new Error("Failed"); return res.json(); })
+      .then((d) => { setData(d); setLoading(false); })
+      .catch((e) => { setError(e.message); setLoading(false); });
+  }, [includeInactive]);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  const create = useCallback(async (payload: { name: string; description?: string; sortOrder?: number }): Promise<ExpenseType> => {
+    const res = await fetch("/api/expense-types", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || "Failed");
+    const { id, name } = (await res.json()) as { id: string; name: string };
+    await new Promise<void>((resolve) => {
+      fetch(`/api/expense-types?all=1&_t=${Date.now()}`, { cache: "no-store" })
+        .then((r) => r.json())
+        .then((d: ExpenseType[]) => { setData(d); resolve(); })
+        .catch(() => resolve());
+    });
+    return {
+      id, name,
+      description: payload.description || "",
+      sortOrder: payload.sortOrder ?? 0,
+      isActive: true,
+    };
+  }, []);
+
+  const update = useCallback(async (id: string, patch: Partial<Omit<ExpenseType, "id">>): Promise<void> => {
+    const res = await fetch("/api/expense-types", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, ...patch }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || "Failed");
+    await new Promise<void>((resolve) => {
+      fetch(`/api/expense-types?all=1&_t=${Date.now()}`, { cache: "no-store" })
+        .then((r) => r.json())
+        .then((d: ExpenseType[]) => { setData(d); resolve(); })
+        .catch(() => resolve());
+    });
+  }, []);
+
+  return { expenseTypes: data, loading, error, reload, create, update };
+}
+
 export function useSpecialists(includeInactive = false) {
   const [data, setData] = useState<Specialist[]>([]);
   const [loading, setLoading] = useState(true);

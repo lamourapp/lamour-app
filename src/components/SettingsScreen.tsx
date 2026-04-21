@@ -8,6 +8,7 @@ import CatalogScreen from "./CatalogScreen";
 import ServicesCatalogScreen from "./ServicesCatalogScreen";
 import SpecializationsScreen from "./SpecializationsScreen";
 import CategoriesScreen from "./CategoriesScreen";
+import ExpenseTypesScreen from "./ExpenseTypesScreen";
 import PinPad from "./PinPad";
 
 /* ─── Business-type presets ─── */
@@ -568,6 +569,7 @@ export default function SettingsScreen() {
   const [showServicesCatalog, setShowServicesCatalog] = useState(false);
   const [showSpecializations, setShowSpecializations] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
+  const [showExpenseTypes, setShowExpenseTypes] = useState(false);
 
   const specialistTerm = settings?.specialistTerm || "Спеціаліст";
   const businessName = businessPresets[settings?.businessType || "beauty"].label;
@@ -581,6 +583,9 @@ export default function SettingsScreen() {
   }
   if (showCategories) {
     return <CategoriesScreen onBack={() => setShowCategories(false)} />;
+  }
+  if (showExpenseTypes) {
+    return <ExpenseTypesScreen onBack={() => setShowExpenseTypes(false)} />;
   }
   if (catalogTab) {
     return (
@@ -623,6 +628,12 @@ export default function SettingsScreen() {
       title: "Категорії послуг",
       desc: "Групи послуг для каталогу та спеціалізацій",
       onClick: () => setShowCategories(true),
+    },
+    {
+      icon: "💸",
+      title: "Види витрат",
+      desc: "Список видів для вибору при створенні витрати",
+      onClick: () => setShowExpenseTypes(true),
     },
     {
       icon: "⚠️",
