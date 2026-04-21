@@ -23,6 +23,7 @@ export const TABLES = {
   clients: "tblhwRZKJeduhN7vE",         // Клієнти
   settings: "tblSTSjnEbV37pWRP",        // Settings (single row "current")
   specializations: "tbllDjZGNnwXBTMB2", // Спеціалізації (tenant-defined roles)
+  categories: "tblwzWzFfPsJqep6v",      // Категорії послуг (FK source of truth)
 } as const;
 
 interface AirtableRecord {

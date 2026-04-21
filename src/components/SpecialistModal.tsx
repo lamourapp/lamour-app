@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import type { Specialist, CompensationType } from "@/lib/demo-data";
 import { Button, Field, Input, Modal, Segmented, type SegmentedOption } from "./ui";
-import { useSettings, useSpecializations, useServicesCatalog } from "@/lib/hooks";
+import { useSettings, useSpecializations, useCategories } from "@/lib/hooks";
 import { currencySymbol } from "@/lib/format";
 
 interface SpecialistModalProps {
@@ -35,7 +35,8 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
     return [...activeSpecs, ...linkedArchived];
   }, [allSpecs, activeSpecs, specialist?.specializationIds]);
   const specializations = allSpecs; // backwards-compat alias for other refs below
-  const { categories: availableCategories } = useServicesCatalog();
+  const { categories: allCategories } = useCategories(false); // only active
+  const categoryOptions = useMemo(() => allCategories, [allCategories]);
 
   const [name, setName] = useState(specialist?.name || "");
   const [specializationIds, setSpecializationIds] = useState<string[]>(
@@ -54,17 +55,8 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
   // Inline "create new specialization" form
   const [showNewSpec, setShowNewSpec] = useState(false);
   const [newSpecName, setNewSpecName] = useState("");
-  const [newSpecCategories, setNewSpecCategories] = useState<string[]>([]);
+  const [newSpecCategoryIds, setNewSpecCategoryIds] = useState<string[]>([]);
   const [creatingSpec, setCreatingSpec] = useState(false);
-
-  // Union of all categories from existing specializations + services catalog,
-  // so the tenant can compose a new спеціалізація from any active service category.
-  const categoryOptions = useMemo(() => {
-    const set = new Set<string>();
-    specializations.forEach((s) => s.categories.forEach((c) => set.add(c)));
-    availableCategories.forEach((c) => set.add(c));
-    return Array.from(set).sort();
-  }, [specializations, availableCategories]);
 
   function toggleSpec(id: string) {
     setSpecializationIds((prev) =>
@@ -72,9 +64,9 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
     );
   }
 
-  function toggleNewSpecCategory(cat: string) {
-    setNewSpecCategories((prev) =>
-      prev.includes(cat) ? prev.filter((x) => x !== cat) : [...prev, cat],
+  function toggleNewSpecCategory(id: string) {
+    setNewSpecCategoryIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
   }
 
@@ -84,12 +76,12 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
     try {
       const created = await createSpecialization({
         name: newSpecName.trim(),
-        categories: newSpecCategories,
+        categoryIds: newSpecCategoryIds,
         sortOrder: (specializations[specializations.length - 1]?.sortOrder ?? 0) + 1,
       });
       setSpecializationIds((prev) => [...prev, created.id]);
       setNewSpecName("");
-      setNewSpecCategories([]);
+      setNewSpecCategoryIds([]);
       setShowNewSpec(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не вдалося створити спеціалізацію");
@@ -234,19 +226,19 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {categoryOptions.map((cat) => {
-                      const on = newSpecCategories.includes(cat);
+                      const on = newSpecCategoryIds.includes(cat.id);
                       return (
                         <button
-                          key={cat}
+                          key={cat.id}
                           type="button"
-                          onClick={() => toggleNewSpecCategory(cat)}
+                          onClick={() => toggleNewSpecCategory(cat.id)}
                           className={`px-2.5 py-1 rounded-full text-[12px] transition-colors cursor-pointer border ${
                             on
                               ? "bg-brand-600 text-white border-brand-600"
                               : "bg-white text-gray-600 border-black/10 hover:border-brand-500"
                           }`}
                         >
-                          {cat}
+                          {cat.name}
                         </button>
                       );
                     })}
@@ -267,7 +259,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
                   onClick={() => {
                     setShowNewSpec(false);
                     setNewSpecName("");
-                    setNewSpecCategories([]);
+                    setNewSpecCategoryIds([]);
                   }}
                 >
                   Скасувати

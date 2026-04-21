@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { inputCls, selectCls, labelCls } from "./ui";
-import { useSettings, useSpecializations } from "@/lib/hooks";
+import { useSettings, useSpecializations, useCategories } from "@/lib/hooks";
 import { moneyFormatter } from "@/lib/format";
 
 interface Specialist {
@@ -24,7 +24,7 @@ interface ServiceCatalogItem {
   hourlyRate: number;
   hours: number;
   totalPrice: number;
-  category: string;
+  categoryId: string;
   duration?: number; // в хвилинах, fallback для розрахунку погодинної оплати
 }
 
@@ -295,7 +295,21 @@ export default function ServiceEntryModal({
   // include archived — a linked-but-archived спеціалізація still gives the
   // specialist service access until the owner explicitly unlinks it.
   const { specializations } = useSpecializations(true);
+  const { categories: allCategories } = useCategories(true);
   const fmt = moneyFormatter(settings);
+
+  const categoryNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    allCategories.forEach((c) => m.set(c.id, c.name));
+    return m;
+  }, [allCategories]);
+  // Identify "Оренда" by name match (case-insensitive). Single source of truth
+  // is the Категорії table, but rental behaviour is a system concept — MVP
+  // flags it by name. Later: move to a `isRental` flag on categories.
+  const rentalCategoryId = useMemo(
+    () => allCategories.find((c) => c.name.trim().toLowerCase() === "оренда")?.id || "",
+    [allCategories],
+  );
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [specialistId, setSpecialistId] = useState("");
   const [serviceId, setServiceId] = useState("");
@@ -330,12 +344,12 @@ export default function ServiceEntryModal({
   // For rental specialists: auto-select the first "Оренда" service
   // and pre-fill its price from the specialist card.
   useEffect(() => {
-    if (!isRental || !services.length) return;
-    const rentalService = services.find((s) => s.category === "Оренда");
+    if (!isRental || !services.length || !rentalCategoryId) return;
+    const rentalService = services.find((s) => s.categoryId === rentalCategoryId);
     if (rentalService && serviceId !== rentalService.id) {
       setServiceId(rentalService.id);
     }
-  }, [isRental, services]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isRental, services, rentalCategoryId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Override price for rental: comes from specialist card, not catalog.
   const rentalPrice = isRental ? (selectedSpecialist?.rentalRate ?? 0) : null;
@@ -344,33 +358,30 @@ export default function ServiceEntryModal({
 
   const filteredServices = useMemo(() => {
     // Rental specialists: only show "Оренда" category — no regular services.
-    if (isRental) return services.filter((s) => s.category === "Оренда");
+    if (isRental) return services.filter((s) => s.categoryId === rentalCategoryId);
     // "Показати всі" toggle — override specialization-based filter (works for any comp type)
     if (showAllServices) {
-      return isHourlySpec ? services.filter((s) => s.category !== "Оренда") : services;
+      return isHourlySpec ? services.filter((s) => s.categoryId !== rentalCategoryId) : services;
     }
     // Resolve allowed categories from the specialist's linked Спеціалізації.
-    // Union of categories across all of their specializations (admin + лешмейкер,
-    // бровіст + візажист, etc. — multi-specialization is a hard requirement).
+    // Union of categoryIds across all of their specializations.
     const specIds = selectedSpecialist?.specializationIds || [];
-    const allowedCats = new Set<string>();
+    const allowedCatIds = new Set<string>();
     specIds.forEach((id) => {
       const spec = specializations.find((s) => s.id === id);
-      spec?.categories.forEach((c) => allowedCats.add(c));
+      spec?.categoryIds.forEach((c) => allowedCatIds.add(c));
     });
 
     // No specializations configured → show all (avoid empty list for misconfigured specs)
-    if (allowedCats.size === 0) {
-      return isHourlySpec ? services.filter((s) => s.category !== "Оренда") : services;
+    if (allowedCatIds.size === 0) {
+      return isHourlySpec ? services.filter((s) => s.categoryId !== rentalCategoryId) : services;
     }
 
-    // Specialization filter applies to BOTH hourly and commission specialists.
-    // Hourly excludes "Оренда" (it's only for rental-type specialists).
     return services.filter((s) => {
-      if (s.category === "Оренда") return !isHourlySpec;
-      return allowedCats.has(s.category);
+      if (s.categoryId === rentalCategoryId) return !isHourlySpec;
+      return allowedCatIds.has(s.categoryId);
     });
-  }, [services, selectedSpecialist, specializations, showAllServices, isRental, isHourlySpec]);
+  }, [services, selectedSpecialist, specializations, showAllServices, isRental, isHourlySpec, rentalCategoryId]);
 
   const preview = useMemo(() => {
     if (!selectedService) return null;
@@ -549,7 +560,7 @@ export default function ServiceEntryModal({
                   selectedId={serviceId}
                   onSelect={setServiceId}
                   placeholder="Пошук послуги..."
-                  groupBy={(s) => s.category}
+                  groupBy={(s) => categoryNameById.get(s.categoryId) || "Без категорії"}
                   renderItem={(s) => (
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-[14px] text-gray-900 truncate">{s.name}</span>

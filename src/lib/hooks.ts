@@ -171,7 +171,7 @@ export function useCatalog<T extends "products" | "materials">(type: T) {
 export interface ServiceCatalogItem {
   id: string; name: string; workPrice: number; hourlyRate: number;
   hours: number; materialsCost: number; totalPrice: number;
-  category: string; duration: number; isActive: boolean;
+  categoryId: string; duration: number; isActive: boolean;
 }
 
 export function useServicesCatalog() {
@@ -190,10 +190,56 @@ export function useServicesCatalog() {
 
   useEffect(() => { reload(); }, [reload]);
 
-  // Extract unique categories
-  const categories = Array.from(new Set(data.map((s) => s.category).filter(Boolean))).sort();
+  return { services: data, loading, error, reload };
+}
 
-  return { services: data, categories, loading, error, reload };
+/* ─── Categories (service taxonomy, tenant-defined) ─── */
+
+export interface Category {
+  id: string;
+  name: string;
+  isActive: boolean;
+  sortOrder: number;
+  description: string;
+}
+
+export function useCategories(includeInactive = false) {
+  const [data, setData] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const reload = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    const params = new URLSearchParams();
+    if (includeInactive) params.set("all", "1");
+    params.set("_t", String(Date.now()));
+    fetch(`/api/categories?${params.toString()}`, { cache: "no-store" })
+      .then((res) => { if (!res.ok) throw new Error("Failed"); return res.json(); })
+      .then((d) => { setData(d); setLoading(false); })
+      .catch((e) => { setError(e.message); setLoading(false); });
+  }, [includeInactive]);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  const create = useCallback(async (payload: { name: string; description?: string; sortOrder?: number }): Promise<string> => {
+    const res = await fetch("/api/categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || "Failed");
+    const { id } = (await res.json()) as { id: string };
+    await new Promise<void>((resolve) => {
+      fetch(`/api/categories?all=1&_t=${Date.now()}`, { cache: "no-store" })
+        .then((r) => r.json())
+        .then((d: Category[]) => { setData(d); resolve(); })
+        .catch(() => resolve());
+    });
+    return id;
+  }, []);
+
+  return { categories: data, loading, error, reload, create };
 }
 
 /* ─── Specializations (tenant-defined roles) ─── */
@@ -201,7 +247,7 @@ export function useServicesCatalog() {
 export interface Specialization {
   id: string;
   name: string;
-  categories: string[];
+  categoryIds: string[];
   description: string;
   isActive: boolean;
   sortOrder: number;
@@ -228,7 +274,7 @@ export function useSpecializations(includeInactive = false) {
 
   const create = useCallback(async (payload: {
     name: string;
-    categories?: string[];
+    categoryIds?: string[];
     description?: string;
     sortOrder?: number;
   }): Promise<Specialization> => {
@@ -239,7 +285,6 @@ export function useSpecializations(includeInactive = false) {
     });
     if (!res.ok) throw new Error((await res.json()).error || "Failed");
     const { id } = (await res.json()) as { id: string };
-    // Refetch so the new record (with server-resolved categories) appears.
     await new Promise<void>((resolve) => {
       fetch(`/api/specializations?_t=${Date.now()}`, { cache: "no-store" })
         .then((r) => r.json())
@@ -249,7 +294,7 @@ export function useSpecializations(includeInactive = false) {
     return {
       id,
       name: payload.name,
-      categories: payload.categories || [],
+      categoryIds: payload.categoryIds || [],
       description: payload.description || "",
       isActive: true,
       sortOrder: payload.sortOrder ?? 0,

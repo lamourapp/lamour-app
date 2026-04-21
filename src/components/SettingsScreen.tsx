@@ -7,6 +7,7 @@ import type { Settings } from "@/app/api/settings/route";
 import CatalogScreen from "./CatalogScreen";
 import ServicesCatalogScreen from "./ServicesCatalogScreen";
 import SpecializationsScreen from "./SpecializationsScreen";
+import CategoriesScreen from "./CategoriesScreen";
 import PinPad from "./PinPad";
 
 /* ─── Business-type presets ─── */
@@ -566,6 +567,7 @@ export default function SettingsScreen() {
   const [catalogTab, setCatalogTab] = useState<"products" | "materials" | null>(null);
   const [showServicesCatalog, setShowServicesCatalog] = useState(false);
   const [showSpecializations, setShowSpecializations] = useState(false);
+  const [showCategories, setShowCategories] = useState(false);
 
   const specialistTerm = settings?.specialistTerm || "Спеціаліст";
   const businessName = businessPresets[settings?.businessType || "beauty"].label;
@@ -576,6 +578,9 @@ export default function SettingsScreen() {
   }
   if (showSpecializations) {
     return <SpecializationsScreen onBack={() => setShowSpecializations(false)} />;
+  }
+  if (showCategories) {
+    return <CategoriesScreen onBack={() => setShowCategories(false)} />;
   }
   if (catalogTab) {
     return (
@@ -612,6 +617,12 @@ export default function SettingsScreen() {
       title: "Спеціалізації",
       desc: "Ролі майстрів і які послуги вони виконують",
       onClick: () => setShowSpecializations(true),
+    },
+    {
+      icon: "🏷️",
+      title: "Категорії послуг",
+      desc: "Групи послуг для каталогу та спеціалізацій",
+      onClick: () => setShowCategories(true),
     },
     {
       icon: "⚠️",

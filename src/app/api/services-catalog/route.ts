@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAllRecords, createRecord, updateRecord, deleteRecord, TABLES } from "@/lib/airtable";
 
+/**
+ * Каталог послуг.
+ *
+ * Поле "Категорія" (fldLrEyZtzbKproOJ) — multipleRecordLinks на
+ * Категорії послуг. Це source of truth. Легасі multiSelect "Вид послуги"
+ * більше не читається/не пишеться (пристрій до видалення після QA).
+ */
+
+const CATEGORY_FIELD = "Категорія";
+
 const FIELDS = [
   "Назва",
   "ціна роботи",
@@ -8,7 +18,7 @@ const FIELDS = [
   "закупка",
   "ціна за годину",
   "К-сть годин",
-  "Вид послуги",
+  CATEGORY_FIELD,
   "вартість послуги",
   "тривалість",
   "неактивний",
@@ -16,17 +26,10 @@ const FIELDS = [
 
 function mapService(r: { id: string; fields: Record<string, unknown> }) {
   const f = r.fields;
-  // Вид послуги is multipleSelects → array of { id, name, color } objects
-  const rawTypes = f["Вид послуги"] as unknown;
-  let category = "";
-  if (Array.isArray(rawTypes) && rawTypes.length > 0) {
-    const first = rawTypes[0];
-    category =
-      typeof first === "string" ? first :
-      first && typeof first === "object" && "name" in (first as Record<string, unknown>)
-        ? (first as { name: string }).name
-        : "";
-  }
+  const rawCat = f[CATEGORY_FIELD];
+  const categoryIds: string[] = Array.isArray(rawCat) ? (rawCat as string[]) : [];
+  // MVP: один сервіс → одна категорія (UI дозволяє тільки одну).
+  const categoryId = categoryIds[0] || "";
 
   const workPrice = (f["ціна роботи"] as number) || 0;
   const catalogHourlyRate = (f["ціна за годину"] as number) || 0;
@@ -35,7 +38,6 @@ function mapService(r: { id: string; fields: Record<string, unknown> }) {
   const materialsPurchaseCost = (f["закупка"] as number) || 0;
   const totalPrice = (f["вартість послуги"] as number) || 0;
 
-  // Calculate total correctly for both pricing models
   const isHourly = hours > 0;
   const effectiveRate = isHourly ? (catalogHourlyRate || workPrice) : 0;
   const computedTotal = isHourly
@@ -50,8 +52,8 @@ function mapService(r: { id: string; fields: Record<string, unknown> }) {
     hours,
     materialsCost,
     materialsPurchaseCost,
-    totalPrice: computedTotal || totalPrice, // prefer computed, fallback to formula
-    category,
+    totalPrice: computedTotal || totalPrice,
+    categoryId,
     duration: (f["тривалість"] as number) || 0,
     isActive: !f["неактивний"],
   };
@@ -73,7 +75,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, workPrice, hourlyRate, hours, materialsCost, materialsPurchaseCost, category, duration } = body;
+    const { name, workPrice, hourlyRate, hours, materialsCost, materialsPurchaseCost, categoryId, duration } = body;
     if (!name) return NextResponse.json({ error: "name is required" }, { status: 400 });
 
     const fields: Record<string, unknown> = { "Назва": name };
@@ -83,7 +85,7 @@ export async function POST(request: NextRequest) {
     if (hours !== undefined) fields["К-сть годин"] = hours;
     if (materialsCost !== undefined) fields["вартість матеріалів продажа"] = materialsCost;
     if (materialsPurchaseCost !== undefined) fields["закупка"] = materialsPurchaseCost;
-    if (category) fields["Вид послуги"] = [category];
+    if (categoryId) fields[CATEGORY_FIELD] = [categoryId];
     if (duration !== undefined) fields["тривалість"] = duration;
 
     const result = await createRecord(TABLES.servicesCatalog, fields);
@@ -109,12 +111,11 @@ export async function PATCH(request: NextRequest) {
     if (updates.hours !== undefined) fields["К-сть годин"] = updates.hours;
     if (updates.materialsCost !== undefined) fields["вартість матеріалів продажа"] = updates.materialsCost;
     if (updates.materialsPurchaseCost !== undefined) fields["закупка"] = updates.materialsPurchaseCost;
-    if (updates.category !== undefined) {
-      fields["Вид послуги"] = updates.category ? [updates.category] : [];
+    if (updates.categoryId !== undefined) {
+      fields[CATEGORY_FIELD] = updates.categoryId ? [updates.categoryId] : [];
     }
     if (updates.duration !== undefined) fields["тривалість"] = updates.duration;
     if (updates.isActive !== undefined) {
-      // Checkbox: true to check, null to uncheck (Airtable doesn't accept false)
       fields["неактивний"] = updates.isActive ? null : true;
     }
 

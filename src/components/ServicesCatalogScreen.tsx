@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "./ui";
-import { useServicesCatalog, type ServiceCatalogItem } from "@/lib/hooks";
+import { useServicesCatalog, useCategories, type ServiceCatalogItem } from "@/lib/hooks";
 import { useSettings } from "@/lib/hooks";
 import { moneyFormatter } from "@/lib/format";
 import ServiceItemModal from "./ServiceItemModal";
@@ -10,44 +10,47 @@ import ServiceItemModal from "./ServiceItemModal";
 export default function ServicesCatalogScreen({ onBack }: { onBack: () => void }) {
   const { settings } = useSettings();
   const fmt = moneyFormatter(settings);
-  const { services, categories, loading, error, reload } = useServicesCatalog();
+  const { services, loading, error, reload } = useServicesCatalog();
+  // Include archived so records linking to archived categories still render
+  // the name (not "(видалена)") for historical services.
+  const { categories: allCategories, reload: reloadCategories } = useCategories(true);
 
   const [query, setQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(false);
   const [modalItem, setModalItem] = useState<ServiceCatalogItem | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [importMsg, setImportMsg] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const activeCategories = useMemo(() => allCategories.filter((c) => c.isActive), [allCategories]);
+  const categoryNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    allCategories.forEach((c) => m.set(c.id, c.name));
+    return m;
+  }, [allCategories]);
 
   const inactiveCount = useMemo(() => services.filter((s) => !s.isActive).length, [services]);
 
   const filtered = useMemo(() => {
     let list = showInactive ? services : services.filter((s) => s.isActive);
-
-    if (selectedCategory) {
-      list = list.filter((s) => s.category === selectedCategory);
+    if (selectedCategoryId) {
+      list = list.filter((s) => s.categoryId === selectedCategoryId);
     }
-
     if (query.trim()) {
       const q = query.toLowerCase();
       list = list.filter((s) => s.name.toLowerCase().includes(q));
     }
-
     return list;
-  }, [services, query, selectedCategory, showInactive]);
+  }, [services, query, selectedCategoryId, showInactive]);
 
-  // Group filtered items by category
   const grouped = useMemo(() => {
     const map = new Map<string, ServiceCatalogItem[]>();
     for (const item of filtered) {
-      const cat = item.category || "Без групи";
+      const cat = categoryNameById.get(item.categoryId) || "Без групи";
       if (!map.has(cat)) map.set(cat, []);
       map.get(cat)!.push(item);
     }
     return map;
-  }, [filtered]);
+  }, [filtered, categoryNameById]);
 
   function handleCreate() {
     setModalItem(null);
@@ -69,7 +72,6 @@ export default function ServicesCatalogScreen({ onBack }: { onBack: () => void }
 
   return (
     <div className="max-w-[600px] mx-auto px-4 pb-28">
-      {/* Header */}
       <div className="flex items-center gap-3 py-4">
         <button
           onClick={onBack}
@@ -81,39 +83,39 @@ export default function ServicesCatalogScreen({ onBack }: { onBack: () => void }
         <h1 className="text-[20px] font-semibold text-gray-900">Каталог послуг</h1>
       </div>
 
-      {/* Category filter pills */}
-      {categories.length > 0 && (
+      {activeCategories.length > 0 && (
         <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
           <button
-            onClick={() => setSelectedCategory(null)}
+            onClick={() => setSelectedCategoryId(null)}
             className={`shrink-0 px-3 py-1.5 rounded-full text-[12px] font-medium cursor-pointer transition-all ${
-              !selectedCategory
+              !selectedCategoryId
                 ? "bg-brand-600 text-white"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
             Всі ({services.filter((s) => showInactive || s.isActive).length})
           </button>
-          {categories.map((cat) => {
-            const count = services.filter((s) => s.category === cat && (showInactive || s.isActive)).length;
+          {activeCategories.map((cat) => {
+            const count = services.filter(
+              (s) => s.categoryId === cat.id && (showInactive || s.isActive),
+            ).length;
             return (
               <button
-                key={cat}
-                onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+                key={cat.id}
+                onClick={() => setSelectedCategoryId(selectedCategoryId === cat.id ? null : cat.id)}
                 className={`shrink-0 px-3 py-1.5 rounded-full text-[12px] font-medium cursor-pointer transition-all ${
-                  selectedCategory === cat
+                  selectedCategoryId === cat.id
                     ? "bg-brand-600 text-white"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
               >
-                {cat} ({count})
+                {cat.name} ({count})
               </button>
             );
           })}
         </div>
       )}
 
-      {/* Search */}
       <div className="relative mb-4">
         <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[14px]">
           🔍
@@ -127,14 +129,10 @@ export default function ServicesCatalogScreen({ onBack }: { onBack: () => void }
         />
       </div>
 
-      {/* Action button */}
       <div className="flex gap-2 mb-4">
-        <Button onClick={handleCreate} fullWidth>
-          + Послуга
-        </Button>
+        <Button onClick={handleCreate} fullWidth>+ Послуга</Button>
       </div>
 
-      {/* Show inactive toggle */}
       {inactiveCount > 0 && (
         <button
           onClick={() => setShowInactive((v) => !v)}
@@ -144,28 +142,23 @@ export default function ServicesCatalogScreen({ onBack }: { onBack: () => void }
         </button>
       )}
 
-      {/* Loading / error */}
       {loading && (
         <div className="text-center text-gray-400 py-8 text-[14px]">Завантаження...</div>
       )}
       {error && (
         <div className="text-center text-red-500 py-8 text-[14px]">{error}</div>
       )}
-
-      {/* Empty state */}
       {!loading && filtered.length === 0 && (
         <div className="text-center text-gray-400 py-8 text-[14px]">
-          {query || selectedCategory ? "Нічого не знайдено" : "Поки порожньо"}
+          {query || selectedCategoryId ? "Нічого не знайдено" : "Поки порожньо"}
         </div>
       )}
 
-      {/* Services grouped by category */}
       {!loading && filtered.length > 0 && (
         <div className="space-y-4">
           {Array.from(grouped.entries()).map(([cat, items]) => (
             <div key={cat}>
-              {/* Show group header unless filtering by specific category */}
-              {!selectedCategory && (
+              {!selectedCategoryId && (
                 <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5 px-1 flex items-center gap-2">
                   <span>{cat}</span>
                   <span className="text-gray-300">· {items.length}</span>
@@ -213,7 +206,6 @@ export default function ServicesCatalogScreen({ onBack }: { onBack: () => void }
         </div>
       )}
 
-      {/* Footer stats */}
       {!loading && services.length > 0 && (
         <div className="mt-6 text-center text-[12px] text-gray-400">
           {services.filter((s) => s.isActive).length} послуг
@@ -221,13 +213,15 @@ export default function ServicesCatalogScreen({ onBack }: { onBack: () => void }
         </div>
       )}
 
-      {/* Modal */}
       {showModal && (
         <ServiceItemModal
           item={modalItem}
-          categories={categories}
+          categories={activeCategories.map((c) => ({ id: c.id, name: c.name }))}
           onClose={() => setShowModal(false)}
-          onSaved={reload}
+          onSaved={() => {
+            reload();
+            reloadCategories();
+          }}
         />
       )}
     </div>

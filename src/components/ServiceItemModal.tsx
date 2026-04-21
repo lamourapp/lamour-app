@@ -8,7 +8,7 @@ import { moneyFormatter } from "@/lib/format";
 
 interface Props {
   item?: ServiceCatalogItem | null;
-  categories: string[];
+  categories: { id: string; name: string }[];
   onClose: () => void;
   onSaved: () => void;
 }
@@ -19,8 +19,8 @@ export default function ServiceItemModal({ item, categories, onClose, onSaved }:
   const fmt = moneyFormatter(settings);
 
   const [name, setName] = useState(item?.name || "");
-  const [category, setCategory] = useState(item?.category || "");
-  const [newCategory, setNewCategory] = useState("");
+  const [categoryId, setCategoryId] = useState(item?.categoryId || "");
+  const [newCategoryName, setNewCategoryName] = useState("");
   const [showNewCategory, setShowNewCategory] = useState(false);
 
   // Determine initial pricing mode from existing data
@@ -58,12 +58,24 @@ export default function ServiceItemModal({ item, categories, onClose, onSaved }:
 
   async function handleSave() {
     if (!name.trim()) { setError("Вкажіть назву"); return; }
-    const effectiveCategory = showNewCategory ? newCategory.trim() : category;
 
     setSaving(true);
     setError("");
 
     try {
+      // If user typed a new category name, create it first and use the fresh id.
+      let effectiveCategoryId = categoryId;
+      if (showNewCategory && newCategoryName.trim()) {
+        const res = await fetch("/api/categories", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: newCategoryName.trim() }),
+        });
+        if (!res.ok) throw new Error((await res.json()).error || "Не вдалося створити категорію");
+        const { id } = (await res.json()) as { id: string };
+        effectiveCategoryId = id;
+      }
+
       const payload: Record<string, unknown> = {
         name: name.trim(),
         isActive,
@@ -78,14 +90,13 @@ export default function ServiceItemModal({ item, categories, onClose, onSaved }:
       } else {
         const wp = parseFloat(workPrice) || 0;
         payload.workPrice = wp || undefined;
-        // Clear hourly fields so it won't revert to hourly on next open
         payload.hourlyRate = 0;
         payload.hours = 0;
       }
 
       if (materialsCost) payload.materialsCost = parseFloat(materialsCost);
       if (duration) payload.duration = parseInt(duration);
-      payload.category = effectiveCategory || "";
+      payload.categoryId = effectiveCategoryId || "";
 
       const res = await fetch("/api/services-catalog", {
         method: isEdit ? "PATCH" : "POST",
@@ -115,14 +126,14 @@ export default function ServiceItemModal({ item, categories, onClose, onSaved }:
           <div className="flex gap-2">
             <Input
               type="text"
-              value={newCategory}
-              onChange={(e) => setNewCategory(e.target.value)}
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
               placeholder="Нова група"
               className="flex-1"
             />
             <button
               type="button"
-              onClick={() => { setShowNewCategory(false); setNewCategory(""); }}
+              onClick={() => { setShowNewCategory(false); setNewCategoryName(""); }}
               className="px-3 rounded-xl border border-black/10 bg-white text-[12px] text-gray-500 hover:bg-gray-50 cursor-pointer transition-colors"
             >
               Скасувати
@@ -130,10 +141,10 @@ export default function ServiceItemModal({ item, categories, onClose, onSaved }:
           </div>
         ) : (
           <div className="flex gap-2">
-            <Select value={category} onChange={(e) => setCategory(e.target.value)} className="flex-1">
+            <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="flex-1">
               <option value="">— без групи —</option>
               {categories.map((c) => (
-                <option key={c} value={c}>{c}</option>
+                <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </Select>
             <button
