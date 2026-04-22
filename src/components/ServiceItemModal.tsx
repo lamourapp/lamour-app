@@ -350,7 +350,7 @@ export default function ServiceItemModal({ item, categories, onClose, onSaved }:
                             <option value="">Оберіть матеріал</option>
                             {materials.map((m) => (
                               <option key={m.id} value={m.id}>
-                                {m.name} ({m.totalVolume} {m.unit || "мл/шт"}, {fmt(Math.round(m.salePrice))})
+                                {m.name} ({m.totalVolume} мл/шт)
                               </option>
                             ))}
                           </Select>
