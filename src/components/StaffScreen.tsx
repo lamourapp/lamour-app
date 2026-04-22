@@ -8,6 +8,7 @@ import { moneyFormatter, currencySymbol } from "@/lib/format";
 type Fmt = (amount: number, opts?: { signed?: boolean; maximumFractionDigits?: number }) => string;
 import SpecialistModal from "./SpecialistModal";
 import CreateEntryModal from "./CreateEntryModal";
+import MasterReportModal from "./MasterReportModal";
 
 function compensationLabel(s: Specialist, fmt: Fmt, sym: string): string {
   const materialsLabel = s.salesCommission > 0 ? ` · матер. ${s.salesCommission}%` : "";
@@ -92,6 +93,9 @@ export default function StaffScreen() {
   // але семантика інша: для власника balance > 0 = «є що забрати» → пресет
   // на знак мінус, коментар «Вилучення прибутку».
   const [withdrawingOwner, setWithdrawingOwner] = useState<Specialist | null>(null);
+  // Звіт ЗП майстра за період — окремий модал-пікер, який відкриває
+  // публічний URL /report/master/[id]. Не для власника.
+  const [reportingSpecialist, setReportingSpecialist] = useState<Specialist | null>(null);
 
   // Власник — окремо від майстрів. Один на базу (API валідує).
   const owner = specialists.find((s) => s.isOwner);
@@ -222,6 +226,14 @@ export default function StaffScreen() {
                       бо картка сама по собі = openEdit. */}
                   <button
                     type="button"
+                    onClick={(e) => { e.stopPropagation(); setReportingSpecialist(s); }}
+                    className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-white text-gray-600 hover:bg-gray-50 border border-black/[0.08] cursor-pointer transition-colors whitespace-nowrap hidden sm:inline-flex"
+                    title="Звіт ЗП за період — публічне посилання"
+                  >
+                    Звіт
+                  </button>
+                  <button
+                    type="button"
                     onClick={(e) => { e.stopPropagation(); setSettlingSpecialist(s); }}
                     className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-brand-50 text-brand-600 hover:bg-brand-100 border border-brand-200 cursor-pointer transition-colors whitespace-nowrap"
                     title="Розрахунок: виплата ЗП, аванс, борг"
@@ -326,6 +338,13 @@ export default function StaffScreen() {
           Пресет на знак мінус (власник забирає з каси), сума = поточний
           прибуток (balance). Коли balance ≤ 0 — сума 0, власник сам
           введе потрібну (напр. довнесення у мінус = +). */}
+      {reportingSpecialist && (
+        <MasterReportModal
+          specialist={reportingSpecialist}
+          onClose={() => setReportingSpecialist(null)}
+        />
+      )}
+
       {withdrawingOwner && (
         <CreateEntryModal
           type="debt"

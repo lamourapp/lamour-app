@@ -89,12 +89,15 @@ function computeMetrics(entries: JournalEntry[]) {
   let specialistSalesShare = 0;
 
   let expenses = 0;
-  let debts = 0;
+  let debts = 0; // signed: + довнесення, − виплата
+  let paidOut = 0; // |debts < 0| — виплати майстрам/власнику
+  let contributed = 0; // debts > 0 — довнесення
 
   let countServices = 0;
   let countSales = 0;
   let countExpenses = 0;
   let countRentals = 0;
+  let countPayouts = 0;
   let rentalSum = 0; // rent only, without materials
 
   for (const e of entries) {
@@ -112,6 +115,12 @@ function computeMetrics(entries: JournalEntry[]) {
       countExpenses++;
     } else if (e.type === "debt") {
       debts += e.amount;
+      if (e.amount < 0) {
+        paidOut += Math.abs(e.amount);
+        countPayouts++;
+      } else if (e.amount > 0) {
+        contributed += e.amount;
+      }
     } else if (e.type === "service") {
       countServices++;
     } else if (e.type === "sale") {
@@ -125,7 +134,15 @@ function computeMetrics(entries: JournalEntry[]) {
 
   const salonTotal = salonServiceShare + salonMaterialShare + salonSalesShare;
   const specialistTotal = specialistServiceShare + specialistMaterialShare + specialistSalesShare;
-  const cashInRegister = salonTotal - expenses;
+  // Каса = весь вхідний кеш (повна виручка клієнтів + довнесення) − все, що
+  // з каси пішло (витрати + виплати майстрам/власнику). Це не «чистий
+  // прибуток салону», а саме фізичний залишок готівки/еквіваленту.
+  //
+  // salonTotal + specialistTotal = повна виручка за період
+  //   (клієнт платить всю суму, майстру свою частку виплачуємо окремо).
+  // debts signed: + довнесення, − виплата.
+  const totalRevenue = salonTotal + specialistTotal;
+  const cashInRegister = totalRevenue + debts - expenses;
 
   return {
     salonServiceShare,
@@ -138,12 +155,16 @@ function computeMetrics(entries: JournalEntry[]) {
     specialistTotal,
     expenses,
     debts,
+    paidOut,
+    contributed,
+    totalRevenue,
     cashInRegister,
     rentalSum,
     countServices,
     countSales,
     countExpenses,
     countRentals,
+    countPayouts,
     totalEntries: entries.length,
   };
 }
@@ -308,8 +329,8 @@ export default function DashboardScreen() {
               <MetricCard label="Всього оплата спеціалісту" value={Math.round(m.specialistTotal)} fmt={fmt} variant="green-light" />
             </div>
 
-            {/* Row 3: debts, expenses, rental, cash */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {/* Row 3: debts, expenses, payouts, rental, cash */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               <MetricCard
                 label="Борги"
                 sublabel={totalDebt > 0 ? "салон винен · актуально" : totalDebt < 0 ? "нам винні · актуально" : "баланс · актуально"}
@@ -317,18 +338,25 @@ export default function DashboardScreen() {
                 fmt={fmt}
                 variant={totalDebt !== 0 ? "negative" : "default"}
               />
-              <MetricCard label="Витрати" value={Math.round(m.expenses)} fmt={fmt} />
+              <MetricCard label="Витрати" sublabel="операційні" value={Math.round(m.expenses)} fmt={fmt} />
+              <MetricCard label="Виплати" sublabel="майстрам і власнику" value={Math.round(m.paidOut)} fmt={fmt} />
               <MetricCard label="Оренда" sublabel="без матеріалів" value={Math.round(m.rentalSum)} fmt={fmt} />
-              <MetricCard label="Кошти в касі" value={Math.round(m.cashInRegister)} fmt={fmt} />
+              <MetricCard
+                label="Кошти в касі"
+                sublabel="виручка − витрати − виплати"
+                value={Math.round(m.cashInRegister)}
+                fmt={fmt}
+              />
             </div>
           </div>
 
           {/* Row 4: counters */}
-          <div className="grid grid-cols-4 gap-2 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-6">
             <MetricCard label="Послуг" value={m.countServices} suffix="" />
             <MetricCard label="Продажів" value={m.countSales} suffix="" />
             <MetricCard label="Оренд" value={m.countRentals} suffix="" />
             <MetricCard label="Витрат" value={m.countExpenses} suffix="" />
+            <MetricCard label="Виплат" value={m.countPayouts} suffix="" />
           </div>
 
           {/* Owner analytics entry — full dashboard is at /owner under PIN */}
