@@ -11,6 +11,9 @@ export const viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  // iOS PWA: без viewport-fit=cover `env(safe-area-inset-bottom)` повертає 0,
+  // і нижня «домашня риска» ріже bottom-nav. На Android/браузері — no-op.
+  viewportFit: "cover" as const,
 };
 
 /*
