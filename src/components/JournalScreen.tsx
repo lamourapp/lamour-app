@@ -322,7 +322,14 @@ export default function JournalScreen() {
       setBulkRestoring(false);
     }
   }
-  const { specialists } = useSpecialists();
+  const { specialists: allSpecialists } = useSpecialists();
+  // У селекторах запису НЕ показуємо чистих власників (compensationType=owner) —
+  // вони не виконують послуг і не продають. Master-owner (власник + майстер з
+  // іншим compensationType) — лишається в списку.
+  const specialists = useMemo(
+    () => allSpecialists.filter((s) => s.compensationType !== "owner"),
+    [allSpecialists],
+  );
 
   // Client-side type filter + «Скасовані» toggle.
   // Семантика кнопки: OFF = тільки активні (API навіть не тягне скасовані),

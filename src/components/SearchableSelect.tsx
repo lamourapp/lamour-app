@@ -35,7 +35,6 @@ export default function SearchableSelect<T extends { id: string }>({
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
-  const [dropUp, setDropUp] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -50,19 +49,13 @@ export default function SearchableSelect<T extends { id: string }>({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  // Коли відкриваємо — визначаємо, чи розгортати вгору (якщо знизу мало
-  // місця в межах модалки/вʼюпорта). Плюс плавно прокручуємо дропдаун у вид,
-  // щоб Modal з overflow-y-auto не «зʼїдав» його.
+  // При відкритті — прокручуємо input в верх видимої зони скрол-контейнера
+  // (Modal, який має overflow-y-auto), щоб список під ним гарантовано
+  // був у полі зору.
   useEffect(() => {
     if (!open || !wrapperRef.current) return;
-    const rect = wrapperRef.current.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const spaceAbove = rect.top;
-    const needed = 280; // max-h dropdown + mt
-    setDropUp(spaceBelow < needed && spaceAbove > spaceBelow);
-    // Трохи пізніше — після layout — прокручуємо в межах скрол-контейнера.
     const t = setTimeout(() => {
-      dropdownRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      wrapperRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
     }, 60);
     return () => clearTimeout(t);
   }, [open]);
@@ -125,9 +118,7 @@ export default function SearchableSelect<T extends { id: string }>({
       {open && (
         <div
           ref={dropdownRef}
-          className={`absolute left-0 right-0 bg-white border border-black/10 rounded-xl shadow-xl max-h-[260px] overflow-y-auto z-50 ${
-            dropUp ? "bottom-full mb-1" : "top-full mt-1"
-          }`}
+          className="absolute left-0 right-0 top-full mt-1 bg-white border border-black/10 rounded-xl shadow-xl max-h-[260px] overflow-y-auto z-50"
         >
           {filtered.length === 0 ? (
             <div className="px-4 py-3 text-[13px] text-gray-400 text-center">Нічого не знайдено</div>
