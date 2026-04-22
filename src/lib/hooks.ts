@@ -170,8 +170,15 @@ export function useCatalog<T extends "products" | "materials">(type: T) {
 
 export interface ServiceCatalogItem {
   id: string; name: string; workPrice: number; hourlyRate: number;
-  hours: number; materialsCost: number; totalPrice: number;
+  hours: number; materialsCost: number; materialsPurchaseCost: number; totalPrice: number;
   categoryId: string; duration: number; isActive: boolean;
+  // Калькулятор (2026-04). Коли hasCalculator=true, materialsCost/Purchase —
+  // живі (перераховані на GET з актуального прайсу матеріалів).
+  hasCalculator: boolean;
+  calculatorItems: {
+    materialId: string; materialName: string; qty: number;
+    pricePerUnit: number; costPerUnit: number; cost: number; purchaseCost: number;
+  }[];
 }
 
 export function useServicesCatalog() {

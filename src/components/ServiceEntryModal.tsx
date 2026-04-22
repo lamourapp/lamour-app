@@ -27,6 +27,16 @@ interface ServiceCatalogItem {
   totalPrice: number;
   categoryId: string;
   duration?: number; // в хвилинах, fallback для розрахунку погодинної оплати
+  hasCalculator?: boolean;
+  calculatorItems?: {
+    materialId: string;
+    materialName: string;
+    qty: number;
+    pricePerUnit: number;
+    costPerUnit: number;
+    cost: number;
+    purchaseCost: number;
+  }[];
 }
 
 interface CalcMaterial {
@@ -385,6 +395,30 @@ export default function ServiceEntryModal({
     }
   }, [isRental, services, rentalCategoryId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Калькулятор послуги (2026-04): при виборі послуги з hasCalculator
+  // автопрефіл calcMaterials складом з каталогу. Qty можна override на
+  // запис — міняє тільки цей запис, не сам каталог.
+  // Важливо: тільки в режимі створення. В edit mode юзер вже має свій
+  // список з попереднього запису (initial.calcMaterials) — не чіпаємо.
+  useEffect(() => {
+    if (isEdit) return;
+    if (!selectedService) {
+      setCalcMaterials([]);
+      return;
+    }
+    if (selectedService.hasCalculator && selectedService.calculatorItems?.length) {
+      setCalcMaterials(
+        selectedService.calculatorItems.map((ci) => ({
+          materialId: ci.materialId,
+          amount: ci.qty,
+        })),
+      );
+    } else {
+      // послуга без калькулятора — чистимо, не залишаємо від попереднього вибору
+      setCalcMaterials([]);
+    }
+  }, [serviceId, selectedService, isEdit]);
+
   // Override price for rental: comes from specialist card, not catalog.
   const rentalPrice = isRental ? (selectedSpecialist?.rentalRate ?? 0) : null;
   // Hourly specialist's rate from card (₴/hour)
@@ -437,7 +471,12 @@ export default function ServiceEntryModal({
       work = (selectedService.workPrice || 0) + suppl;
     }
 
-    const baseMat = selectedService.materialsCost || 0;
+    // Коли послуга з калькулятором — calcMaterials вже містить повний
+    // склад (префілилось з каталогу). Базовий materialsCost у послузі
+    // = сума тих самих матеріалів, тож НЕ додаємо його, щоб не подвоювати.
+    // Для послуг без калькулятора — baseMat це ручне поле, calcCost —
+    // додаткові матеріали поверх.
+    const baseMat = selectedService.hasCalculator ? 0 : (selectedService.materialsCost || 0);
     const calcCost = calcMaterials.reduce((s, u) => {
       const m = materials.find((x) => x.id === u.materialId);
       return !m || u.amount <= 0 ? s : s + (u.amount * m.salePrice) / m.totalVolume;
@@ -486,8 +525,12 @@ export default function ServiceEntryModal({
         fixedPrice: isRental
           ? (rentalPrice ?? 0)
           : !isHourlySvc ? (selectedService?.workPrice || 0) : undefined,
-        materialsCost: selectedService?.materialsCost || 0,
-        materialsPurchaseCost: selectedService?.materialsPurchaseCost || 0,
+        // Коли послуга з калькулятором — повний склад матеріалів потрапить
+        // у журнал через Замовлення (calcMaterials нижче). Щоб формула
+        // Airtable «Загальна вартість матеріалів» не подвоювала суму,
+        // базові fixedMaterialsCost/fixedMaterialsCostPrice зануляємо.
+        materialsCost: selectedService?.hasCalculator ? 0 : (selectedService?.materialsCost || 0),
+        materialsPurchaseCost: selectedService?.hasCalculator ? 0 : (selectedService?.materialsPurchaseCost || 0),
         masterHourlyPay,
         comment: comment || undefined,
       };

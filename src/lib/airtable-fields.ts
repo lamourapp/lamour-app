@@ -94,6 +94,12 @@ export const SERVICE_CATALOG_FIELDS = {
   totalPrice: "вартість послуги",
   duration: "тривалість",
   inactive: "неактивний",
+  // Калькулятор послуги (2026-04): якщо hasCalculator=true, поле
+  // calculatorJson зберігає JSON-масив [{materialId, qty}], а
+  // materialsCost/materialsPurchaseCost перезаписуються на write-snapshot.
+  // На GET — завжди перераховуємо live за поточним прайсом матеріалів.
+  hasCalculator: "Калькуляція",
+  calculatorJson: "Склад калькуляції",
 } as const;
 
 // ─── Прайс (товари) / tblhW7QGo6svDezGR ────────────────────────────────────
