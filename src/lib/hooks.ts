@@ -419,6 +419,61 @@ export function useSpecialists(includeInactive = false) {
   return { specialists: data, loading, error, reload };
 }
 
+/* ─── Ownership (розподіл прибутку між N власниками) ─── */
+
+export interface OwnershipShare {
+  specialistId: string;
+  specialistName?: string;
+  sharePct: number;
+}
+
+export interface OwnershipRevision {
+  date: string;
+  comment: string;
+  shares: OwnershipShare[];
+  recordIds: string[];
+}
+
+export function useOwnership() {
+  const [data, setData] = useState<OwnershipRevision[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const reload = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    fetch(`/api/ownership?_t=${Date.now()}`, { cache: "no-store" })
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed");
+        return r.json();
+      })
+      .then((d: OwnershipRevision[]) => { setData(d); setLoading(false); })
+      .catch((e) => { setError(e.message); setLoading(false); });
+  }, []);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  const create = useCallback(
+    async (payload: {
+      date: string;
+      shares: { specialistId: string; sharePct: number }[];
+      comment?: string;
+      syncIsOwner?: boolean;
+    }): Promise<void> => {
+      const res = await fetch("/api/ownership", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "Failed");
+      reload();
+    },
+    [reload],
+  );
+
+  return { revisions: data, loading, error, reload, create };
+}
+
 export function useJournal(
   period: string = "month",
   specialistId: string = "",

@@ -33,6 +33,7 @@ export const TABLES = {
   specializations: "tbllDjZGNnwXBTMB2", // Спеціалізації (tenant-defined roles)
   categories: "tblwzWzFfPsJqep6v",      // Категорії послуг (FK source of truth)
   expenseTypes: "tbljEgUp3xOEi8ajX",    // Види витрат (довідник, керується з Налаштувань)
+  ownership: "tblGLXPBSeOy4b35b",       // Розподіл прибутку (append-only ревізії)
 } as const;
 
 interface AirtableRecord {
@@ -163,6 +164,36 @@ export async function updateRecord(
   }
 
   return res.json();
+}
+
+// Batch create records (max 10 per call, Airtable limit). Атомарно в межах
+// одного батчу: або всі 10 створюються, або жодного. Між батчами — ні, тому
+// викликач має бути готовий відкотити попередні, якщо робить >10 одночасно.
+export async function batchCreateRecords(
+  tableId: string,
+  records: { fields: Record<string, unknown> }[],
+): Promise<{ id: string; fields: Record<string, unknown> }[]> {
+  const created: { id: string; fields: Record<string, unknown> }[] = [];
+  for (let i = 0; i < records.length; i += 10) {
+    const batch = records.slice(i, i + 10);
+    const url = `${API_URL}/${getBaseId()}/${tableId}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ records: batch, typecast: true }),
+    });
+
+    if (!res.ok) {
+      const error = await res.text();
+      throw new Error(`Airtable batch create error ${res.status}: ${error}`);
+    }
+    const body = (await res.json()) as { records: { id: string; fields: Record<string, unknown> }[] };
+    created.push(...body.records);
+  }
+  return created;
 }
 
 // Batch update records (max 10 per call, Airtable limit)

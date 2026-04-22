@@ -9,6 +9,7 @@ import ServicesCatalogScreen from "./ServicesCatalogScreen";
 import SpecializationsScreen from "./SpecializationsScreen";
 import CategoriesScreen from "./CategoriesScreen";
 import ExpenseTypesScreen from "./ExpenseTypesScreen";
+import OwnershipScreen from "./OwnershipScreen";
 import PinPad from "./PinPad";
 
 /* ─── Business-type presets ─── */
@@ -570,6 +571,7 @@ export default function SettingsScreen() {
   const [showSpecializations, setShowSpecializations] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
   const [showExpenseTypes, setShowExpenseTypes] = useState(false);
+  const [showOwnership, setShowOwnership] = useState(false);
 
   const specialistTerm = settings?.specialistTerm || "Спеціаліст";
   const businessName = businessPresets[settings?.businessType || "beauty"].label;
@@ -586,6 +588,9 @@ export default function SettingsScreen() {
   }
   if (showExpenseTypes) {
     return <ExpenseTypesScreen onBack={() => setShowExpenseTypes(false)} />;
+  }
+  if (showOwnership) {
+    return <OwnershipScreen onBack={() => setShowOwnership(false)} />;
   }
   if (catalogTab) {
     return (
@@ -628,6 +633,12 @@ export default function SettingsScreen() {
       title: "Категорії послуг",
       desc: "Групи послуг для каталогу та спеціалізацій",
       onClick: () => setShowCategories(true),
+    },
+    {
+      icon: "👑",
+      title: "Власники та частки",
+      desc: "Розподіл прибутку салону між власниками",
+      onClick: () => setShowOwnership(true),
     },
     {
       icon: "💸",

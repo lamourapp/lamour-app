@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { Button, Field, Input, Modal, Select } from "./ui";
+import SearchableSelect from "./SearchableSelect";
 import type { ServiceCatalogItem } from "@/lib/hooks";
 import { useSettings } from "@/lib/hooks";
 import { moneyFormatter } from "@/lib/format";
@@ -342,18 +343,26 @@ export default function ServiceItemModal({ item, categories, onClose, onSaved }:
                           >
                             ✕
                           </button>
-                          <Select
-                            value={row.materialId}
-                            onChange={(e) => updateRow(idx, { materialId: e.target.value })}
-                            className="mb-2 pr-7"
-                          >
-                            <option value="">Оберіть матеріал</option>
-                            {materials.map((m) => (
-                              <option key={m.id} value={m.id}>
-                                {m.name} ({m.totalVolume} мл/шт)
-                              </option>
-                            ))}
-                          </Select>
+                          <div className="mb-2 pr-6">
+                            <SearchableSelect
+                              items={materials}
+                              selectedId={row.materialId}
+                              onSelect={(id) => updateRow(idx, { materialId: id })}
+                              placeholder="Пошук матеріалу..."
+                              renderItem={(m) => (
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-[14px] text-gray-900 truncate">{m.name}</span>
+                                  <span className="text-[12px] text-gray-400 whitespace-nowrap tabular-nums">{m.totalVolume} мл/шт</span>
+                                </div>
+                              )}
+                              renderSelected={(m) => (
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-[14px] text-gray-900 truncate">{m.name}</span>
+                                  <span className="text-[12px] text-gray-400 whitespace-nowrap tabular-nums">{m.totalVolume} мл/шт</span>
+                                </div>
+                              )}
+                            />
+                          </div>
                           <div className="flex items-center gap-2">
                             <div className="flex-1">
                               <Input

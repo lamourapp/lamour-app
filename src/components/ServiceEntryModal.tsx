@@ -5,6 +5,7 @@ import { inputCls, selectCls, labelCls } from "./ui";
 import { useSettings, useSpecializations, useCategories } from "@/lib/hooks";
 import { moneyFormatter, todayISO } from "@/lib/format";
 import SingleDatePicker from "./SingleDatePicker";
+import SearchableSelect from "./SearchableSelect";
 
 interface Specialist {
   id: string;
@@ -233,23 +234,31 @@ function CalcMaterialsSection({
                   ✕
                 </button>
 
-                {/* Material select */}
-                <select
-                  value={usage.materialId}
-                  onChange={(e) => {
-                    const updated = [...usages];
-                    updated[index] = { ...updated[index], materialId: e.target.value };
-                    onChange(updated);
-                  }}
-                  className={`${selectCls} mb-2`}
-                >
-                  <option value="">Оберіть матеріал</option>
-                  {materials.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} ({m.totalVolume} мл/шт)
-                    </option>
-                  ))}
-                </select>
+                {/* Material picker */}
+                <div className="mb-2">
+                  <SearchableSelect
+                    items={materials}
+                    selectedId={usage.materialId}
+                    onSelect={(id) => {
+                      const updated = [...usages];
+                      updated[index] = { ...updated[index], materialId: id };
+                      onChange(updated);
+                    }}
+                    placeholder="Пошук матеріалу..."
+                    renderItem={(m) => (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[14px] text-gray-900 truncate">{m.name}</span>
+                        <span className="text-[12px] text-gray-400 whitespace-nowrap tabular-nums">{m.totalVolume} мл/шт</span>
+                      </div>
+                    )}
+                    renderSelected={(m) => (
+                      <div className="flex items-center justify-between gap-2 pr-1">
+                        <span className="text-[14px] text-gray-900 font-medium truncate">{m.name}</span>
+                        <span className="text-[12px] text-gray-500 whitespace-nowrap tabular-nums">{m.totalVolume} мл/шт</span>
+                      </div>
+                    )}
+                  />
+                </div>
 
                 {/* Amount + cost in one row */}
                 <div className="flex items-center gap-3">

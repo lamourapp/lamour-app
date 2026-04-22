@@ -30,6 +30,13 @@ export interface Specialist {
    * майстра і в селектори звичайних майстрів.
    */
   isOwner?: boolean;
+  /**
+   * Owner-частина балансу — частка від прибутку салону за активну
+   * ревізію розподілу, плюс рух по боргу. Заповнюється для isOwner=true.
+   * Для master-owner (людина з masterPay І власник) `balance` містить
+   * master-частину, а `ownerBalance` — окремо owner-частину.
+   */
+  ownerBalance?: number;
 }
 
 export interface JournalEntry {

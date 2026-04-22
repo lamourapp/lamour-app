@@ -188,3 +188,16 @@ export const ORDER_FIELDS = {
   quantity: "мл/шт",
   material: "Калькуляція",
 } as const;
+
+// ─── Розподіл прибутку / tblGLXPBSeOy4b35b ─────────────────────────────────
+// Append-only ревізії розподілу між N власниками. На будь-яку дату журналу
+// активна ревізія = та, що має max(Дата) <= журналДата серед ревізій. Сума
+// `Частка %` усіх записів активної ревізії (тобто однієї дати) = 100%.
+// Історію не редагуємо — тільки нові ревізії. Див. /api/ownership і
+// computeBalances у /api/specialists/route.ts.
+export const OWNERSHIP_FIELDS = {
+  date: "Дата",
+  specialist: "Співробітник",
+  sharePct: "Частка %",
+  comment: "Коментар",
+} as const;
