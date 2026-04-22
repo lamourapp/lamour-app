@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
-import { inputCls, selectCls, labelCls } from "./ui";
+import { useState, useEffect, useMemo } from "react";
+import { inputCls, labelCls } from "./ui";
 import { useSettings, useSpecializations, useCategories } from "@/lib/hooks";
 import { moneyFormatter, todayISO } from "@/lib/format";
 import SingleDatePicker from "./SingleDatePicker";
@@ -499,16 +499,18 @@ export default function ServiceEntryModal({
             {/* Specialist */}
             <div className="mb-4">
               <label className={labelCls}>{settings?.specialistTerm || "Спеціаліст"}</label>
-              <select
-                value={specialistId}
-                onChange={(e) => { setSpecialistId(e.target.value); setServiceId(""); setShowAllServices(false); }}
-                className={selectCls}
-              >
-                <option value="">Оберіть спеціаліста</option>
-                {specialists.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
+              <SearchableSelect
+                items={specialists}
+                selectedId={specialistId}
+                onSelect={(id) => { setSpecialistId(id); setServiceId(""); setShowAllServices(false); }}
+                placeholder={`Пошук: ${(settings?.specialistTerm || "спеціаліст").toLowerCase()}...`}
+                renderItem={(s) => (
+                  <span className="text-[14px] text-gray-900 truncate">{s.name}</span>
+                )}
+                renderSelected={(s) => (
+                  <span className="text-[14px] text-gray-900 font-medium">{s.name}</span>
+                )}
+              />
             </div>
 
             {/* Service / Rental */}
