@@ -45,7 +45,7 @@ export interface JournalEntry {
   comment?: string;
   calculationCost?: number;             // додаткова калькуляція
   baseMaterialsCost?: number;           // базові матеріали послуги (див. journal/route.ts — іменоване historically)
-  saleItems?: { productName: string; quantity: number; lineTotal: number }[];
+  saleItems?: { productId?: string; productName: string; quantity: number; lineTotal: number }[];
   source?: "bot" | "admin";
   time?: string;
   /** Тип витрати (Вид витрати) — тільки для type === "expense". */

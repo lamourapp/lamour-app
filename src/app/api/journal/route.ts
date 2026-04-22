@@ -161,12 +161,15 @@ export async function GET(request: NextRequest) {
     const priceMap = new Map<string, string>();
     priceList.forEach((r) => priceMap.set(r.id, (r.fields[PRICE_LIST_FIELDS.name] as string) || ""));
 
-    // Build sale details map: detailId → { productName, quantity, lineTotal }
-    const saleDetailMap = new Map<string, { productName: string; quantity: number; lineTotal: number }>();
+    // Build sale details map: detailId → { productId, productName, quantity, lineTotal }
+    // productId потрібен edit-mode (prefill ProductPicker у CreateEntryModal).
+    const saleDetailMap = new Map<string, { productId: string; productName: string; quantity: number; lineTotal: number }>();
     saleDetailRecords.forEach((r) => {
       const priceLinks = r.fields[SALE_DETAIL_FIELDS.priceListItem] as string[] | undefined;
-      const productName = priceLinks && priceLinks.length > 0 ? (priceMap.get(priceLinks[0]) || "") : "";
+      const productId = priceLinks && priceLinks.length > 0 ? priceLinks[0] : "";
+      const productName = productId ? (priceMap.get(productId) || "") : "";
       saleDetailMap.set(r.id, {
+        productId,
         productName,
         quantity: (r.fields[SALE_DETAIL_FIELDS.quantity] as number) || 1,
         lineTotal: (r.fields[SALE_DETAIL_FIELDS.totalDue] as number) || (r.fields[SALE_DETAIL_FIELDS.fixedSalePrice] as number) || 0,
@@ -208,7 +211,7 @@ export async function GET(request: NextRequest) {
 
       // Get product name for sales + build saleItems from detail records
       const detailLinks = f[SERVICE_FIELDS.saleDetails] as string[] | undefined;
-      let saleItems: { productName: string; quantity: number; lineTotal: number }[] | undefined;
+      let saleItems: { productId?: string; productName: string; quantity: number; lineTotal: number }[] | undefined;
 
       if (type === "sale") {
         if (detailLinks && detailLinks.length > 0) {
@@ -225,8 +228,16 @@ export async function GET(request: NextRequest) {
             title = salesLinks && salesLinks.length > 0 ? (priceMap.get(salesLinks[0]) || "Продаж") : "Продаж";
           }
         } else if (salesLinks && salesLinks.length > 0) {
-          // Legacy single-product format
+          // Legacy single-product format. Будуємо saleItems з одного елемента —
+          // щоб edit-mode у CreateEntryModal отримав уніфіковану структуру
+          // і міг заповнити ProductPicker.
           title = priceMap.get(salesLinks[0]) || "Продаж";
+          saleItems = [{
+            productId: salesLinks[0],
+            productName: title,
+            quantity: 1,
+            lineTotal: (f[SERVICE_FIELDS.totalSalePrice] as number) || 0,
+          }];
         }
       }
 
@@ -316,7 +327,10 @@ export async function GET(request: NextRequest) {
           const extra = total - base;
           return extra > 0 ? extra : undefined;
         })(),
-        saleItems: saleItems && saleItems.length > 1 ? saleItems : undefined,
+        // Для sale завжди віддаємо saleItems (включно з одноелементним масивом
+        // для legacy single-product) — потрібно edit-mode у CreateEntryModal.
+        // UI показує chevron лише коли length > 1 (див. EntryCard.hasMultiProducts).
+        saleItems: type === "sale" ? saleItems : (saleItems && saleItems.length > 1 ? saleItems : undefined),
         source,
         time,
         paymentType: (f[SERVICE_FIELDS.paymentType] as string) || undefined,

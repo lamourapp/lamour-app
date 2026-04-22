@@ -166,16 +166,30 @@ function ProductPicker({
 /* ─── Main Modal ─── */
 
 /**
- * Дані для edit-режиму. Наразі редагуємо лише expense — інші типи краще
- * видалити й створити наново (бо мають складні side-effects).
+ * Дані для edit-режиму.
+ *
+ * Є два різні шляхи залежно від типу:
+ *   • expense / debt — PATCH /api/journal (in-place; прості числа, без
+ *     пересчитунку линків). `id` → який запис оновити.
+ *   • sale          — create-new + cancel-old (той самий pattern що
+ *     ServiceEntryModal): POST нового + soft-delete старого. Так, бо
+ *     склад продажу (saleDetails, fixedSalePrice, fixedCostPrice,
+ *     fixedMasterPctForSale/Salon) — це snapshot-поля, перераховувати
+ *     їх PATCH-ом ризиковано. `replaceEntryId` → який запис скасувати.
  */
 export interface EntryEditInitial {
+  /** id запису, що редагується. Для expense/debt → PATCH (in-place). */
   id: string;
+  /** id запису, що скасовується після створення нового. Для sale → cancel-old. */
+  replaceEntryId?: string;
   date: string;
-  amount: number;         // додатне число (не перевертаємо знак)
+  amount?: number;         // додатне число (не перевертаємо знак). Для sale ігнорується — беремо з saleItems.
   expenseType?: string;
   specialistId?: string;
   comment?: string;
+  /** Для sale edit — початковий склад і надбавка/знижка. */
+  saleItems?: { productId?: string; quantity: number }[];
+  supplement?: number;
 }
 
 export default function CreateEntryModal({
@@ -200,13 +214,23 @@ export default function CreateEntryModal({
   // його як disabled-опцію нижче, щоб не загубити значення.
   const { expenseTypes } = useExpenseTypes(false);
   const [date, setDate] = useState(() => initial?.date || new Date().toISOString().slice(0, 10));
-  const [amount, setAmount] = useState(() => initial ? String(Math.abs(initial.amount)) : "");
+  const [amount, setAmount] = useState(() => initial?.amount != null ? String(Math.abs(initial.amount)) : "");
   const [specialistId, setSpecialistId] = useState(() => initial?.specialistId || "");
   const [expenseType, setExpenseType] = useState(() => initial?.expenseType || "");
   const [comment, setComment] = useState(() => initial?.comment || "");
-  const [saleItems, setSaleItems] = useState<{ productId: string; quantity: number }[]>([{ productId: "", quantity: 1 }]);
+  const [saleItems, setSaleItems] = useState<{ productId: string; quantity: number }[]>(() => {
+    if (initial?.saleItems && initial.saleItems.length > 0) {
+      return initial.saleItems.map((si) => ({
+        productId: si.productId || "",
+        quantity: si.quantity || 1,
+      }));
+    }
+    return [{ productId: "", quantity: 1 }];
+  });
   const [products, setProducts] = useState<Product[]>([]);
-  const [supplement, setSupplement] = useState("");
+  const [supplement, setSupplement] = useState(() =>
+    initial?.supplement ? String(Math.abs(initial.supplement)) : ""
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [debtSign, setDebtSign] = useState<"+" | "-">("+");
@@ -220,7 +244,9 @@ export default function CreateEntryModal({
     }
   }, [type]);
 
-  const [supplementSign, setSupplementSign] = useState<"+" | "-">("+");
+  const [supplementSign, setSupplementSign] = useState<"+" | "-">(
+    initial?.supplement && initial.supplement < 0 ? "-" : "+"
+  );
 
   // Sale preview with multi-product support
   const salePreview = useMemo(() => {
@@ -256,8 +282,16 @@ export default function CreateEntryModal({
 
     setSaving(true);
     try {
+      // Sale edit = create-new + cancel-old. PATCH не підходить бо склад
+      // продажу — це набір snapshot-полів + linked saleDetails, які треба
+      // перестворити. Шлях нижче падає в POST-гілку, яка вже вміє multi-product.
+      // Після успішного створення — soft-delete старого запису.
+      // Це те саме, що ServiceEntryModal робить для service/rental.
+      //
+      // Expense/debt edit → легкий PATCH (простих метаданих достатньо).
+
       // Edit-mode: тільки expense, PATCH з id і явним kind.
-      if (isEdit && initial) {
+      if (isEdit && initial && type === "expense") {
         const patchBody: Record<string, unknown> = {
           id: initial.id,
           kind: "expense",
@@ -317,6 +351,20 @@ export default function CreateEntryModal({
         throw new Error(data.error || "Failed");
       }
 
+      // Sale edit: старий запис soft-скасовуємо. Якщо впаде — лишиться
+      // дубль, користувач зможе прибрати вручну; не відкочуємо створення.
+      if (isEdit && initial?.replaceEntryId) {
+        try {
+          await fetch("/api/journal", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: initial.replaceEntryId }),
+          });
+        } catch (err) {
+          console.warn("Cancel of old sale entry failed:", err);
+        }
+      }
+
       await new Promise((resolve) => setTimeout(resolve, 800));
       onCreated();
       onClose();
@@ -330,7 +378,7 @@ export default function CreateEntryModal({
   const titles: Record<EntryType, string> = {
     expense: isEdit ? "Редагувати витрату" : "Нова витрата",
     debt: "Новий борг",
-    sale: "Новий продаж",
+    sale: isEdit ? "Редагувати продаж" : "Новий продаж",
   };
 
   return (

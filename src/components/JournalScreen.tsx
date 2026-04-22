@@ -592,7 +592,30 @@ export default function JournalScreen() {
           }}
         />
       )}
-      {editingEntry && editingEntry.type !== "service" && editingEntry.type !== "rental" && (
+      {/* Sale — повний CreateEntryModal у edit-mode (create-new + cancel-old),
+          щоб дозволити редагування складу продажу. Метадані для інших типів
+          (expense/debt) — легкий QuickEditEntryModal. */}
+      {editingEntry && editingEntry.type === "sale" && (
+        <CreateEntryModal
+          type="sale"
+          specialists={specialists}
+          onClose={() => setEditingEntry(null)}
+          onCreated={reload}
+          initial={{
+            id: editingEntry.id,
+            replaceEntryId: editingEntry.id,
+            date: editingEntry.date,
+            specialistId: editingEntry.specialistId,
+            comment: editingEntry.comment,
+            saleItems: editingEntry.saleItems?.map((si) => ({
+              productId: si.productId,
+              quantity: si.quantity,
+            })),
+            supplement: editingEntry.supplement,
+          }}
+        />
+      )}
+      {editingEntry && editingEntry.type !== "service" && editingEntry.type !== "rental" && editingEntry.type !== "sale" && (
         <QuickEditEntryModal
           entry={editingEntry}
           specialists={specialists}
