@@ -23,6 +23,16 @@ interface Aggregates {
   expensesTotal: number;
   margin: number; // net / total revenue
   count: number;
+  /**
+   * Вилучено власником за період — сума абсолютних значень debt-записів
+   * де master = owner AND debtAmount < 0. 0 якщо власник не позначений.
+   */
+  ownerWithdrawals: number;
+  /**
+   * Довнесення власника у касу — debt > 0 на власника. Рідкісний кейс,
+   * але коректно включається у P&L як «повернення в пул».
+   */
+  ownerContributions: number;
 }
 
 export interface ServiceRow {
@@ -124,12 +134,14 @@ function empty(): Aggregates {
     expensesTotal: 0,
     margin: 0,
     count: 0,
+    ownerWithdrawals: 0,
+    ownerContributions: 0,
   };
 }
 
 type Row = { fields: Record<string, unknown> };
 
-function aggregate(records: Row[]): Aggregates {
+function aggregate(records: Row[], ownerId?: string): Aggregates {
   const agg = empty();
   for (const r of records) {
     const f = r.fields;
@@ -148,7 +160,17 @@ function aggregate(records: Row[]): Aggregates {
     if (type === "expense") {
       agg.expensesTotal += Math.abs(expense);
     } else if (type === "debt") {
-      // не включаємо в оборот/дохід — борги це внутрішні перекази
+      // Борги з майстрами — внутрішні перекази, в оборот/дохід не йдуть.
+      // АЛЕ якщо запис прив'язаний до власника, це рух прибутку:
+      //   negative debt = вилучення (власник забрав з каси)
+      //   positive debt = довнесення (власник поклав у касу)
+      if (ownerId) {
+        const masterLinks = f[SERVICE_FIELDS.master] as string[] | undefined;
+        if (masterLinks && masterLinks.includes(ownerId)) {
+          if (debt < 0) agg.ownerWithdrawals += Math.abs(debt);
+          else agg.ownerContributions += debt;
+        }
+      }
     } else {
       // Service or sale (or combined row): турнувер — з окремих полів,
       // чисті доходи — з формул (= 0, коли відповідної операції немає).
@@ -513,7 +535,7 @@ export async function GET(request: NextRequest) {
         filterByFormula: dateFilter(prev.from, prev.to),
         fields: FIELDS,
       }),
-      fetchAllRecords(TABLES.specialists, { fields: [SPECIALIST_FIELDS.name] }),
+      fetchAllRecords(TABLES.specialists, { fields: [SPECIALIST_FIELDS.name, SPECIALIST_FIELDS.isOwner] }),
       fetchAllRecords(TABLES.servicesCatalog, { fields: [SERVICE_CATALOG_FIELDS.name, SERVICE_CATALOG_FIELDS.category] }),
       fetchAllRecords(TABLES.categories, { fields: [CATEGORY_FIELDS.name] }),
       fetchAllRecords(TABLES.saleDetails, {
@@ -539,7 +561,11 @@ export async function GET(request: NextRequest) {
     };
 
     const nameMap = new Map<string, string>();
-    for (const s of specRecs) nameMap.set(s.id, (s.fields[SPECIALIST_FIELDS.name] as string) || "—");
+    let ownerId: string | undefined;
+    for (const s of specRecs) {
+      nameMap.set(s.id, (s.fields[SPECIALIST_FIELDS.name] as string) || "—");
+      if (s.fields[SPECIALIST_FIELDS.isOwner] === true) ownerId = s.id;
+    }
 
     const svcNameMap = new Map<string, string>();
     for (const s of svcCatalog) svcNameMap.set(s.id, (s.fields[SERVICE_CATALOG_FIELDS.name] as string) || "—");
@@ -589,8 +615,8 @@ export async function GET(request: NextRequest) {
     }
     const topProducts = byProduct(details, productInfo);
 
-    const current = aggregate(currentRecs);
-    const previous = aggregate(prevRecs);
+    const current = aggregate(currentRecs, ownerId);
+    const previous = aggregate(prevRecs, ownerId);
 
     const expensesMap = groupExpenses(currentRecs);
     const expensesByCategory = [...expensesMap.entries()]

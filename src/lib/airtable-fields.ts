@@ -76,6 +76,10 @@ export const SPECIALIST_FIELDS = {
   isActive: "is_active",
   compensationType: "Тип оплати",
   specializations: "Спеціалізації",
+  // Флаг «власник салону». Один на базу. Картка рендериться окремою секцією
+  // у StaffScreen; баланс рахується віртуально (netSalon за всю історію
+  // мінус вилучення), не зберігається в Airtable.
+  isOwner: "Власник",
 } as const;
 
 // ─── Список послуг (services catalog) / tblghXXUuVyGVqSv3 ──────────────────

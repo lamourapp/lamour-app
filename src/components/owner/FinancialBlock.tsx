@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { moneyFormatter } from "@/lib/format";
 import type { Settings } from "@/app/api/settings/route";
@@ -16,6 +16,8 @@ interface Aggregates {
   expensesTotal: number;
   margin: number;
   count: number;
+  ownerWithdrawals: number;
+  ownerContributions: number;
 }
 
 interface Props {
@@ -89,10 +91,95 @@ function formatDateShort(iso: string): string {
   return `${d}.${m}`;
 }
 
+/**
+ * Рядок P&L-каскаду. Використовуємо замість таблиці, щоб мобільний
+ * варіант не ламався. Indent = візуальне підпорядкування (послуги
+ * всередині обороту, тощо).
+ */
+function PnlRow({
+  label,
+  value,
+  money,
+  indent = 0,
+  sign,
+  emphasis = "normal",
+  expandable,
+  expanded,
+  onToggle,
+}: {
+  label: string;
+  value: number;
+  money: (n: number) => string;
+  indent?: 0 | 1;
+  sign?: "+" | "−" | "=" | null;
+  emphasis?: "normal" | "muted" | "strong" | "total";
+  expandable?: boolean;
+  expanded?: boolean;
+  onToggle?: () => void;
+}) {
+  const label_cls = {
+    normal: "text-[12px] text-gray-700",
+    muted: "text-[11px] text-gray-500",
+    strong: "text-[13px] font-medium text-gray-900",
+    total: "text-[13px] font-semibold text-gray-900",
+  }[emphasis];
+  const value_cls = {
+    normal: "text-[12px] text-gray-900 font-medium tabular-nums",
+    muted: "text-[11px] text-gray-500 tabular-nums",
+    strong: "text-[14px] text-gray-900 font-semibold tabular-nums",
+    total: "text-[15px] text-gray-900 font-semibold tabular-nums",
+  }[emphasis];
+  const row_cls = {
+    normal: "",
+    muted: "",
+    strong: "border-t border-black/5 pt-2 mt-1",
+    total: "border-t border-gray-300 pt-2 mt-1",
+  }[emphasis];
+  const signColor = sign === "−" ? "text-rose-500" : sign === "+" ? "text-emerald-600" : sign === "=" ? "text-gray-900" : "text-gray-300";
+
+  const content = (
+    <div className={`flex items-baseline gap-2 py-1 ${row_cls}`}>
+      <span className={`${value_cls ? "" : ""} w-3 shrink-0 text-[11px] font-semibold ${signColor}`}>
+        {sign || ""}
+      </span>
+      <span className={`flex-1 ${label_cls} ${indent ? "pl-4" : ""}`}>
+        {expandable && (
+          <span className="inline-block w-3 text-gray-400 mr-0.5 text-[10px]">
+            {expanded ? "▾" : "▸"}
+          </span>
+        )}
+        {label}
+      </span>
+      <span className={value_cls}>{money(value)}</span>
+    </div>
+  );
+
+  if (onToggle) {
+    return (
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full text-left cursor-pointer hover:bg-gray-50/60 -mx-2 px-2 rounded transition-colors"
+      >
+        {content}
+      </button>
+    );
+  }
+  return content;
+}
+
 export default function FinancialBlock({ current, previous, daily, settings, loading }: Props) {
   const money = moneyFormatter(settings);
   const totalRevenue = current.revenueServices + current.revenueMaterials + current.revenueSales;
   const prevRevenue = previous.revenueServices + previous.revenueMaterials + previous.revenueSales;
+
+  // P&L-складові — уникаємо подвійного обліку з netSalon (це вже salon share
+  // по послугах/продажах без витрат). Для чистого показу каскаду рахуємо
+  // від обороту напряму: оборот − виплати майстрам − витрати = чистий.
+  const netProfit = current.netSalon; // формулою Airtable, уже з урахуванням витрат
+  const undistributed = netProfit - current.ownerWithdrawals + current.ownerContributions;
+
+  const [expandedRevenue, setExpandedRevenue] = useState(false);
 
   const chartData = useMemo(
     () => daily.map((d) => ({ ...d, label: formatDateShort(d.date) })),
@@ -105,10 +192,61 @@ export default function FinancialBlock({ current, previous, daily, settings, loa
         <div>
           <h3 className="text-[14px] font-semibold text-gray-900">Фінансовий зріз</h3>
           <p className="text-[12px] text-gray-400 mt-0.5">
-            Оборот · чистий дохід · маржинальність · динаміка
+            P&amp;L · KPI · динаміка за обраний період
           </p>
         </div>
         {loading && <span className="text-[10px] text-gray-400">завантаження…</span>}
+      </div>
+
+      {/* P&L-каскад — компактна «стрічка» від обороту до нерозподіленого.
+          Оборот розгортається в деталізацію (послуги/товари/матеріали). */}
+      <div className="mb-5 bg-gray-50/50 rounded-xl border border-black/[0.04] px-4 py-3">
+        <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1.5">
+          P&amp;L за період
+        </div>
+        <PnlRow
+          label="Оборот"
+          value={totalRevenue}
+          money={money}
+          sign="+"
+          emphasis="strong"
+          expandable
+          expanded={expandedRevenue}
+          onToggle={() => setExpandedRevenue((v) => !v)}
+        />
+        {expandedRevenue && (
+          <>
+            <PnlRow label="послуги" value={current.revenueServices} money={money} indent={1} emphasis="muted" />
+            <PnlRow label="матеріали у послугах" value={current.revenueMaterials} money={money} indent={1} emphasis="muted" />
+            <PnlRow label="продаж товарів" value={current.revenueSales} money={money} indent={1} emphasis="muted" />
+          </>
+        )}
+        <PnlRow label="Виплати майстрам" value={current.masterPay} money={money} sign="−" />
+        <PnlRow label="Витрати" value={current.expensesTotal} money={money} sign="−" />
+        <PnlRow
+          label="Чистий прибуток"
+          value={netProfit}
+          money={money}
+          sign="="
+          emphasis="strong"
+        />
+        {(current.ownerWithdrawals > 0 || current.ownerContributions > 0) && (
+          <>
+            {current.ownerWithdrawals > 0 && (
+              <PnlRow label="Вилучено власником" value={current.ownerWithdrawals} money={money} sign="−" indent={1} emphasis="muted" />
+            )}
+            {current.ownerContributions > 0 && (
+              <PnlRow label="Довнесено власником" value={current.ownerContributions} money={money} sign="+" indent={1} emphasis="muted" />
+            )}
+            <PnlRow
+              label="Нерозподілений залишок"
+              value={undistributed}
+              money={money}
+              sign="="
+              emphasis="total"
+            />
+          </>
+        )}
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2">

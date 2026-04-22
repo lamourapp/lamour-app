@@ -1,7 +1,7 @@
 // Shared domain types. Production data comes from Airtable (див. airtable.ts);
 // цей файл тільки описує форми, без сидів.
 
-export type CompensationType = "commission" | "hourly" | "rental" | "salary";
+export type CompensationType = "commission" | "hourly" | "rental" | "salary" | "owner";
 
 export interface Specialist {
   id: string;
@@ -22,6 +22,14 @@ export interface Specialist {
    * спеціалізації (admin who also does brows, manicurist who does brows, etc.).
    */
   specializationIds?: string[];
+  /**
+   * true = запис спеціаліста позначає власника салону. Один на базу.
+   * Для owner баланс — віртуальний (netSalon всього часу + підписані
+   * вилучення через debt); compensationType автоматично "owner".
+   * Рендериться окремою секцією у StaffScreen, НЕ потрапляє в демо-сторінку
+   * майстра і в селектори звичайних майстрів.
+   */
+  isOwner?: boolean;
 }
 
 export interface JournalEntry {

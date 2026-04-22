@@ -11,6 +11,9 @@ export const COMPENSATION_LABELS: Record<CompensationType, string> = {
   rental: "оренда",
   hourly: "погодинна",
   salary: "зарплата",
+  // Власник — не виплачується, а вилучає прибуток. Тип потрібен лише
+  // для явного рендеру (жодних полів ставок не показуємо).
+  owner: "власник",
 };
 
 const LABEL_TO_TYPE: Record<string, CompensationType> = {
@@ -18,6 +21,7 @@ const LABEL_TO_TYPE: Record<string, CompensationType> = {
   "оренда": "rental",
   "погодинна": "hourly",
   "зарплата": "salary",
+  "власник": "owner",
 };
 
 export function labelFromCompensationType(type: CompensationType): string {

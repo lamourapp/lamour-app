@@ -10,7 +10,7 @@ interface Specialist {
   id: string;
   name: string;
   role?: string;
-  compensationType?: "commission" | "hourly" | "rental" | "salary";
+  compensationType?: "commission" | "hourly" | "rental" | "salary" | "owner";
   rentalRate?: number;
   hourlyRate?: number;
   specializationIds?: string[];

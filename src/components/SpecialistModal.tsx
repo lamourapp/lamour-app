@@ -43,7 +43,16 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
   const [specializationIds, setSpecializationIds] = useState<string[]>(
     specialist?.specializationIds || [],
   );
-  const [compensationType, setCompensationType] = useState<CompensationType>(specialist?.compensationType || "commission");
+  // Власник — особливий «спеціаліст»: без ставок, з віртуальним балансом,
+  // окрема секція у StaffScreen. Тумблер працює навіть при редагуванні:
+  // можна зняти з існуючого (втратить особливий рендер і попросить тип оплати)
+  // або додати. API сам не дасть двох власників.
+  const [isOwner, setIsOwner] = useState<boolean>(specialist?.isOwner === true);
+  const [compensationType, setCompensationType] = useState<CompensationType>(
+    specialist?.compensationType && specialist.compensationType !== "owner"
+      ? specialist.compensationType
+      : "commission",
+  );
   const [serviceCommission, setServiceCommission] = useState(specialist?.serviceCommission ?? 30);
   const [salesCommission, setSalesCommission] = useState(specialist?.salesCommission ?? 10);
   const [productSalesCommission, setProductSalesCommission] = useState(specialist?.productSalesCommission ?? 10);
@@ -103,19 +112,23 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
       const payload: Record<string, unknown> = {
         name: name.trim(),
         specializationIds,
-        compensationType,
+        birthday: birthday || undefined,
+        isOwner,
+      };
+
+      if (!isOwner) {
+        payload.compensationType = compensationType;
         // For rental masters we force 100% salon cut so the rental line
         // ("Оренда робочого місця" as a service) counts fully as salon income.
         // Commission masters use their configured %. Salary masters = 0.
-        serviceCommission:
+        payload.serviceCommission =
           compensationType === "commission" ? serviceCommission :
           compensationType === "rental" ? 100 :
-          0, // hourly & salary: master pay determined by snapshot/fixed rate
-        salesCommission,
-        productSalesCommission,
-        conditions: compensationType !== "commission" ? conditions : 0,
-        birthday: birthday || undefined,
-      };
+          0; // hourly & salary: master pay determined by snapshot/fixed rate
+        payload.salesCommission = salesCommission;
+        payload.productSalesCommission = productSalesCommission;
+        payload.conditions = compensationType !== "commission" ? conditions : 0;
+      }
 
       const url = "/api/specialists";
       const res = await fetch(url, {
@@ -268,15 +281,43 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
         <SingleDatePicker value={birthday} onChange={setBirthday} />
       </Field>
 
-      <div className="border-t border-black/5 pt-4">
-        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Умови оплати</p>
-      </div>
+      {/* Власник салону — окремий флаг. Коли увімкнено, приховуємо блок
+          «Умови оплати» повністю: у власника немає ставок, а прибуток
+          формується автоматично як virtual balance. */}
+      <label className="flex items-center gap-3 px-3 py-2.5 bg-brand-50/50 rounded-xl cursor-pointer select-none border border-brand-100">
+        <div className="relative">
+          <input
+            type="checkbox"
+            checked={isOwner}
+            onChange={(e) => setIsOwner(e.target.checked)}
+            className="sr-only peer"
+          />
+          <div className="w-9 h-5 bg-gray-300 rounded-full peer-checked:bg-brand-500 transition-colors" />
+          <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm peer-checked:translate-x-4 transition-transform" />
+        </div>
+        <div className="min-w-0">
+          <div className="text-[13px] text-gray-900 font-medium">Власник салону</div>
+          <div className="text-[11px] text-gray-400 leading-snug">
+            {isOwner
+              ? "Баланс = накопичений прибуток мінус вилучення. Без ставок і % — це не майстер."
+              : "Позначити цього спеціаліста як власника (один на салон)."}
+          </div>
+        </div>
+      </label>
 
-      <Field label="Тип оплати">
-        <Segmented options={COMP_TYPES} value={compensationType} onChange={setCompensationType} />
-      </Field>
+      {!isOwner && (
+        <>
+          <div className="border-t border-black/5 pt-4">
+            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Умови оплати</p>
+          </div>
 
-      {compensationType === "commission" && (
+          <Field label="Тип оплати">
+            <Segmented options={COMP_TYPES} value={compensationType} onChange={setCompensationType} />
+          </Field>
+        </>
+      )}
+
+      {!isOwner && compensationType === "commission" && (
         <>
           <div className="grid grid-cols-2 gap-3">
             <Field label="% салону за послугу">
@@ -310,7 +351,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
         </>
       )}
 
-      {compensationType === "rental" && (
+      {!isOwner && compensationType === "rental" && (
         <>
           <div className="grid grid-cols-2 gap-3">
             <Field label={`Ставка оренди, ${sym}`}>
@@ -343,7 +384,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
         </>
       )}
 
-      {compensationType === "hourly" && (
+      {!isOwner && compensationType === "hourly" && (
         <>
           <div className="grid grid-cols-2 gap-3">
             <Field label={`Ставка, ${sym}/год`}>
@@ -380,7 +421,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
         </>
       )}
 
-      {compensationType === "salary" && (
+      {!isOwner && compensationType === "salary" && (
         <>
           <div className="grid grid-cols-2 gap-3">
             <Field label={`Ставка, ${sym}/день`}>

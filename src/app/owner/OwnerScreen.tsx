@@ -42,6 +42,8 @@ interface Aggregates {
   expensesTotal: number;
   margin: number;
   count: number;
+  ownerWithdrawals: number;
+  ownerContributions: number;
 }
 
 interface StatsResponse {
@@ -396,5 +398,7 @@ function emptyAgg(): Aggregates {
     expensesTotal: 0,
     margin: 0,
     count: 0,
+    ownerWithdrawals: 0,
+    ownerContributions: 0,
   };
 }
