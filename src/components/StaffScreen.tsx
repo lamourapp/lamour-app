@@ -7,6 +7,7 @@ import { moneyFormatter, currencySymbol } from "@/lib/format";
 
 type Fmt = (amount: number, opts?: { signed?: boolean; maximumFractionDigits?: number }) => string;
 import SpecialistModal from "./SpecialistModal";
+import CreateEntryModal from "./CreateEntryModal";
 
 function compensationLabel(s: Specialist, fmt: Fmt, sym: string): string {
   const materialsLabel = s.salesCommission > 0 ? ` · матер. ${s.salesCommission}%` : "";
@@ -81,6 +82,10 @@ export default function StaffScreen() {
   }
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSpecialist, setEditingSpecialist] = useState<Specialist | null>(null);
+  // «Розрахунок» = виплата ЗП / борг / аванс. Одна сутність (debt) під
+  // різні use cases. Коли відкриваємо — пресет підставляє знак і суму
+  // щоб закрити поточний баланс одним натиском.
+  const [settlingSpecialist, setSettlingSpecialist] = useState<Specialist | null>(null);
 
   const activeList = specialists.filter((s) => s.isActive !== false);
   const inactiveList = specialists.filter((s) => s.isActive === false);
@@ -158,6 +163,17 @@ export default function StaffScreen() {
                     <div className="text-[10px] text-gray-400 uppercase tracking-wider">Баланс</div>
                     <BalanceDisplay balance={s.balance} fmt={fmt} />
                   </div>
+                  {/* Кнопка «Розрахунок» — відкриває debt-модал з пресетом,
+                      щоб закрити поточний баланс одним натиском. stopPropagation,
+                      бо картка сама по собі = openEdit. */}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setSettlingSpecialist(s); }}
+                    className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-brand-50 text-brand-600 hover:bg-brand-100 border border-brand-200 cursor-pointer transition-colors whitespace-nowrap"
+                    title="Розрахунок: виплата ЗП, аванс, борг"
+                  >
+                    Розрахунок
+                  </button>
                   <svg className="w-4 h-4 text-gray-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 5l7 7-7 7" />
                   </svg>
@@ -229,6 +245,26 @@ export default function StaffScreen() {
           specialist={editingSpecialist || undefined}
           onClose={() => { setModalOpen(false); setEditingSpecialist(null); }}
           onSaved={handleSaved}
+        />
+      )}
+
+      {/* Розрахунок з майстром. Пресет:
+          • balance > 0 (ми винні) → знак «−», сума = balance (виплата ЗП/боргу)
+          • balance < 0 (нам винні) → знак «+», сума = |balance| (майстер повертає)
+          • balance = 0 → знак «+», сума 0 (нова операція з чистого листа)
+          Всі цифри редаговані в модалі — пресет лише зекономлює кілька кліків. */}
+      {settlingSpecialist && (
+        <CreateEntryModal
+          type="debt"
+          specialists={specialists}
+          onClose={() => setSettlingSpecialist(null)}
+          onCreated={handleSaved}
+          preset={{
+            specialistId: settlingSpecialist.id,
+            amount: Math.abs(settlingSpecialist.balance || 0),
+            debtSign: settlingSpecialist.balance > 0 ? "-" : "+",
+            comment: settlingSpecialist.balance > 0 ? "Виплата ЗП" : "",
+          }}
         />
       )}
     </div>

@@ -29,7 +29,7 @@ function TypeLabel({ type }: { type: JournalEntry["type"] }) {
     sale: "продаж",
     expense: "витрата",
     rental: "оренда",
-    debt: "борг",
+    debt: "розрахунок",
   };
   const colors: Record<string, string> = {
     service: "text-gray-400",
@@ -551,8 +551,9 @@ export default function JournalScreen() {
         <button
           onClick={() => setCreateType("debt")}
           className="bg-[#f5f5f7] text-[#3f3f46] rounded-[10px] font-medium text-[11px] sm:text-[13px] px-2.5 sm:px-4 py-2 sm:py-2.5 border border-black/[0.1] cursor-pointer hover:bg-[#e5e5ea] transition-colors whitespace-nowrap"
+          title="Рух коштів з майстром: аванси, борги, виплата ЗП"
         >
-          + Борг
+          + Розрахунок
         </button>
       </div>
 

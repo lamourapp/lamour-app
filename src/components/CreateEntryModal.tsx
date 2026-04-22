@@ -192,12 +192,27 @@ export interface EntryEditInitial {
   supplement?: number;
 }
 
+/**
+ * Preset для CREATE-mode (не edit). Використовується коли викликаємо
+ * модал з контексту (напр., кнопка «Розрахунок» на картці співробітника
+ * → відкриває debt-модал з вже заповненим спеціалістом і сумою балансу).
+ * Від `initial` відрізняється тим, що не прив'язується до id існуючого
+ * запису — ми все одно створюємо новий через POST.
+ */
+export interface EntryCreatePreset {
+  specialistId?: string;
+  amount?: number;        // abs, без знаку — знак керується debtSign
+  debtSign?: "+" | "-";
+  comment?: string;
+}
+
 export default function CreateEntryModal({
   type,
   specialists,
   onClose,
   onCreated,
   initial,
+  preset,
 }: {
   type: EntryType;
   specialists: Specialist[];
@@ -205,6 +220,9 @@ export default function CreateEntryModal({
   onCreated: () => void;
   /** Якщо передано — модал у edit-mode, PATCH замість POST. Тільки для expense. */
   initial?: EntryEditInitial;
+  /** Пресет для create-mode: попередньо-заповнені поля (використовується
+   *  кнопкою «Розрахунок» на картці співробітника). Ігнорується в edit-mode. */
+  preset?: EntryCreatePreset;
 }) {
   const isEdit = !!initial;
   const { settings } = useSettings();
@@ -214,10 +232,14 @@ export default function CreateEntryModal({
   // його як disabled-опцію нижче, щоб не загубити значення.
   const { expenseTypes } = useExpenseTypes(false);
   const [date, setDate] = useState(() => initial?.date || new Date().toISOString().slice(0, 10));
-  const [amount, setAmount] = useState(() => initial?.amount != null ? String(Math.abs(initial.amount)) : "");
-  const [specialistId, setSpecialistId] = useState(() => initial?.specialistId || "");
+  const [amount, setAmount] = useState(() => {
+    if (initial?.amount != null) return String(Math.abs(initial.amount));
+    if (preset?.amount != null) return String(Math.abs(preset.amount));
+    return "";
+  });
+  const [specialistId, setSpecialistId] = useState(() => initial?.specialistId || preset?.specialistId || "");
   const [expenseType, setExpenseType] = useState(() => initial?.expenseType || "");
-  const [comment, setComment] = useState(() => initial?.comment || "");
+  const [comment, setComment] = useState(() => initial?.comment || preset?.comment || "");
   const [saleItems, setSaleItems] = useState<{ productId: string; quantity: number }[]>(() => {
     if (initial?.saleItems && initial.saleItems.length > 0) {
       return initial.saleItems.map((si) => ({
@@ -233,7 +255,7 @@ export default function CreateEntryModal({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [debtSign, setDebtSign] = useState<"+" | "-">("+");
+  const [debtSign, setDebtSign] = useState<"+" | "-">(preset?.debtSign || "+");
 
   useEffect(() => {
     if (type === "sale") {
@@ -377,7 +399,9 @@ export default function CreateEntryModal({
 
   const titles: Record<EntryType, string> = {
     expense: isEdit ? "Редагувати витрату" : "Нова витрата",
-    debt: "Новий борг",
+    // "Борг" у даних лишається (SERVICE_FIELDS.debtAmount), але в UI єдина
+    // сутність «рух з майстром»: аванси, борги, виплати ЗП — все тут.
+    debt: "Розрахунок з майстром",
     sale: isEdit ? "Редагувати продаж" : "Новий продаж",
   };
 
@@ -419,7 +443,11 @@ export default function CreateEntryModal({
       )}
 
       {(type === "expense" || type === "debt") && (
-        <Field label={type === "debt" ? "Сума боргу" : "Сума"}>
+        <Field label={type === "debt" ? "Сума" : "Сума"}
+          hint={type === "debt"
+            ? "+ збільшити наш борг майстру (напр. довнарахували)  ·  − зменшити / виплата ЗП"
+            : undefined}
+        >
           {type === "debt" && (
             <div className="flex gap-2 mb-2">
               <button
@@ -429,7 +457,7 @@ export default function CreateEntryModal({
                   debtSign === "+" ? "bg-red-50 text-red-600 border border-red-200" : "bg-gray-50 text-gray-500 border border-black/5"
                 }`}
               >
-                + ми винні
+                + ми винні майстру
               </button>
               <button
                 type="button"
@@ -438,7 +466,7 @@ export default function CreateEntryModal({
                   debtSign === "-" ? "bg-green-50 text-green-600 border border-green-200" : "bg-gray-50 text-gray-500 border border-black/5"
                 }`}
               >
-                − нам винні
+                − виплата / майстер віддав
               </button>
             </div>
           )}
