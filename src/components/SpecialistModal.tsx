@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import type { Specialist, CompensationType } from "@/lib/types";
 import { Button, Field, Input, Modal, Segmented, type SegmentedOption } from "./ui";
 import { useSettings, useSpecializations, useCategories } from "@/lib/hooks";
+import SingleDatePicker from "./SingleDatePicker";
 import { currencySymbol } from "@/lib/format";
 
 interface SpecialistModalProps {
@@ -264,7 +265,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
       </Field>
 
       <Field label="Дата народження">
-        <Input type="date" value={birthday} onChange={(e) => setBirthday(e.target.value)} />
+        <SingleDatePicker value={birthday} onChange={setBirthday} />
       </Field>
 
       <div className="border-t border-black/5 pt-4">

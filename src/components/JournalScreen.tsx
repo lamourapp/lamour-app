@@ -297,6 +297,31 @@ export default function JournalScreen() {
       setDeleting(null);
     }
   }
+
+  // Bulk-restore всіх скасованих записів, видимих у поточному виді (після
+  // всіх фільтрів). Послідовно — щоб не перевантажити Airtable rate-limit
+  // і щоб у разі помилки половина записів лишалась у consistent стані.
+  const [bulkRestoring, setBulkRestoring] = useState(false);
+  async function handleBulkRestore(ids: string[]) {
+    if (ids.length === 0) return;
+    if (!confirm(`Відновити ${ids.length} ${ids.length === 1 ? "запис" : "записів"}?`)) return;
+    setBulkRestoring(true);
+    try {
+      for (const id of ids) {
+        await fetch("/api/journal", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, restore: true }),
+        });
+      }
+      reload();
+    } catch (err) {
+      console.error(err);
+      alert("Не всі записи вдалося відновити");
+    } finally {
+      setBulkRestoring(false);
+    }
+  }
   const { specialists } = useSpecialists();
 
   // Client-side type filter + «Скасовані» toggle.
@@ -444,11 +469,23 @@ export default function JournalScreen() {
       </div>{/* end sticky wrapper */}
 
       {/* Summary */}
-      <div className="flex items-center justify-between mb-3 px-0.5">
+      <div className="flex items-center justify-between mb-3 px-0.5 gap-2">
         <h2 className="text-[13px] font-semibold text-gray-900 tracking-tight">
           {periodLabel}
         </h2>
-        <div className="flex gap-3 text-[11px] text-gray-400">
+        <div className="flex items-center gap-3 text-[11px] text-gray-400">
+          {/* Bulk-restore — лише в режимі «Скасовані», коли є що відновлювати. */}
+          {showCanceled && filtered.length > 0 && (
+            <button
+              type="button"
+              onClick={() => handleBulkRestore(filtered.map((e) => e.id))}
+              disabled={bulkRestoring}
+              className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-brand-50 text-brand-600 hover:bg-brand-100 border border-brand-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title="Відновити всі видимі скасовані записи"
+            >
+              {bulkRestoring ? "Відновлюю…" : `Відновити всі (${filtered.length})`}
+            </button>
+          )}
           <span>Записів: <strong className="text-gray-600">{totalRecords}</strong></span>
           <span>Дохід: <strong className="text-gray-900">{fmt(totalIncome, { signed: true })}</strong></span>
         </div>

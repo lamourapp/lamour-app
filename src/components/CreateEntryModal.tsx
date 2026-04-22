@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Button, Field, Input, Label, Modal, Select, inputCls } from "./ui";
 import { useSettings, useExpenseTypes } from "@/lib/hooks";
+import SingleDatePicker from "./SingleDatePicker";
 import { moneyFormatter } from "@/lib/format";
 
 interface Specialist {
@@ -335,7 +336,7 @@ export default function CreateEntryModal({
   return (
     <Modal title={titles[type]} onClose={onClose}>
       <Field label="Дата">
-        <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        <SingleDatePicker value={date} onChange={setDate} />
       </Field>
 
       {(type === "debt" || type === "sale" || type === "expense") && (
