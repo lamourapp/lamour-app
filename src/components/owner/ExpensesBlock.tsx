@@ -36,7 +36,7 @@ export default function ExpensesBlock({ data, total, settings, loading }: Props)
   const hiddenCount = sorted.length - INITIAL_LIMIT;
 
   return (
-    <div className="bg-white rounded-xl border border-black/[0.06] p-5">
+    <div className="bg-white rounded-xl border border-black/[0.06] p-4 md:p-5">
       <div className="flex items-start justify-between mb-4">
         <div>
           <h3 className="text-[14px] font-semibold text-gray-900">Витрати</h3>

@@ -21,7 +21,7 @@ export default function ProductsBlock({ top, settings, loading }: Props) {
   const maxRevenue = useMemo(() => Math.max(...top.map((t) => t.revenue), 1), [top]);
 
   return (
-    <div className="bg-white rounded-xl border border-black/[0.06] p-5">
+    <div className="bg-white rounded-xl border border-black/[0.06] p-4 md:p-5">
       <div className="flex items-start justify-between mb-4">
         <div>
           <h3 className="text-[14px] font-semibold text-gray-900">Продажі товарів</h3>

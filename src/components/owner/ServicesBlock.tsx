@@ -25,7 +25,7 @@ export default function ServicesBlock({ top, types, settings, loading }: Props) 
   const maxNet = useMemo(() => Math.max(...top.map((t) => t.netSalon), 1), [top]);
 
   return (
-    <div className="bg-white rounded-xl border border-black/[0.06] p-5 lg:col-span-2">
+    <div className="bg-white rounded-xl border border-black/[0.06] p-4 md:p-5 lg:col-span-2">
       <div className="flex items-start justify-between mb-4">
         <div>
           <h3 className="text-[14px] font-semibold text-gray-900">Послуги</h3>

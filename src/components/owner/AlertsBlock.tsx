@@ -33,7 +33,7 @@ const STYLES: Record<RiskAlert["severity"], { bg: string; border: string; text: 
 
 export default function AlertsBlock({ alerts, loading }: Props) {
   return (
-    <div className="bg-white rounded-xl border border-black/[0.06] p-5">
+    <div className="bg-white rounded-xl border border-black/[0.06] p-4 md:p-5">
       <div className="flex items-start justify-between mb-4">
         <div>
           <h3 className="text-[14px] font-semibold text-gray-900">Ризики та сигнали</h3>
