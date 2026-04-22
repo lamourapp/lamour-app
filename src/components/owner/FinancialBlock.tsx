@@ -187,7 +187,7 @@ export default function FinancialBlock({ current, previous, daily, settings, loa
   );
 
   return (
-    <div className="bg-white rounded-xl border border-black/[0.06] p-5 lg:col-span-2">
+    <div className="bg-white rounded-xl border border-black/[0.06] p-4 md:p-5 lg:col-span-2">
       <div className="flex items-start justify-between mb-4">
         <div>
           <h3 className="text-[14px] font-semibold text-gray-900">Фінансовий зріз</h3>
@@ -249,13 +249,13 @@ export default function FinancialBlock({ current, previous, daily, settings, loa
         )}
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2">
+      {/* KPI — ТІЛЬКИ те, чого немає в P&L-каскаді зверху.
+          Чистий дохід / Оплата майстрам / Витрати → уже є в каскаді,
+          показувати їх двічі = сміття. */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         <KpiCard label="Оборот послуг" value={current.revenueServices} prev={previous.revenueServices} money={money} settings={settings} />
         <KpiCard label="Оборот матеріалів" value={current.revenueMaterials} prev={previous.revenueMaterials} net={current.netMaterials} money={money} settings={settings} />
         <KpiCard label="Оборот продажів" value={current.revenueSales} prev={previous.revenueSales} net={current.netSales} money={money} settings={settings} />
-        <KpiCard label="Чистий дохід" value={current.netSalon} prev={previous.netSalon} money={money} settings={settings} />
-        <KpiCard label="Оплата майстрам" value={current.masterPay} prev={previous.masterPay} money={money} settings={settings} />
-        <KpiCard label="Витрати" value={current.expensesTotal} prev={previous.expensesTotal} money={money} settings={settings} />
         <KpiCard
           label="Маржинальність"
           value={current.margin * 100}
@@ -266,13 +266,23 @@ export default function FinancialBlock({ current, previous, daily, settings, loa
         />
       </div>
 
-      <div className="mt-5 h-56 -mx-2">
+      <div className="mt-5 h-44 sm:h-56 -mx-2">
         {chartData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f1f4" vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#9ca3af" }} tickLine={false} axisLine={false} minTickGap={16} />
-              <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} tickLine={false} axisLine={false} width={48} />
+              <YAxis
+                tick={{ fontSize: 10, fill: "#9ca3af" }}
+                tickLine={false}
+                axisLine={false}
+                width={40}
+                tickFormatter={(v) => {
+                  const n = Number(v) || 0;
+                  if (Math.abs(n) >= 1000) return `${Math.round(n / 1000)}k`;
+                  return String(n);
+                }}
+              />
               <Tooltip
                 formatter={(value, name) => [money(Number(value) || 0), name === "revenue" ? "Оборот" : "Чистий"]}
                 labelFormatter={(l) => `Дата: ${l}`}
@@ -289,15 +299,15 @@ export default function FinancialBlock({ current, previous, daily, settings, loa
         )}
       </div>
 
-      <div className="flex items-center gap-4 mt-2 text-[11px] text-gray-500">
+      <div className="flex items-center gap-3 mt-2 text-[11px] text-gray-500 flex-wrap">
         <span className="flex items-center gap-1.5">
           <span className="w-2.5 h-[2px] bg-gray-400" /> Оборот
         </span>
         <span className="flex items-center gap-1.5">
           <span className="w-2.5 h-[2px] bg-[#8b5cf6]" /> Чистий дохід
         </span>
-        <span className="ml-auto text-gray-400">
-          Попередній період: {money(prevRevenue)} → {money(totalRevenue)}
+        <span className="sm:ml-auto text-gray-400 whitespace-nowrap">
+          {money(prevRevenue)} → {money(totalRevenue)}
         </span>
       </div>
     </div>

@@ -20,17 +20,47 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import CalendarPicker from "@/components/CalendarPicker";
 import { useJournal, useSpecialists, useSettings } from "@/lib/hooks";
 import { moneyFormatter } from "@/lib/format";
 import type { JournalEntry } from "@/lib/types";
 
-type Period = "week" | "month" | "quarter";
+type Period = "today" | "week" | "month" | "quarter" | "custom";
 
 const PERIOD_OPTIONS: { id: Period; label: string }[] = [
+  { id: "today", label: "День" },
   { id: "week", label: "Тиждень" },
   { id: "month", label: "Місяць" },
   { id: "quarter", label: "Квартал" },
 ];
+
+function fmtISO(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function rangeForPeriod(period: Period, now: Date = new Date()): { from: string; to: string } | null {
+  if (period === "custom") return null;
+  const end = new Date(now);
+  const start = new Date(now);
+  if (period === "today") {
+    // start = today
+  } else if (period === "week") {
+    const day = start.getDay();
+    const diff = (day + 6) % 7;
+    start.setDate(start.getDate() - diff);
+  } else if (period === "month") {
+    start.setDate(1);
+  } else if (period === "quarter") {
+    const qStartMonth = Math.floor(start.getMonth() / 3) * 3;
+    start.setMonth(qStartMonth, 1);
+  }
+  return { from: fmtISO(start), to: fmtISO(end) };
+}
+
+function formatDMY(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  return `${d}.${m}.${y}`;
+}
 
 /**
  * Частка майстра в конкретному записі — що з нього реально «йде в кишеню».
@@ -78,12 +108,51 @@ export default function MasterPreviewPage() {
 
   const [selectedId, setSelectedId] = useState<string>("");
   const [period, setPeriod] = useState<Period>("month");
+  const [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null);
+  const [showCalendar, setShowCalendar] = useState(false);
 
   // Автовибір першого майстра, коли завантажилось.
   const effectiveId = selectedId || masters[0]?.id || "";
   const selected = masters.find((m) => m.id === effectiveId);
 
-  const { entries, loading: journalLoading } = useJournal(period, effectiveId);
+  // Діапазон дат для useJournal. Для custom — з customRange, інакше
+  // обчислюємо від сьогодні.
+  const range = useMemo(() => {
+    if (period === "custom" && customRange) return customRange;
+    return rangeForPeriod(period);
+  }, [period, customRange]);
+
+  const { entries, loading: journalLoading } = useJournal(
+    "month", // period ignored коли є from/to
+    effectiveId,
+    range?.from,
+    range?.to,
+  );
+
+  const periodLabel = useMemo(() => {
+    if (period === "custom" && customRange) {
+      return `${formatDMY(customRange.from)} — ${formatDMY(customRange.to)}`;
+    }
+    switch (period) {
+      case "today": return "Сьогодні";
+      case "week": return "Цей тиждень";
+      case "month": return "Цей місяць";
+      case "quarter": return "Цей квартал";
+      default: return "";
+    }
+  }, [period, customRange]);
+
+  function selectPeriod(p: Period) {
+    setPeriod(p);
+    setCustomRange(null);
+    setShowCalendar(false);
+  }
+
+  function handleCalendarApply(from: string, to: string) {
+    setCustomRange({ from, to });
+    setPeriod("custom");
+    setShowCalendar(false);
+  }
 
   // Фільтруємо на клієнті теж — страхова сітка, раптом API поверне
   // щось лишнє (напр. витрати без specialistId).
@@ -174,29 +243,69 @@ export default function MasterPreviewPage() {
             </div>
           </div>
 
-          {/* Period switcher */}
-          <div className="flex gap-1.5 bg-white rounded-xl border border-black/[0.06] p-1 w-fit">
-            {PERIOD_OPTIONS.map((p) => (
+          {/* Period switcher — pills + calendar, patern як в OwnerScreen */}
+          <div className="relative">
+            <div className="flex gap-1 bg-white rounded-xl border border-black/[0.06] p-1 flex-wrap w-fit max-w-full">
+              {PERIOD_OPTIONS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => selectPeriod(p.id)}
+                  className={`px-3.5 py-1.5 rounded-lg text-[12px] font-medium transition-colors cursor-pointer ${
+                    period === p.id && !customRange
+                      ? "bg-brand-600 text-white"
+                      : "text-gray-500 hover:text-gray-900"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
               <button
-                key={p.id}
                 type="button"
-                onClick={() => setPeriod(p.id)}
-                className={`px-4 py-1.5 rounded-lg text-[12px] font-medium transition-colors cursor-pointer ${
-                  period === p.id
+                onClick={() => setShowCalendar((v) => !v)}
+                className={`px-2.5 py-1.5 rounded-lg text-[12px] cursor-pointer transition-colors inline-flex items-center gap-1 ${
+                  period === "custom" || showCalendar
                     ? "bg-brand-600 text-white"
                     : "text-gray-500 hover:text-gray-900"
                 }`}
+                title="Обрати діапазон"
+                aria-label="Обрати діапазон"
               >
-                {p.label}
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 00-2 2z" />
+                </svg>
+                {period === "custom" && customRange && (
+                  <span className="text-[11px] tabular-nums">
+                    {formatDMY(customRange.from)} — {formatDMY(customRange.to)}
+                  </span>
+                )}
               </button>
-            ))}
+            </div>
+
+            {showCalendar && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowCalendar(false)}
+                  aria-hidden="true"
+                />
+                <div className="absolute left-0 top-full mt-2 w-[320px] max-w-[calc(100vw-2rem)] bg-white border border-black/[0.08] rounded-2xl shadow-xl p-3 z-50">
+                  <CalendarPicker
+                    onClose={() => setShowCalendar(false)}
+                    onApply={handleCalendarApply}
+                    initialFrom={customRange?.from}
+                    initialTo={customRange?.to}
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           {/* Earnings card — головне, що бачить майстер. Без салонних
               чисел, без чистого, без витрат. Тільки свій дохід. */}
           <div className="bg-gradient-to-br from-brand-600 to-brand-700 rounded-2xl text-white p-5 shadow-sm">
             <div className="text-[11px] uppercase tracking-wider text-brand-100 font-semibold mb-1">
-              Мій дохід за період
+              Мій дохід · {periodLabel}
             </div>
             <div className="text-[32px] font-semibold tabular-nums leading-tight">
               {fmt(periodEarnings)}

@@ -258,7 +258,7 @@ export default function OwnerScreen() {
             <span>←</span>
             <span>{settings?.name || "Servico"}</span>
           </Link>
-          <div className="text-[11px] font-semibold text-brand-600 uppercase tracking-wider">
+          <div className="hidden sm:block text-[11px] font-semibold text-brand-600 uppercase tracking-wider">
             🔓 Аналітика власника
           </div>
           <button
@@ -273,7 +273,7 @@ export default function OwnerScreen() {
       <div className="max-w-6xl mx-auto px-4 py-5">
         {/* Period filter */}
         <div className="bg-white rounded-2xl border border-black/[0.06] p-3 mb-5">
-          <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <h2 className="text-[15px] font-semibold text-gray-900 tracking-tight">Показники</h2>
               <p className="text-[12px] text-gray-400 mt-0.5">
@@ -286,13 +286,13 @@ export default function OwnerScreen() {
               </p>
             </div>
 
-            <div className="relative">
-              <div className="flex gap-1 bg-[#f5f5f7] rounded-xl p-0.5 flex-wrap">
+            <div className="relative -mx-3 sm:mx-0">
+              <div className="flex gap-1 bg-[#f5f5f7] rounded-xl p-0.5 overflow-x-auto sm:flex-wrap mx-3 sm:mx-0">
               {periodButtons.map((p) => (
                 <button
                   key={p.id}
                   onClick={() => selectPeriod(p.id)}
-                  className={`px-3 py-2 rounded-[10px] text-[13px] font-medium cursor-pointer transition-all ${
+                  className={`px-3 py-2 rounded-[10px] text-[13px] font-medium cursor-pointer transition-all shrink-0 ${
                     period === p.id && !customRange
                       ? "bg-brand-600 text-white shadow-sm"
                       : "text-gray-500 hover:text-gray-800"
