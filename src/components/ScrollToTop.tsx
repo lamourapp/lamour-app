@@ -27,7 +27,7 @@ export default function ScrollToTop() {
       onClick={scrollUp}
       aria-label="Нагору"
       className={`
-        fixed bottom-24 right-4 z-40
+        fixed bottom-[calc(140px+env(safe-area-inset-bottom))] sm:bottom-24 right-4 z-40
         w-11 h-11 rounded-full
         bg-brand-600 text-white
         shadow-lg shadow-brand-600/25

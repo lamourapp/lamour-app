@@ -525,11 +525,15 @@ export default function JournalScreen() {
       {/* Scroll to top */}
       <ScrollToTop />
 
-      {/* Bottom spacer */}
+      {/* Bottom spacer — тримає простір над fixed Quick Add. На мобільному
+          додатковий simpler є на рівні page.tsx (pb для bottom-nav). */}
       <div className="h-24" />
 
-      {/* Quick Add Buttons */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex gap-1 sm:gap-1.5 bg-white/90 backdrop-blur-xl rounded-2xl shadow-lg shadow-black/[0.08] p-1 sm:p-1.5 border border-black/5 z-40 max-w-[calc(100vw-24px)]">
+      {/* Quick Add Buttons — sm: bottom-6 над footer'ом; mobile: підіймаємо
+          над bottom-nav (72px = ~52 nav + 20 відступ). */}
+      <div
+        className="fixed bottom-[calc(72px+env(safe-area-inset-bottom))] sm:bottom-6 left-1/2 -translate-x-1/2 flex gap-1 sm:gap-1.5 bg-white/90 backdrop-blur-xl rounded-2xl shadow-lg shadow-black/[0.08] p-1 sm:p-1.5 border border-black/5 z-40 max-w-[calc(100vw-24px)]"
+      >
         <button
           onClick={() => setCreateType("service")}
           className="bg-brand-600 text-white rounded-[10px] font-medium text-[11px] sm:text-[13px] px-2.5 sm:px-4 py-2 sm:py-2.5 cursor-pointer hover:bg-brand-700 transition-colors whitespace-nowrap"

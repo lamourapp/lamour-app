@@ -15,10 +15,14 @@ export default function Home() {
   return (
     <>
       <Nav active={screen} onNavigate={setScreen} />
-      {screen === "journal" && <JournalScreen />}
-      {screen === "staff" && <StaffScreen />}
-      {screen === "dashboard" && <DashboardScreen />}
-      {screen === "settings" && <SettingsScreen />}
+      {/* Мобільний bottom-nav ~52px + safe-area. На sm+ його немає,
+          JournalScreen має свій додатковий спейсер для quick-add. */}
+      <div className="pb-[calc(56px+env(safe-area-inset-bottom))] sm:pb-0">
+        {screen === "journal" && <JournalScreen />}
+        {screen === "staff" && <StaffScreen />}
+        {screen === "dashboard" && <DashboardScreen />}
+        {screen === "settings" && <SettingsScreen />}
+      </div>
     </>
   );
 }
