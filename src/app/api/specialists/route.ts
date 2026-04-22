@@ -75,48 +75,75 @@ function mapSpecialist(r: { id: string; fields: Record<string, unknown> }) {
 }
 
 /**
- * Віртуальний баланс власника.
+ * Віртуальні баланси усіх співробітників + власника — одним скануванням журналу.
  *
- * Формула:
- *   ownerBalance = Σ netSalon(усі записи за всю історію)
- *                + Σ debtAmount(записи, де master = ownerId)
+ * Чому віртуально, а не з Airtable-поля `Баланс`:
+ *  - Airtable rollup/formula не вміє фільтрувати по {isCanceled}. Soft-delete
+ *    журнального запису ховає його в PWA, але в роллапі він лишається —
+ *    баланс майстра не зменшується після скасування. Баг: можна видалити
+ *    послугу, але зарплата далі «нарахована».
+ *  - Обчислюючи тут, ми автоматично консистентні з журналом/дашбордом.
  *
- * netSalon — це формула в Airtable, що:
- *  - для послуг/продажів повертає чисту частку салону,
- *  - для витрат повертає від'ємне значення (−expenseAmount),
- *  - для боргів/оренди повертає 0.
- * Тобто сумуючи netSalon по всіх записах, ми отримуємо «накопичений
- * прибуток салону» за всю історію.
+ * Формули:
+ *   masterBalance[id] = Σ masterPayTotal(записи з master=id, не canceled)
+ *                     + Σ debtAmount(записи з master=id, не canceled)
+ *   ownerBalance      = Σ netSalon(усі записи, не canceled)
+ *                     + Σ debtAmount(записи з master=ownerId, не canceled)
  *
- * Вилучення/довнесення власником зберігаються як debt-записи з
- * підписаним debtAmount: `-` = власник забрав, `+` = додав у касу.
+ * Для майстра: нарахування за послуги + підписаний рух по боргах
+ * (− = виплата зарплати, + = довнесення в касу майстром).
+ * Для власника: накопичений чистий дохід салону + рух по ownerId.
  *
- * Дорого? Fetch усіх записів — O(N). Для 1 салону з ~кількома тисячами
- * записів це ок. Коли стане дорого — перенесемо у cron-пре-агрегацію.
+ * Дорого? O(N) по журналу — кілька тисяч записів, прийнятно. Якщо стане
+ * дорого — винесемо у cron-пре-агрегацію.
  */
-async function computeOwnerBalance(ownerId: string): Promise<number> {
+async function computeBalances(
+  ownerId: string | null,
+): Promise<{ byMaster: Map<string, number>; owner: number | null }> {
   const records = await fetchAllRecords(TABLES.services, {
-    fields: [SERVICE_FIELDS.netSalon, SERVICE_FIELDS.debtAmount, SERVICE_FIELDS.master, SERVICE_FIELDS.isCanceled],
+    fields: [
+      SERVICE_FIELDS.netSalon,
+      SERVICE_FIELDS.masterPayTotal,
+      SERVICE_FIELDS.debtAmount,
+      SERVICE_FIELDS.master,
+      SERVICE_FIELDS.isCanceled,
+    ],
   });
 
-  let total = 0;
+  const byMaster = new Map<string, number>();
+  let owner = 0;
+
   for (const r of records) {
     const f = r.fields;
-    // Skip soft-deleted — консистентно з журналом та дашбордом.
     if (f[SERVICE_FIELDS.isCanceled] === true) continue;
 
-    total += (f[SERVICE_FIELDS.netSalon] as number) || 0;
-
-    // Debt row linked to owner — підписаний рух: + (довнесення) або − (вилучення).
+    const netSalon = (f[SERVICE_FIELDS.netSalon] as number) || 0;
+    const masterPay = (f[SERVICE_FIELDS.masterPayTotal] as number) || 0;
     const debt = (f[SERVICE_FIELDS.debtAmount] as number) || 0;
+    const masterLinks = (f[SERVICE_FIELDS.master] as string[] | undefined) || [];
+
+    owner += netSalon;
+
+    // Нарахування майстру за його послуги.
+    if (masterPay !== 0) {
+      for (const mid of masterLinks) {
+        byMaster.set(mid, (byMaster.get(mid) || 0) + masterPay);
+      }
+    }
+
+    // Підписаний рух по боргах — і для власника, і для майстра.
     if (debt !== 0) {
-      const masterLinks = f[SERVICE_FIELDS.master] as string[] | undefined;
-      if (masterLinks && masterLinks.includes(ownerId)) {
-        total += debt;
+      for (const mid of masterLinks) {
+        if (mid === ownerId) {
+          owner += debt;
+        } else {
+          byMaster.set(mid, (byMaster.get(mid) || 0) + debt);
+        }
       }
     }
   }
-  return total;
+
+  return { byMaster, owner: ownerId ? owner : null };
 }
 
 export async function GET(request: NextRequest) {
@@ -146,20 +173,19 @@ export async function GET(request: NextRequest) {
       specialists = specialists.filter((s) => s.isActive);
     }
 
-    // Віртуальний баланс власника — перезаписує значення з Airtable.
-    // (Поле `Баланс` в Airtable для власника буде 0, бо немає виплат.)
-    const ownerIdx = specialists.findIndex((s) => s.isOwner);
-    if (ownerIdx >= 0) {
-      const ownerId = specialists[ownerIdx].id;
-      try {
-        specialists[ownerIdx] = {
-          ...specialists[ownerIdx],
-          balance: await computeOwnerBalance(ownerId),
-        };
-      } catch (e) {
-        // Якщо агрегація впала — не валимо весь список, лишаємо 0.
-        console.error("computeOwnerBalance failed:", e);
-      }
+    // Віртуальні баланси — перезаписують значення з Airtable, бо тамтешній
+    // роллап не знає про soft-delete (isCanceled).
+    const ownerId = specialists.find((s) => s.isOwner)?.id || null;
+    try {
+      const { byMaster, owner } = await computeBalances(ownerId);
+      specialists = specialists.map((s) => {
+        if (s.isOwner && owner !== null) return { ...s, balance: owner };
+        if (!s.isOwner) return { ...s, balance: byMaster.get(s.id) || 0 };
+        return s;
+      });
+    } catch (e) {
+      // Якщо агрегація впала — лишаємо Airtable-значення, не валимо весь список.
+      console.error("computeBalances failed:", e);
     }
 
     return NextResponse.json(specialists);
