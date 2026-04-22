@@ -102,8 +102,8 @@ export async function POST(request: NextRequest) {
     const costField = type === "products" ? "ціна закупки" : "закупка";
     const saleField = type === "products" ? "ціна продажу" : "Вартість";
 
-    // Product-specific columns
-    const specPctIdx = type === "products" ? col("% спеціалісту") : -1;
+    // «% спеціалісту за продаж» тепер зберігається на Співробітнику, а не на
+    // товарі — поле `% cалону` у Прайс видалено. Колонку в CSV ігноруємо.
 
     // Material-specific columns
     const volumeIdx = type === "materials" ? col("фасування") : -1;
@@ -148,13 +148,9 @@ export async function POST(request: NextRequest) {
         fields["неактивний"] = val === "ні" || val === "no" || val === "false" || val === "0";
       }
 
-      // Product-specific
-      if (type === "products") {
-        if (specPctIdx >= 0 && row[specPctIdx]) {
-          // Convert specialist % → salon %
-          fields["% cалону"] = 100 - parseFloat(row[specPctIdx]);
-        }
-      }
+      // Product-specific — наразі немає product-only полів поза базовими
+      // (name/ціни/артикул/штрих-код/активність), бо % за продаж переїхав
+      // на Співробітника.
 
       // Material-specific
       if (type === "materials") {

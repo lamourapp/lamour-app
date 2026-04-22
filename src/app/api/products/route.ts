@@ -19,8 +19,7 @@ function mapProduct(r: { id: string; fields: Record<string, unknown> }) {
     name: (f[PRICE_LIST_FIELDS.name] as string) || "",
     salePrice: (f[PRICE_LIST_FIELDS.salePrice] as number) || 0,
     costPrice: (f[PRICE_LIST_FIELDS.costPrice] as number) || 0,
-    // `salonPercent` & `group` retained for legacy UI compat after Airtable cleanup.
-    salonPercent: 0,
+    // `group` retained for legacy UI compat after Airtable cleanup.
     group: "",
     sku: (f[PRICE_LIST_FIELDS.sku] as string) || "",
     article: (f[PRICE_LIST_FIELDS.article] as string) || "",

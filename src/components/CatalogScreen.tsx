@@ -240,9 +240,6 @@ export default function CatalogScreen({
                 </div>
                 <div className="text-[11px] text-gray-400 tabular-nums">
                   {item.costPrice > 0 && `зак. ${fmt(item.costPrice)}`}
-                  {tab === "products" && (item as CatalogProduct).salonPercent > 0 && (
-                    <span className="ml-1">· спец. {100 - (item as CatalogProduct).salonPercent}%</span>
-                  )}
                 </div>
               </div>
             </button>

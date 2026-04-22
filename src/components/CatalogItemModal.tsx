@@ -26,12 +26,10 @@ export default function CatalogItemModal({ type, item, onClose, onSaved }: Props
   const [salePrice, setSalePrice] = useState(item?.salePrice?.toString() || "");
   const [totalVolume, setTotalVolume] = useState(mat?.totalVolume?.toString() || "");
   const [unit, setUnit] = useState(mat?.unit || "");
-  // UI shows specialist %, Airtable stores salon % → convert: specialist = 100 - salon
-  const [specialistPercent, setSpecialistPercent] = useState(() => {
-    if (isMaterial || !item) return "";
-    const salon = (item as CatalogProduct).salonPercent;
-    return salon ? String(100 - salon) : "";
-  });
+  // «% спеціалісту за продаж» більше не живе на товарі — керується на
+  // співробітнику (див. StaffScreen / Спеціаліст.«% за продаж»). Коли один
+  // майстер продає той самий товар, а інший ні — це про майстра, не про
+  // товар. Тому поле тут прибране.
   const [isActive, setIsActive] = useState(item?.isActive ?? true);
 
   const [saving, setSaving] = useState(false);
@@ -52,9 +50,6 @@ export default function CatalogItemModal({ type, item, onClose, onSaved }: Props
       if (isMaterial) {
         if (totalVolume) payload.totalVolume = parseFloat(totalVolume);
         if (unit) payload.unit = unit;
-      } else {
-        // Convert specialist % → salon %: salon = 100 - specialist
-        if (specialistPercent) payload.salonPercent = 100 - parseFloat(specialistPercent);
       }
 
       const url = `/api/${type}`;
@@ -107,21 +102,6 @@ export default function CatalogItemModal({ type, item, onClose, onSaved }: Props
             </Select>
           </Field>
         </div>
-      )}
-
-      {!isMaterial && (
-        <Field label="% спеціалісту за продаж">
-          <Input
-            type="number"
-            inputMode="numeric"
-            value={specialistPercent}
-            onChange={(e) => setSpecialistPercent(e.target.value)}
-            placeholder="10"
-            min={0}
-            max={100}
-            className="tabular-nums"
-          />
-        </Field>
       )}
 
       <div className="grid grid-cols-2 gap-3">

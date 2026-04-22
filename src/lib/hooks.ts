@@ -137,7 +137,7 @@ export function useSettings() {
 export interface CatalogProduct {
   id: string; name: string; salePrice: number; costPrice: number;
   group: string; sku: string; article: string; barcode: string;
-  salonPercent: number; price: number; isActive: boolean;
+  price: number; isActive: boolean;
 }
 export interface CatalogMaterial {
   id: string; name: string; salePrice: number; costPrice: number;

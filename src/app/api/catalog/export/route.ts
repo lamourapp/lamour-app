@@ -23,16 +23,16 @@ export async function GET(request: NextRequest) {
 
   try {
     if (type === "products") {
+      // «% спеціалісту за продаж» перенесено у налаштування співробітника
+      // (Співробітники.«% за продаж»), тож у товарах його більше не тягнемо.
       const records = await fetchAllRecords(TABLES.priceList, {
-        fields: ["Назва", "ціна закупки", "ціна продажу", "% cалону", "sku", "артикул", "штрих-код", "неактивний"],
+        fields: ["Назва", "ціна закупки", "ціна продажу", "sku", "артикул", "штрих-код", "неактивний"],
         sort: [{ field: "Назва", direction: "asc" }],
       });
 
-      const header = "SKU,Назва,Артикул,Штрих-код,Ціна закупки,Ціна продажу,% спеціалісту,Активний";
+      const header = "SKU,Назва,Артикул,Штрих-код,Ціна закупки,Ціна продажу,Активний";
       const rows = records.map((r) => {
         const f = r.fields;
-        const salonPct = (f["% cалону"] as number) || 0;
-        const specialistPct = salonPct > 0 ? 100 - salonPct : "";
         const isActive = !f["неактивний"];
         return [
           escapeCSV(f["sku"] as string),
@@ -41,7 +41,6 @@ export async function GET(request: NextRequest) {
           escapeCSV(f["штрих-код"] as string),
           escapeCSV(f["ціна закупки"] as number),
           escapeCSV(f["ціна продажу"] as number),
-          escapeCSV(specialistPct),
           escapeCSV(isActive ? "так" : "ні"),
         ].join(",");
       });
