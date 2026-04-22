@@ -27,7 +27,8 @@ function mapSpecialization(r: { id: string; fields: Record<string, unknown> }) {
     name: (f[SPECIALIZATION_FIELDS.name] as string) || "",
     categoryIds,
     description: (f[SPECIALIZATION_FIELDS.description] as string) || "",
-    isActive: f[SPECIALIZATION_FIELDS.isActive] !== false,
+    // Airtable опускає поле для знятої галочки — див. expense-types/route.ts.
+    isActive: f[SPECIALIZATION_FIELDS.isActive] === true,
     sortOrder: (f[SPECIALIZATION_FIELDS.sortOrder] as number) ?? 0,
   };
 }

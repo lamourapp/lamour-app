@@ -23,7 +23,8 @@ function mapCategory(r: { id: string; fields: Record<string, unknown> }) {
   return {
     id: r.id,
     name: (f[CATEGORY_FIELDS.name] as string) || "",
-    isActive: f[CATEGORY_FIELDS.isActive] !== false,
+    // Airtable опускає поле для знятої галочки — див. expense-types/route.ts.
+    isActive: f[CATEGORY_FIELDS.isActive] === true,
     sortOrder: (f[CATEGORY_FIELDS.sortOrder] as number) ?? 0,
     description: (f[CATEGORY_FIELDS.description] as string) || "",
     isRental: f[CATEGORY_FIELDS.isRental] === true,

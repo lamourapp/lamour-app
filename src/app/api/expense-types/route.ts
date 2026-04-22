@@ -33,7 +33,11 @@ function mapExpenseType(r: { id: string; fields: Record<string, unknown> }) {
   return {
     id: r.id,
     name: (f[EXPENSE_TYPE_FIELDS.name] as string) || "",
-    isActive: f[EXPENSE_TYPE_FIELDS.isActive] !== false,
+    // Airtable НЕ повертає поле для знятої галочки (field просто відсутнє в
+    // відповіді), а не `false`. Тому логіка «!== false» давала баг — архівні
+    // читались як active. Коректно: `=== true` (checked = active, unchecked
+    // або відсутнє = archived).
+    isActive: f[EXPENSE_TYPE_FIELDS.isActive] === true,
     sortOrder: (f[EXPENSE_TYPE_FIELDS.sortOrder] as number) ?? 0,
     description: (f[EXPENSE_TYPE_FIELDS.description] as string) || "",
   };
