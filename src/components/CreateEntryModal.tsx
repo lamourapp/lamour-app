@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
-import { Button, Field, Input, Label, Modal, Select, inputCls } from "./ui";
+import { useState, useEffect, useMemo } from "react";
+import { Button, Field, Input, Label, Modal } from "./ui";
 import { useSettings, useExpenseTypes } from "@/lib/hooks";
 import SingleDatePicker from "./SingleDatePicker";
+import SearchableSelect from "./SearchableSelect";
 import { moneyFormatter, todayISO } from "@/lib/format";
 
 interface Specialist {
@@ -20,148 +21,6 @@ interface Product {
 }
 
 type EntryType = "expense" | "debt" | "sale";
-
-/* ─── Searchable Product Picker ─── */
-function ProductPicker({
-  products,
-  productId,
-  onSelect,
-}: {
-  products: Product[];
-  productId: string;
-  onSelect: (id: string) => void;
-}) {
-  const { settings } = useSettings();
-  const fmt = moneyFormatter(settings);
-  const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const selected = products.find((p) => p.id === productId);
-
-  // Close on Escape; outside-click handled via onBlur on the input below
-  // (document-level mousedown used to race with product button clicks on
-  // some touch devices and swallowed selection).
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, []);
-
-  const filtered = useMemo(() => {
-    if (!query.trim()) return products;
-    const q = query.toLowerCase();
-    return products.filter(
-      (p) => p.name.toLowerCase().includes(q) || p.group.toLowerCase().includes(q)
-    );
-  }, [products, query]);
-
-  const grouped = useMemo(() => {
-    const groups = new Map<string, Product[]>();
-    filtered.forEach((p) => {
-      const g = p.group || "Інше";
-      if (!groups.has(g)) groups.set(g, []);
-      groups.get(g)!.push(p);
-    });
-    return groups;
-  }, [filtered]);
-
-  function handleSelect(p: Product) {
-    onSelect(p.id);
-    setQuery("");
-    setOpen(false);
-  }
-
-  function handleClear() {
-    onSelect("");
-    setQuery("");
-    setOpen(false);
-  }
-
-  return (
-    <div ref={wrapperRef} className="relative">
-      {selected && !open ? (
-        <div
-          className="w-full h-[44px] border border-brand-200 bg-brand-50/50 rounded-xl px-3.5 flex items-center justify-between cursor-pointer"
-          onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 50); }}
-        >
-          <div className="min-w-0">
-            <div className="text-[14px] text-gray-900 font-medium truncate">{selected.name}</div>
-            <div className="text-[11px] text-gray-500 mt-0.5">
-              {fmt(selected.price)}{selected.group ? ` · ${selected.group}` : ""}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); handleClear(); }}
-            className="text-gray-400 hover:text-gray-600 text-[18px] ml-2 cursor-pointer"
-            aria-label="Очистити"
-          >
-            ✕
-          </button>
-        </div>
-      ) : (
-        <div className="relative">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-            🔍
-          </div>
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
-            onFocus={() => setOpen(true)}
-            onBlur={(e) => {
-              // Close dropdown only if focus moved outside the picker.
-              // Product buttons inside wrapperRef receive focus on mousedown,
-              // so onBlur fires AFTER button's onClick — selection is safe.
-              if (!wrapperRef.current?.contains(e.relatedTarget as Node)) {
-                setTimeout(() => setOpen(false), 150);
-              }
-            }}
-            placeholder="Пошук товару..."
-            className={`${inputCls} pl-9`}
-          />
-        </div>
-      )}
-
-      {open && (
-        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-black/10 rounded-xl shadow-xl max-h-[240px] overflow-y-auto z-50">
-          {filtered.length === 0 ? (
-            <div className="px-4 py-3 text-[13px] text-gray-400">Нічого не знайдено</div>
-          ) : (
-            Array.from(grouped.entries()).map(([group, items]) => (
-              <div key={group}>
-                <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider bg-gray-50 sticky top-0">
-                  {group}
-                </div>
-                {items.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    // Prevent input blur before click registers on mobile —
-                    // this was the most likely cause of "product won't select".
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => handleSelect(p)}
-                    className={`w-full text-left px-3 py-2 hover:bg-brand-50 cursor-pointer transition-colors flex items-center justify-between ${
-                      p.id === productId ? "bg-brand-50" : ""
-                    }`}
-                  >
-                    <span className="text-[14px] text-gray-900 truncate mr-2">{p.name}</span>
-                    <span className="text-[13px] text-gray-500 whitespace-nowrap">{fmt(p.price)}</span>
-                  </button>
-                ))}
-              </div>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
 /* ─── Main Modal ─── */
 
@@ -416,29 +275,51 @@ export default function CreateEntryModal({
           label={settings?.specialistTerm || "Спеціаліст"}
           hint={type === "expense" ? "(опціонально, для ЗП)" : undefined}
         >
-          <Select value={specialistId} onChange={(e) => setSpecialistId(e.target.value)}>
-            <option value="">{type === "expense" ? "Не прив'язано" : "Оберіть спеціаліста"}</option>
-            {specialists.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </Select>
+          <SearchableSelect
+            items={specialists}
+            selectedId={specialistId}
+            onSelect={setSpecialistId}
+            placeholder={type === "expense" ? "Не прив'язано" : `Пошук: ${(settings?.specialistTerm || "спеціаліст").toLowerCase()}...`}
+            renderItem={(s) => (
+              <span className="text-[14px] text-gray-900 truncate">{s.name}</span>
+            )}
+            renderSelected={(s) => (
+              <span className="text-[14px] text-gray-900 font-medium">{s.name}</span>
+            )}
+          />
         </Field>
       )}
 
       {type === "expense" && (
         <Field label="Вид витрати">
-          <Select value={expenseType} onChange={(e) => setExpenseType(e.target.value)}>
-            <option value="">Без категорії</option>
-            {expenseTypes.map((t) => (
-              <option key={t.id} value={t.name}>{t.name}</option>
-            ))}
-            {/* Edit-mode fallback: якщо поточне значення відсутнє в активному
-                списку (архівоване / перейменоване), додаємо окрему опцію — щоб
-                select показав поточне значення, а не скинувся на «Без категорії». */}
-            {expenseType && !expenseTypes.some((t) => t.name === expenseType) && (
-              <option value={expenseType}>{expenseType} (архів)</option>
-            )}
-          </Select>
+          {(() => {
+            // Edit-mode fallback: якщо поточне значення відсутнє в активному списку
+            // (архівоване / перейменоване) — додаємо його віртуально, щоб не пропав.
+            const items = expenseType && !expenseTypes.some((t) => t.name === expenseType)
+              ? [...expenseTypes, { id: `__archived__${expenseType}`, name: `${expenseType} (архів)` }]
+              : expenseTypes;
+            const selectedId = expenseType
+              ? (expenseTypes.find((t) => t.name === expenseType)?.id || `__archived__${expenseType}`)
+              : "";
+            return (
+              <SearchableSelect
+                items={items}
+                selectedId={selectedId}
+                onSelect={(id) => {
+                  if (!id) { setExpenseType(""); return; }
+                  const found = items.find((t) => t.id === id);
+                  setExpenseType(found ? found.name.replace(/ \(архів\)$/, "") : "");
+                }}
+                placeholder="Без категорії"
+                renderItem={(t) => (
+                  <span className="text-[14px] text-gray-900 truncate">{t.name}</span>
+                )}
+                renderSelected={(t) => (
+                  <span className="text-[14px] text-gray-900 font-medium">{t.name}</span>
+                )}
+              />
+            );
+          })()}
         </Field>
       )}
 
@@ -498,14 +379,30 @@ export default function CreateEntryModal({
                       ✕
                     </button>
                   )}
-                  <ProductPicker
-                    products={products}
-                    productId={si.productId}
+                  <SearchableSelect
+                    items={products}
+                    selectedId={si.productId}
                     onSelect={(id) => {
                       const updated = [...saleItems];
                       updated[idx] = { ...updated[idx], productId: id };
                       setSaleItems(updated);
                     }}
+                    placeholder="Пошук товару..."
+                    groupBy={(p) => p.group || "Інше"}
+                    renderItem={(p) => (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[14px] text-gray-900 truncate">{p.name}</span>
+                        <span className="text-[13px] text-gray-400 whitespace-nowrap tabular-nums">{fmt(p.price)}</span>
+                      </div>
+                    )}
+                    renderSelected={(p) => (
+                      <div>
+                        <div className="text-[14px] text-gray-900 font-medium leading-tight truncate">{p.name}</div>
+                        <div className="text-[12px] text-gray-500 mt-0.5 tabular-nums">
+                          {fmt(p.price)}{p.group ? ` · ${p.group}` : ""}
+                        </div>
+                      </div>
+                    )}
                   />
                   {product && (
                     <div className="mt-2 flex items-center gap-3">
