@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { inputCls, selectCls, labelCls } from "./ui";
 import { useSettings, useSpecializations, useCategories } from "@/lib/hooks";
-import { moneyFormatter } from "@/lib/format";
+import { moneyFormatter, todayISO } from "@/lib/format";
 import SingleDatePicker from "./SingleDatePicker";
 
 interface Specialist {
@@ -346,7 +346,7 @@ export default function ServiceEntryModal({
     () => allCategories.find((c) => c.isRental)?.id || "",
     [allCategories],
   );
-  const [date, setDate] = useState(() => initial?.date || new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => initial?.date || todayISO());
   const [specialistId, setSpecialistId] = useState(() => initial?.specialistId || "");
   const [serviceId, setServiceId] = useState(() => initial?.serviceId || "");
   const [supplement, setSupplement] = useState(() =>

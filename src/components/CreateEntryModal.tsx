@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { Button, Field, Input, Label, Modal, Select, inputCls } from "./ui";
 import { useSettings, useExpenseTypes } from "@/lib/hooks";
 import SingleDatePicker from "./SingleDatePicker";
-import { moneyFormatter } from "@/lib/format";
+import { moneyFormatter, todayISO } from "@/lib/format";
 
 interface Specialist {
   id: string;
@@ -231,7 +231,7 @@ export default function CreateEntryModal({
   // якщо редагуємо запис із неактивним (або перейменованим) видом — додаємо
   // його як disabled-опцію нижче, щоб не загубити значення.
   const { expenseTypes } = useExpenseTypes(false);
-  const [date, setDate] = useState(() => initial?.date || new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => initial?.date || todayISO());
   const [amount, setAmount] = useState(() => {
     if (initial?.amount != null) return String(Math.abs(initial.amount));
     if (preset?.amount != null) return String(Math.abs(preset.amount));

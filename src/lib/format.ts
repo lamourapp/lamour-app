@@ -67,3 +67,24 @@ export function moneyFormatter(
   const locale = localeFromTimezone(settings?.timezone);
   return (amount, opts) => formatMoney(amount, currency, { ...opts, locale });
 }
+
+/* ─── Dates ─── */
+
+/**
+ * Сьогоднішня дата в ISO (YYYY-MM-DD) у ЛОКАЛЬНОМУ часі користувача.
+ *
+ * NB: `new Date().toISOString().slice(0, 10)` повертає UTC — і для Kyiv
+ * (UTC+3) це перетворює будь-який час з 00:00 до 03:00 у вчорашню дату.
+ * Користувач створює запис о 1 ночі — бачить у журналі вчорашній день.
+ *
+ * Не підставляємо tenant timezone, бо default «сьогодні» має відповідати
+ * часу пристрою користувача, а не таймзоні салону (якщо майстер в іншій
+ * точці — його «сьогодні» важливіше).
+ */
+export function todayISO(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
