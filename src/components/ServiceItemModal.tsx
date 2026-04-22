@@ -228,12 +228,17 @@ export default function ServiceItemModal({ item, categories, onClose, onSaved }:
           </div>
         ) : (
           <div className="flex gap-2">
-            <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="flex-1">
-              <option value="">— без групи —</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </Select>
+            <div className="flex-1 min-w-0">
+              <SearchableSelect
+                items={categories}
+                selectedId={categoryId}
+                onSelect={setCategoryId}
+                placeholder="— без групи —"
+                title="Група послуги"
+                renderItem={(c) => <span className="text-[14px] text-gray-900 truncate">{c.name}</span>}
+                renderSelected={(c) => <span className="text-[14px] text-gray-900 font-medium">{c.name}</span>}
+              />
+            </div>
             <button
               type="button"
               onClick={() => setShowNewCategory(true)}

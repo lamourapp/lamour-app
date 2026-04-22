@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Button, Field, Input, Modal, Select } from "./ui";
+import { Button, Field, Input, Modal } from "./ui";
 import { useExpenseTypes } from "@/lib/hooks";
 import type { JournalEntry } from "@/lib/types";
 import SingleDatePicker from "./SingleDatePicker";
+import SearchableSelect from "./SearchableSelect";
 
 interface Specialist {
   id: string;
@@ -135,25 +136,42 @@ export default function QuickEditEntryModal({
         </Field>
 
         <Field label="Спеціаліст" hint={entry.type === "expense" ? "(опціонально, для ЗП)" : undefined}>
-          <Select value={specialistId} onChange={(e) => setSpecialistId(e.target.value)}>
-            <option value="">Не прив&apos;язано</option>
-            {specialists.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </Select>
+          <SearchableSelect
+            items={specialists}
+            selectedId={specialistId}
+            onSelect={setSpecialistId}
+            placeholder="Не прив'язано"
+            title="Спеціаліст"
+            renderItem={(s) => <span className="text-[14px] text-gray-900 truncate">{s.name}</span>}
+            renderSelected={(s) => <span className="text-[14px] text-gray-900 font-medium">{s.name}</span>}
+          />
         </Field>
 
         {entry.type === "expense" && (
           <Field label="Вид витрати">
-            <Select value={expenseType} onChange={(e) => setExpenseType(e.target.value)}>
-              <option value="">Без категорії</option>
-              {expenseTypes.map((t) => (
-                <option key={t.id} value={t.name}>{t.name}</option>
-              ))}
-              {expenseType && !expenseTypes.some((t) => t.name === expenseType) && (
-                <option value={expenseType}>{expenseType} (архів)</option>
-              )}
-            </Select>
+            {(() => {
+              const items = expenseType && !expenseTypes.some((t) => t.name === expenseType)
+                ? [...expenseTypes, { id: `__archived__${expenseType}`, name: `${expenseType} (архів)` }]
+                : expenseTypes;
+              const selId = expenseType
+                ? (expenseTypes.find((t) => t.name === expenseType)?.id || `__archived__${expenseType}`)
+                : "";
+              return (
+                <SearchableSelect
+                  items={items}
+                  selectedId={selId}
+                  onSelect={(id) => {
+                    if (!id) { setExpenseType(""); return; }
+                    const found = items.find((t) => t.id === id);
+                    setExpenseType(found ? found.name.replace(/ \(архів\)$/, "") : "");
+                  }}
+                  placeholder="Без категорії"
+                  title="Вид витрати"
+                  renderItem={(t) => <span className="text-[14px] text-gray-900 truncate">{t.name}</span>}
+                  renderSelected={(t) => <span className="text-[14px] text-gray-900 font-medium">{t.name}</span>}
+                />
+              );
+            })()}
           </Field>
         )}
 
