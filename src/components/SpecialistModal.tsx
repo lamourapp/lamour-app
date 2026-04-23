@@ -43,11 +43,11 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
   const [specializationIds, setSpecializationIds] = useState<string[]>(
     specialist?.specializationIds || [],
   );
-  // Власник — особливий «спеціаліст»: без ставок, з віртуальним балансом,
-  // окрема секція у StaffScreen. Тумблер працює навіть при редагуванні:
-  // можна зняти з існуючого (втратить особливий рендер і попросить тип оплати)
-  // або додати. API сам не дасть двох власників.
-  const [isOwner, setIsOwner] = useState<boolean>(specialist?.isOwner === true);
+  // Власник — ownership керується ВИКЛЮЧНО через /settings → Власники салону.
+  // Тут немає isOwner тумблера, щоб не створювати другу точку правди. isOwner
+  // прапорець на записі виставляється автоматично з ревізій розподілу прибутку
+  // (див. POST /api/ownership → syncIsOwner).
+  const isOwner = specialist?.isOwner === true;
   const [compensationType, setCompensationType] = useState<CompensationType>(
     specialist?.compensationType && specialist.compensationType !== "owner"
       ? specialist.compensationType
@@ -113,22 +113,18 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
         name: name.trim(),
         specializationIds,
         birthday: birthday || undefined,
-        isOwner,
-      };
-
-      if (!isOwner) {
-        payload.compensationType = compensationType;
+        compensationType,
         // For rental masters we force 100% salon cut so the rental line
         // ("Оренда робочого місця" as a service) counts fully as salon income.
         // Commission masters use their configured %. Salary masters = 0.
-        payload.serviceCommission =
+        serviceCommission:
           compensationType === "commission" ? serviceCommission :
           compensationType === "rental" ? 100 :
-          0; // hourly & salary: master pay determined by snapshot/fixed rate
-        payload.salesCommission = salesCommission;
-        payload.productSalesCommission = productSalesCommission;
-        payload.conditions = compensationType !== "commission" ? conditions : 0;
-      }
+          0,
+        salesCommission,
+        productSalesCommission,
+        conditions: compensationType !== "commission" ? conditions : 0,
+      };
 
       const url = "/api/specialists";
       const res = await fetch(url, {
@@ -281,43 +277,23 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
         <SingleDatePicker value={birthday} onChange={setBirthday} />
       </Field>
 
-      {/* Власник салону — окремий флаг. Коли увімкнено, приховуємо блок
-          «Умови оплати» повністю: у власника немає ставок, а прибуток
-          формується автоматично як virtual balance. */}
-      <label className="flex items-center gap-3 px-3 py-2.5 bg-brand-50/50 rounded-xl cursor-pointer select-none border border-brand-100">
-        <div className="relative">
-          <input
-            type="checkbox"
-            checked={isOwner}
-            onChange={(e) => setIsOwner(e.target.checked)}
-            className="sr-only peer"
-          />
-          <div className="w-9 h-5 bg-gray-300 rounded-full peer-checked:bg-brand-500 transition-colors" />
-          <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm peer-checked:translate-x-4 transition-transform" />
+      {isOwner && (
+        <div className="text-[11px] text-brand-700 bg-brand-50/60 border border-brand-100 rounded-lg px-3 py-2 leading-relaxed">
+          Цей спеціаліст — <strong>співвласник</strong> салону (є в активному розподілі прибутку).
+          Ставки нижче використовуються, якщо він також працює як майстер. Керування часткою —
+          в <strong>Налаштування → Власники салону</strong>.
         </div>
-        <div className="min-w-0">
-          <div className="text-[13px] text-gray-900 font-medium">Власник салону</div>
-          <div className="text-[11px] text-gray-400 leading-snug">
-            {isOwner
-              ? "Баланс = накопичений прибуток мінус вилучення. Без ставок і % — це не майстер."
-              : "Позначити цього спеціаліста як власника (один на салон)."}
-          </div>
-        </div>
-      </label>
-
-      {!isOwner && (
-        <>
-          <div className="border-t border-black/5 pt-4">
-            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Умови оплати</p>
-          </div>
-
-          <Field label="Тип оплати">
-            <Segmented options={COMP_TYPES} value={compensationType} onChange={setCompensationType} />
-          </Field>
-        </>
       )}
 
-      {!isOwner && compensationType === "commission" && (
+      <div className="border-t border-black/5 pt-4">
+        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Умови оплати</p>
+      </div>
+
+      <Field label="Тип оплати">
+        <Segmented options={COMP_TYPES} value={compensationType} onChange={setCompensationType} />
+      </Field>
+
+      {compensationType === "commission" && (
         <>
           <div className="grid grid-cols-2 gap-3">
             <Field label="% салону за послугу">
@@ -351,7 +327,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
         </>
       )}
 
-      {!isOwner && compensationType === "rental" && (
+      {compensationType === "rental" && (
         <>
           <div className="grid grid-cols-2 gap-3">
             <Field label={`Ставка оренди, ${sym}`}>
@@ -384,7 +360,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
         </>
       )}
 
-      {!isOwner && compensationType === "hourly" && (
+      {compensationType === "hourly" && (
         <>
           <div className="grid grid-cols-2 gap-3">
             <Field label={`Ставка, ${sym}/год`}>
@@ -421,7 +397,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
         </>
       )}
 
-      {!isOwner && compensationType === "salary" && (
+      {compensationType === "salary" && (
         <>
           <div className="grid grid-cols-2 gap-3">
             <Field label={`Ставка, ${sym}/день`}>

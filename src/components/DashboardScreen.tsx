@@ -189,9 +189,20 @@ export default function DashboardScreen() {
 
   const m = useMemo(() => computeMetrics(entries), [entries]);
 
-  // Борги = сума балансів всіх спеціалістів (rollup з Airtable)
+  // Борги = сума master-балансів (скільки салон винен майстрам або навпаки).
+  // Для співвласника в цю суму йде ТІЛЬКИ його master-частина (робота як майстер).
+  // Owner-частина (накопичений прибуток, ownerBalance) — не борг салону, а прибуток
+  // власника; вона відображається окремо в Налаштування → Власники салону.
+  // API: для owner-only `balance === ownerBalance` (обидва поля = ownerPart),
+  // тому таких випадках master-частина = 0.
   const totalDebt = useMemo(
-    () => specialists.reduce((sum, s) => sum + (s.balance || 0), 0),
+    () => specialists.reduce((sum, s) => {
+      if (s.isOwner) {
+        const isOwnerOnly = s.ownerBalance !== undefined && s.balance === s.ownerBalance;
+        return sum + (isOwnerOnly ? 0 : (s.balance || 0));
+      }
+      return sum + (s.balance || 0);
+    }, 0),
     [specialists],
   );
 

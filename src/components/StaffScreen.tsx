@@ -89,16 +89,18 @@ export default function StaffScreen() {
   // різні use cases. Коли відкриваємо — пресет підставляє знак і суму
   // щоб закрити поточний баланс одним натиском.
   const [settlingSpecialist, setSettlingSpecialist] = useState<Specialist | null>(null);
-  // Окремий стан для вилучення прибутку власником. Та сама сутність `debt`,
-  // але семантика інша: для власника balance > 0 = «є що забрати» → пресет
-  // на знак мінус, коментар «Вилучення прибутку».
-  const [withdrawingOwner, setWithdrawingOwner] = useState<Specialist | null>(null);
   // Звіт ЗП майстра за період — окремий модал-пікер, який відкриває
   // публічний URL /report/master/[id]. Не для власника.
   const [reportingSpecialist, setReportingSpecialist] = useState<Specialist | null>(null);
 
-  // Власник — окремо від майстрів. Один на базу (API валідує).
-  const owner = specialists.find((s) => s.isOwner);
+  // Власники — ХОВАЄМО з цього екрану цілком (дохід власника = sensitive,
+  // майстри/адмін не повинні бачити). Керування та баланси — тільки на
+  // Налаштування → Власники салону (OwnershipScreen), куди пізніше повісимо
+  // owner-only guard.
+  // Виняток: власник, який ТАКОЖ працює як майстер — рахуємо звичайним майстром
+  // (його master balance тут ОК показувати, бо це його ЗП за роботу, не прибуток).
+  // Але у списку активних майстрів власники не з'являються — щоб приховати
+  // сам факт співвласності теж.
   const activeList = specialists.filter((s) => s.isActive !== false && !s.isOwner);
   const inactiveList = specialists.filter((s) => s.isActive === false && !s.isOwner);
 
@@ -135,51 +137,9 @@ export default function StaffScreen() {
         <div className="text-center py-12 text-red-500 text-[13px]">Помилка: {error}</div>
       )}
 
-      {/* Owner — окрема секція над майстрами. Прибуток накопичується
-          віртуально (див. /api/specialists → computeOwnerBalance). Кнопка
-          «Вилучення прибутку» відкриває debt-модал з мінусом як пресет. */}
-      {owner && (
-        <div className="mb-5">
-          <div className="text-[11px] text-brand-600/80 uppercase tracking-wider mb-2 px-1 font-semibold">
-            Власник
-          </div>
-          <div
-            onClick={() => openEdit(owner)}
-            className="bg-gradient-to-br from-brand-50 to-white rounded-xl border border-brand-200 px-4 py-3.5 cursor-pointer transition-all hover:shadow-[0_2px_12px_rgba(139,92,246,0.12)] active:scale-[0.99]"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="w-9 h-9 bg-brand-100 rounded-full flex items-center justify-center shrink-0">
-                  <span className="text-brand-700 font-semibold text-[13px]">
-                    {owner.name[0]}
-                  </span>
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[13px] font-semibold text-gray-900 truncate">{owner.name}</div>
-                  <div className="text-[11px] text-brand-600/80 truncate">власник салону</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 shrink-0">
-                <div className="text-right">
-                  <div className="text-[10px] text-brand-500/70 uppercase tracking-wider">Прибуток</div>
-                  <BalanceDisplay balance={owner.balance} fmt={fmt} />
-                </div>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); setWithdrawingOwner(owner); }}
-                  className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-brand-600 text-white hover:bg-brand-700 cursor-pointer transition-colors whitespace-nowrap"
-                  title="Зафіксувати вилучення прибутку власником"
-                >
-                  Вилучити
-                </button>
-                <svg className="w-4 h-4 text-brand-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Блок власників навмисно відсутній на цьому екрані. Дохід власника
+          і кнопка «Вилучити» — на Налаштування → Власники салону, щоб
+          майстри/адміни, які дивляться на команду, не бачили прибуток. */}
 
       {/* Active specialists */}
       <div className="space-y-1.5">
@@ -334,29 +294,10 @@ export default function StaffScreen() {
         />
       )}
 
-      {/* Вилучення прибутку власником — той самий debt-модал.
-          Пресет на знак мінус (власник забирає з каси), сума = поточний
-          прибуток (balance). Коли balance ≤ 0 — сума 0, власник сам
-          введе потрібну (напр. довнесення у мінус = +). */}
       {reportingSpecialist && (
         <MasterReportModal
           specialist={reportingSpecialist}
           onClose={() => setReportingSpecialist(null)}
-        />
-      )}
-
-      {withdrawingOwner && (
-        <CreateEntryModal
-          type="debt"
-          specialists={specialists}
-          onClose={() => setWithdrawingOwner(null)}
-          onCreated={handleSaved}
-          preset={{
-            specialistId: withdrawingOwner.id,
-            amount: Math.max(withdrawingOwner.balance || 0, 0),
-            debtSign: "-",
-            comment: "Вилучення прибутку",
-          }}
         />
       )}
     </div>

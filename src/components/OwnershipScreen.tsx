@@ -8,8 +8,11 @@ import {
   type OwnershipRevision,
 } from "@/lib/hooks";
 import { moneyFormatter, todayISO } from "@/lib/format";
-import { Button, Input, inputCls, labelCls, selectCls } from "./ui";
+import { Button, Input, inputCls, labelCls } from "./ui";
 import SingleDatePicker from "./SingleDatePicker";
+import SearchableSelect from "./SearchableSelect";
+import CreateEntryModal from "./CreateEntryModal";
+import type { Specialist } from "@/lib/types";
 
 /**
  * OwnershipScreen — розподіл прибутку між N власниками.
@@ -35,6 +38,9 @@ export default function OwnershipScreen({ onBack }: { onBack: () => void }) {
   const [prefill, setPrefill] = useState<OwnershipRevision | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  // Вилучення прибутку — debt-запис з пресетом мінус. Живе тут (а не в StaffScreen),
+  // щоб прибуток власника не світився на екрані команди.
+  const [withdrawingOwner, setWithdrawingOwner] = useState<Specialist | null>(null);
 
   const specialistNameById = useMemo(() => {
     const m = new Map<string, string>();
@@ -127,29 +133,40 @@ export default function OwnershipScreen({ onBack }: { onBack: () => void }) {
             <Button onClick={() => openEdit(current)}>Нова ревізія</Button>
           </div>
 
-          {/* Owner balances (інформативно) */}
+          {/* Owner balances + withdraw */}
           {currentOwners.length > 0 && (
             <div className="mt-5 bg-white border border-black/[0.06] rounded-xl p-4">
               <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
                 Поточні баланси власників
               </div>
               <div className="divide-y divide-black/5">
-                {currentOwners.map((o) => (
-                  <div key={o.id} className="flex items-center justify-between py-2">
-                    <div className="text-[13px] text-gray-800">{o.name}</div>
-                    <div className="flex gap-4 text-[13px] tabular-nums">
-                      {o.ownerBalance !== undefined && (
-                        <span className="text-brand-700 font-medium">{fmt(Math.round(o.ownerBalance))}</span>
-                      )}
-                      {o.balance !== o.ownerBalance && o.ownerBalance !== undefined && (
-                        <span className="text-gray-500">майстер {fmt(Math.round(o.balance))}</span>
-                      )}
-                      {o.ownerBalance === undefined && (
-                        <span className="text-brand-700 font-medium">{fmt(Math.round(o.balance))}</span>
-                      )}
+                {currentOwners.map((o) => {
+                  const ownerBal = o.ownerBalance ?? o.balance ?? 0;
+                  const hasMasterSide = o.ownerBalance !== undefined && Math.abs(o.balance ?? 0) > 0.5;
+                  return (
+                    <div key={o.id} className="flex items-center justify-between py-2 gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[13px] text-gray-800 truncate">{o.name}</div>
+                        {hasMasterSide && (
+                          <div className="text-[11px] text-gray-400 tabular-nums">
+                            як майстер: {fmt(Math.round(o.balance ?? 0))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-[13px] tabular-nums text-brand-700 font-medium">
+                        {fmt(Math.round(ownerBal))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setWithdrawingOwner(o as Specialist)}
+                        className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-brand-600 text-white hover:bg-brand-700 cursor-pointer transition-colors whitespace-nowrap"
+                        title="Зафіксувати вилучення прибутку"
+                      >
+                        Вилучити
+                      </button>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -183,6 +200,24 @@ export default function OwnershipScreen({ onBack }: { onBack: () => void }) {
           saving={saving}
         />
       )}
+
+      {withdrawingOwner && (
+        <CreateEntryModal
+          type="debt"
+          specialists={specialists}
+          onClose={() => setWithdrawingOwner(null)}
+          onCreated={() => { reload(); reloadSpecialists(); }}
+          preset={{
+            specialistId: withdrawingOwner.id,
+            amount: Math.max(
+              withdrawingOwner.ownerBalance ?? withdrawingOwner.balance ?? 0,
+              0,
+            ),
+            debtSign: "-",
+            comment: "Вилучення прибутку",
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -209,11 +244,6 @@ function EmptyState({
         <Button onClick={onSeed} disabled={saving}>
           Зафіксувати: {currentOwners[0].name} — 100%
         </Button>
-      ) : currentOwners.length === 0 ? (
-        <div className="text-[12px] text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
-          Спочатку позначте хоча б одного співробітника як власника в розділі
-          «Співробітники» (перемикач «Власник»).
-        </div>
       ) : (
         <Button onClick={onManual} disabled={saving}>
           Ввести частки вручну
@@ -329,11 +359,18 @@ function RevisionModal({
         sharePct: String(s.sharePct),
       }));
     }
-    // За замовчуванням — один рядок з поточним власником на 100, якщо є.
-    const firstOwner = specialists.find((s) => s.isOwner);
-    return firstOwner
-      ? [{ specialistId: firstOwner.id, sharePct: "100" }]
-      : [{ specialistId: "", sharePct: "" }];
+    // За замовчуванням — всі поточні власники, поділені порівну.
+    // Якщо власників ще немає — один порожній рядок.
+    const owners = specialists.filter((s) => s.isOwner);
+    if (owners.length === 0) return [{ specialistId: "", sharePct: "" }];
+    const each = Math.round((100 / owners.length) * 100) / 100;
+    return owners.map((o, i) => ({
+      specialistId: o.id,
+      sharePct:
+        i === owners.length - 1
+          ? String(Math.round((100 - each * (owners.length - 1)) * 100) / 100)
+          : String(each),
+    }));
   });
   const [comment, setComment] = useState("");
   const [localError, setLocalError] = useState("");
@@ -437,18 +474,25 @@ function RevisionModal({
             </button>
           </div>
           <div className="space-y-2">
-            {rows.map((row, i) => (
+            {rows.map((row, i) => {
+              // Не даємо вибрати того, хто вже в інших рядках — уникаємо дублікатів.
+              const usedIds = new Set(
+                rows.map((r, idx) => (idx !== i ? r.specialistId : null)).filter(Boolean) as string[],
+              );
+              const pickableForRow = pickable.filter((s) => !usedIds.has(s.id));
+              return (
               <div key={i} className="flex items-center gap-2">
-                <select
-                  value={row.specialistId}
-                  onChange={(e) => updateRow(i, { specialistId: e.target.value })}
-                  className={`${selectCls} flex-1`}
-                >
-                  <option value="">Оберіть спеціаліста</option>
-                  {pickable.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
+                <div className="flex-1 min-w-0">
+                  <SearchableSelect
+                    items={pickableForRow}
+                    selectedId={row.specialistId}
+                    onSelect={(id) => updateRow(i, { specialistId: id })}
+                    placeholder="Оберіть спеціаліста"
+                    title="Власник"
+                    renderItem={(s) => <span className="text-[14px] text-gray-900 truncate">{s.name}</span>}
+                    renderSelected={(s) => <span className="text-[14px] text-gray-900 font-medium">{s.name}</span>}
+                  />
+                </div>
                 <div className="relative w-[80px]">
                   <Input
                     type="number"
@@ -470,7 +514,8 @@ function RevisionModal({
                   </button>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
 
           <button
