@@ -49,6 +49,14 @@ export async function GET(request: NextRequest) {
     let dateFilter = "";
 
     if (dateFrom && dateTo) {
+      // Захист від ін'єкції у filterByFormula: строге YYYY-MM-DD.
+      const ISO = /^\d{4}-\d{2}-\d{2}$/;
+      if (!ISO.test(dateFrom) || !ISO.test(dateTo)) {
+        return NextResponse.json(
+          { error: "from/to must be YYYY-MM-DD" },
+          { status: 400 },
+        );
+      }
       dateFilter = `AND(IS_AFTER({Дата}, DATEADD('${dateFrom}', -1, 'day')), IS_BEFORE({Дата}, DATEADD('${dateTo}', 1, 'day')))`;
     } else {
       switch (period) {
@@ -76,7 +84,7 @@ export async function GET(request: NextRequest) {
     // Airtable: пуста checkbox = "" (falsy), поставлена = 1. NOT({isCanceled})
     // ловить обидва «не скасовано» стани.
     if (!includeCanceled) {
-      dateFilter = `AND(${dateFilter}, NOT({isCanceled}))`;
+      dateFilter = `AND(${dateFilter}, NOT({${SERVICE_FIELDS.isCanceled}}))`;
     }
 
     // Fetch journal, specialists, services, price list, and sale details in parallel

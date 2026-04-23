@@ -313,7 +313,6 @@ export async function PATCH(request: NextRequest) {
       if (updates.materialsPurchaseCost !== undefined) fields[SERVICE_CATALOG_FIELDS.materialsPurchaseCost] = updates.materialsPurchaseCost;
     }
 
-    console.log("PATCH services-catalog:", id, JSON.stringify(fields));
     await updateRecord(TABLES.servicesCatalog, id, fields);
     return NextResponse.json({ success: true });
   } catch (error) {

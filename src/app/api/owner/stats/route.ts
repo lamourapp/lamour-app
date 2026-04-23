@@ -110,10 +110,22 @@ function parseISO(s: string): Date {
   return new Date(y, m - 1, d);
 }
 
+// Strict YYYY-MM-DD — все, що йде в filterByFormula, має бути валідовано, інакше
+// спецсимвол (`'`, `)`) ламає формулу або відкриває ін'єкцію. Викидаємо на
+// рівні роута, щоб не вставляти невалідні дати в Airtable-запит.
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+function assertISODate(d: string, label: string): void {
+  if (!ISO_DATE_RE.test(d)) {
+    throw new Error(`Invalid ${label} date: expected YYYY-MM-DD`);
+  }
+}
+
 function dateFilter(from: string, to: string): string {
+  assertISODate(from, "from");
+  assertISODate(to, "to");
   // Skip soft-deleted (isCanceled=true) — дашборд має показувати тільки активні
   // записи, консистентно з журналом.
-  return `AND(IS_AFTER({Дата}, DATEADD('${from}', -1, 'day')), IS_BEFORE({Дата}, DATEADD('${to}', 1, 'day')), NOT({isCanceled}))`;
+  return `AND(IS_AFTER({${SERVICE_FIELDS.date}}, DATEADD('${from}', -1, 'day')), IS_BEFORE({${SERVICE_FIELDS.date}}, DATEADD('${to}', 1, 'day')), NOT({${SERVICE_FIELDS.isCanceled}}))`;
 }
 
 function empty(): Aggregates {
@@ -518,6 +530,9 @@ export async function GET(request: NextRequest) {
     const to = sp.get("to");
     if (!from || !to) {
       return NextResponse.json({ error: "from & to required (YYYY-MM-DD)" }, { status: 400 });
+    }
+    if (!ISO_DATE_RE.test(from) || !ISO_DATE_RE.test(to)) {
+      return NextResponse.json({ error: "from/to must be YYYY-MM-DD" }, { status: 400 });
     }
 
     const prev = prevRange(from, to);

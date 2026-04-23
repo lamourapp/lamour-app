@@ -41,9 +41,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Strict YYYY-MM-DD: отруйні символи в from/to поламають filterByFormula.
+    const ISO = /^\d{4}-\d{2}-\d{2}$/;
+    if (!ISO.test(from) || !ISO.test(to)) {
+      return NextResponse.json(
+        { error: "from/to must be YYYY-MM-DD" },
+        { status: 400 },
+      );
+    }
+
     // Date filter + exclude canceled. Майстра фільтруємо на клієнті
     // (Airtable filter з linked-records по id нестабільний).
-    const dateFilter = `AND(IS_AFTER({Дата}, DATEADD('${from}', -1, 'day')), IS_BEFORE({Дата}, DATEADD('${to}', 1, 'day')), NOT({isCanceled}))`;
+    const dateFilter = `AND(IS_AFTER({${SERVICE_FIELDS.date}}, DATEADD('${from}', -1, 'day')), IS_BEFORE({${SERVICE_FIELDS.date}}, DATEADD('${to}', 1, 'day')), NOT({${SERVICE_FIELDS.isCanceled}}))`;
 
     const [settingsRecords, specialistRecords, records, serviceCatalog] =
       await Promise.all([

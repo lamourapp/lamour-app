@@ -247,14 +247,37 @@ export default function ServiceEntryModal({
   const [services, setServices] = useState<ServiceCatalogItem[]>([]);
   const [materials, setMaterials] = useState<CalcMaterial[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  // Окремий стан помилки завантаження каталогу. Раніше .catch() просто
+  // гасив loader — юзер бачив порожні дропдауни без пояснення чому.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    setLoadError(null);
     Promise.all([
-      fetch("/api/services-catalog").then((r) => r.json()),
-      fetch("/api/materials").then((r) => r.json()),
+      fetch("/api/services-catalog").then((r) => {
+        if (!r.ok) throw new Error(`services-catalog HTTP ${r.status}`);
+        return r.json();
+      }),
+      fetch("/api/materials").then((r) => {
+        if (!r.ok) throw new Error(`materials HTTP ${r.status}`);
+        return r.json();
+      }),
     ])
-      .then(([svc, mat]) => { setServices(svc); setMaterials(mat); setLoadingData(false); })
-      .catch(() => setLoadingData(false));
+      .then(([svc, mat]) => {
+        if (cancelled) return;
+        setServices(svc);
+        setMaterials(mat);
+        setLoadingData(false);
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        setLoadError(e instanceof Error ? e.message : "Не вдалось завантажити каталог");
+        setLoadingData(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const selectedService = services.find((s) => s.id === serviceId);
@@ -481,6 +504,40 @@ export default function ServiceEntryModal({
 
         {loadingData ? (
           <div className="py-12 text-center text-[13px] text-gray-400">Завантаження...</div>
+        ) : loadError ? (
+          <div className="py-10 text-center">
+            <div className="text-[13px] text-red-600 mb-3">Не вдалось завантажити каталог послуг/матеріалів.</div>
+            <div className="text-[11px] text-gray-400 mb-4">{loadError}</div>
+            <button
+              type="button"
+              onClick={() => {
+                setLoadingData(true);
+                setLoadError(null);
+                Promise.all([
+                  fetch("/api/services-catalog").then((r) => {
+                    if (!r.ok) throw new Error(`services-catalog HTTP ${r.status}`);
+                    return r.json();
+                  }),
+                  fetch("/api/materials").then((r) => {
+                    if (!r.ok) throw new Error(`materials HTTP ${r.status}`);
+                    return r.json();
+                  }),
+                ])
+                  .then(([svc, mat]) => {
+                    setServices(svc);
+                    setMaterials(mat);
+                    setLoadingData(false);
+                  })
+                  .catch((e: unknown) => {
+                    setLoadError(e instanceof Error ? e.message : "Не вдалось завантажити каталог");
+                    setLoadingData(false);
+                  });
+              }}
+              className="bg-brand-600 text-white rounded-[10px] font-medium text-[13px] px-4 py-2 cursor-pointer hover:bg-brand-700 transition-colors"
+            >
+              Спробувати ще раз
+            </button>
+          </div>
         ) : (
           <>
             {/* Date */}
