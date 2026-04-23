@@ -106,9 +106,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Не видаємо звіт на власника — він не «майстер». Для UI це помилка
-    // інтеграції. Для кінцевого користувача — просто не буде кнопки.
-    if (specRecord.fields[SPECIALIST_FIELDS.isOwner] === true) {
+    // Блокуємо тільки «чистих» власників (compensationType=owner) — їм нема
+    // що показати як майстру. Master+owner (isOwner=true, але compensationType
+    // salary/hourly/commission) — повноцінно отримує звіт по своїй master-
+    // частині. Раніше ця перевірка відтинала й Аліну.
+    if (
+      (specRecord.fields[SPECIALIST_FIELDS.compensationType] as string) === "owner"
+    ) {
       return NextResponse.json(
         { error: "Report not available for owner" },
         { status: 400 },

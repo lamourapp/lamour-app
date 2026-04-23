@@ -66,7 +66,11 @@ function compensationHighlight(type: Specialist["compensationType"]): string {
 }
 
 function BalanceDisplay({ balance, fmt }: { balance: number; fmt: Fmt }) {
-  if (balance === 0) {
+  // Грошові залишки можуть накопичувати FP-хвіст (0.0000001) від сум через
+  // відсотки. Строге === 0 не ловить — юзер бачив «-0,00». Порівнюємо в
+  // копійках: якщо |balance| < 0.005 → це рівно нуль для відображення.
+  const isZero = Math.abs(balance) < 0.005;
+  if (isZero) {
     return <div className="text-[13px] font-semibold text-gray-400 tabular-nums">{fmt(0)}</div>;
   }
   if (balance > 0) {
