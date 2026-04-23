@@ -12,9 +12,19 @@ export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json().catch(() => ({}));
-    const newPin = typeof body?.newPin === "string" ? body.newPin : "";
-    const currentPin = typeof body?.currentPin === "string" ? body.currentPin : "";
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Malformed JSON body" }, { status: 400 });
+    }
+    const readStr = (k: string): string => {
+      if (!body || typeof body !== "object") return "";
+      const v = (body as Record<string, unknown>)[k];
+      return typeof v === "string" ? v : "";
+    };
+    const newPin = readStr("newPin");
+    const currentPin = readStr("currentPin");
 
     const records = await fetchAllRecords(TABLES.settings, {
       filterByFormula: `{key} = "current"`,

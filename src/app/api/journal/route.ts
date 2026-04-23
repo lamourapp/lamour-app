@@ -402,6 +402,12 @@ export async function POST(request: NextRequest) {
         if (!specialistId) return NextResponse.json({ error: "specialistId is required" }, { status: 400 });
         const saleItems = body.saleItems as { productId: string; quantity: number; salePrice: number; costPrice: number }[] | undefined;
 
+        // Strict numeric sanity-check. До міграції на Postgres у нас немає FK,
+        // тож хоча б типи і діапазони валідуємо — інакше клієнт може надіслати
+        // salePrice: -1000 чи quantity: "abc" і воно запишеться в Airtable.
+        const isFiniteNonNegative = (n: unknown): n is number =>
+          typeof n === "number" && Number.isFinite(n) && n >= 0;
+
         if (saleItems && saleItems.length > 0) {
           // Multi-product sale: create detail records, sum totals
           const detailIds: string[] = [];
@@ -409,8 +415,21 @@ export async function POST(request: NextRequest) {
           let totalSalePrice = 0;
           let totalCostPrice = 0;
 
-          for (const item of saleItems) {
-            if (!item.productId || item.quantity <= 0) continue;
+          for (const [idx, item] of saleItems.entries()) {
+            if (!item.productId || typeof item.productId !== "string") continue;
+            if (!isFiniteNonNegative(item.quantity) || item.quantity <= 0) continue;
+            if (!isFiniteNonNegative(item.salePrice)) {
+              return NextResponse.json(
+                { error: `saleItems[${idx}].salePrice must be a non-negative number` },
+                { status: 400 },
+              );
+            }
+            if (!isFiniteNonNegative(item.costPrice)) {
+              return NextResponse.json(
+                { error: `saleItems[${idx}].costPrice must be a non-negative number` },
+                { status: 400 },
+              );
+            }
             const lineTotal = item.salePrice * item.quantity;
             const lineCost = item.costPrice * item.quantity;
             const detail = await createRecord(TABLES.saleDetails, {
@@ -434,6 +453,15 @@ export async function POST(request: NextRequest) {
           fields[SERVICE_FIELDS.fixedCostPrice] = totalCostPrice;
         } else if (body.productId) {
           // Legacy single-product sale (backward compat)
+          if (typeof body.productId !== "string") {
+            return NextResponse.json({ error: "productId must be a string" }, { status: 400 });
+          }
+          if (body.salePrice !== undefined && !isFiniteNonNegative(body.salePrice)) {
+            return NextResponse.json({ error: "salePrice must be a non-negative number" }, { status: 400 });
+          }
+          if (body.costPrice !== undefined && !isFiniteNonNegative(body.costPrice)) {
+            return NextResponse.json({ error: "costPrice must be a non-negative number" }, { status: 400 });
+          }
           fields[SERVICE_FIELDS.sales] = [body.productId];
           if (body.salePrice) fields[SERVICE_FIELDS.fixedSalePrice] = body.salePrice;
           if (body.costPrice) fields[SERVICE_FIELDS.fixedCostPrice] = body.costPrice;

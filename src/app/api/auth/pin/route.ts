@@ -13,8 +13,16 @@ export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json().catch(() => ({}));
-    const pin = typeof body?.pin === "string" ? body.pin : "";
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Malformed JSON body" }, { status: 400 });
+    }
+    const pin =
+      body && typeof body === "object" && "pin" in body && typeof (body as { pin: unknown }).pin === "string"
+        ? (body as { pin: string }).pin
+        : "";
 
     const records = await fetchAllRecords(TABLES.settings, {
       filterByFormula: `{key} = "current"`,
