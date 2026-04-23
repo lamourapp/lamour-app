@@ -38,11 +38,16 @@ export interface OwnershipShare {
 
 export interface OwnershipRevision {
   date: string; // ISO YYYY-MM-DD
+  /** Airtable createdTime найстаршого рядка групи — tie-breaker на одну дату. */
+  createdTime: string;
   comment: string;
   shares: OwnershipShare[];
   /** Id-и окремих рядків Airtable — можуть знадобитись для «скасувати помилкову ревізію». */
   recordIds: string[];
 }
+
+/** Вікно групування batch-креата ревізії (рядки 1-ї ревізії створюються в межах секунд). */
+const REVISION_GROUP_WINDOW_MS = 60_000;
 
 function parseDate(raw: unknown): string {
   if (typeof raw !== "string") return "";
@@ -62,40 +67,71 @@ function parseLink(raw: unknown): string | null {
 }
 
 /**
- * Групування пласких рядків Airtable у ревізії (за датою).
- * Якщо одна дата має кілька coment-ів — беремо перший непорожній.
+ * Групування пласких рядків Airtable у ревізії.
+ *
+ * Ключ групи = (date, createdTime-бакет). Рядки однієї ревізії створюються
+ * batch-кретом у межах секунд, тому floor до 60с об'єднує їх; а ревізія,
+ * створена пізніше на ту ж дату (навіть через годину), опиняється в
+ * окремій групі — це tie-breaker на колізію однакових дат.
+ *
+ * Порядок списку: від найсвіжішої до найстаршої ((date, createdTime) desc).
+ * UI очікує, що [0] = «поточний активний розподіл», решта — історія.
  */
 function groupIntoRevisions(
-  records: { id: string; fields: Record<string, unknown> }[],
+  records: { id: string; fields: Record<string, unknown>; createdTime?: string }[],
   specialistNameById: Map<string, string>,
 ): OwnershipRevision[] {
-  const byDate = new Map<string, OwnershipRevision>();
+  // Сортуємо asc по (date, createdTime) — так ми можемо послідовно «приростити»
+  // відкриту групу, а нове входження з розривом >WINDOW відкриває нову.
+  const sorted = [...records].sort((a, b) => {
+    const ad = parseDate(a.fields[OWNERSHIP_FIELDS.date]);
+    const bd = parseDate(b.fields[OWNERSHIP_FIELDS.date]);
+    if (ad !== bd) return ad.localeCompare(bd);
+    const at = a.createdTime || "";
+    const bt = b.createdTime || "";
+    return at.localeCompare(bt);
+  });
 
-  for (const r of records) {
+  const revs: OwnershipRevision[] = [];
+  let current: OwnershipRevision | null = null;
+  let currentAnchorMs = 0;
+
+  for (const r of sorted) {
     const f = r.fields;
     const date = parseDate(f[OWNERSHIP_FIELDS.date]);
     const specialistId = parseLink(f[OWNERSHIP_FIELDS.specialist]);
     const sharePct = (f[OWNERSHIP_FIELDS.sharePct] as number) || 0;
     const comment = (f[OWNERSHIP_FIELDS.comment] as string) || "";
+    const createdTime = r.createdTime || "1970-01-01T00:00:00.000Z";
 
     if (!date || !specialistId) continue;
 
-    let rev = byDate.get(date);
-    if (!rev) {
-      rev = { date, comment: "", shares: [], recordIds: [] };
-      byDate.set(date, rev);
+    const ms = Date.parse(createdTime);
+    const sameGroup =
+      current !== null &&
+      current.date === date &&
+      ms - currentAnchorMs <= REVISION_GROUP_WINDOW_MS;
+
+    if (!sameGroup) {
+      current = { date, createdTime, comment: "", shares: [], recordIds: [] };
+      revs.push(current);
+      currentAnchorMs = ms;
     }
-    if (!rev.comment && comment) rev.comment = comment;
-    rev.shares.push({
+    if (!current!.comment && comment) current!.comment = comment;
+    current!.shares.push({
       specialistId,
       specialistName: specialistNameById.get(specialistId),
       sharePct,
     });
-    rev.recordIds.push(r.id);
+    current!.recordIds.push(r.id);
   }
 
-  // desc by date — зверху найсвіжіша ревізія (UI очікує такий порядок).
-  return Array.from(byDate.values()).sort((a, b) => b.date.localeCompare(a.date));
+  // desc — найсвіжіша ревізія зверху.
+  revs.sort((a, b) => {
+    if (a.date !== b.date) return b.date.localeCompare(a.date);
+    return b.createdTime.localeCompare(a.createdTime);
+  });
+  return revs;
 }
 
 export async function GET() {

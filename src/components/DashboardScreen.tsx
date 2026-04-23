@@ -190,13 +190,17 @@ export default function DashboardScreen() {
   const m = useMemo(() => computeMetrics(entries), [entries]);
 
   // Борги = сума балансів МАЙСТРІВ (без власників). Власники в «Команді» не
-  // відображаються (приватність прибутку), тому і в дашборді їхні баланси не
-  // включаємо — інакше цифра в дашборді не зійдеться з тим, що видно на
-  // екрані «Команда». Master-частина майстра-співвласника теж сюди не йде:
-  // якщо потрібно розрахуватись з ним як з майстром — видно в OwnershipScreen
-  // («як майстер: X») або в журналі.
+  // ЗП-борг командою — сума master-частини всіх, хто має майстерську роль
+  // (compensationType ≠ "owner"). Майстер-співвласник потрапляє сюди зі
+  // своїм master-балансом (за послуги); owner-частина прибутку лишається
+  // в OwnershipScreen. «Чисті» власники з compensationType="owner" сюди
+  // не йдуть взагалі — їхній прибуток sensitive і в цей KPI не міксується.
   const totalDebt = useMemo(
-    () => specialists.reduce((sum, s) => (s.isOwner ? sum : sum + (s.balance || 0)), 0),
+    () =>
+      specialists.reduce(
+        (sum, s) => (s.compensationType === "owner" ? sum : sum + (s.balance || 0)),
+        0,
+      ),
     [specialists],
   );
 

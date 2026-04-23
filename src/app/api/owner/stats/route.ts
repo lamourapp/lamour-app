@@ -9,6 +9,7 @@ import {
   CATEGORY_FIELDS,
   SETTINGS_FIELDS,
 } from "@/lib/airtable-fields";
+import { ROW_METRICS_SOURCE_FIELDS, computeRowMetrics } from "@/lib/service-row";
 
 export const runtime = "nodejs";
 
@@ -88,23 +89,15 @@ interface StatsResponse {
   range: { from: string; to: string };
 }
 
+// Сирі поля — метрики (netSalon, incomeSales, ...) рахуємо через computeRowMetrics.
 const FIELDS = [
   SERVICE_FIELDS.date,
   SERVICE_FIELDS.master,
   SERVICE_FIELDS.service,
   SERVICE_FIELDS.sales,
-  SERVICE_FIELDS.totalServicePrice,
-  SERVICE_FIELDS.totalMaterialsCost,
-  SERVICE_FIELDS.totalSalePrice,
-  SERVICE_FIELDS.incomeSales,
-  SERVICE_FIELDS.incomeMaterials,
-  SERVICE_FIELDS.salonForService,
   SERVICE_FIELDS.saleDetails,
-  SERVICE_FIELDS.netSalon,
-  SERVICE_FIELDS.masterPayTotal,
-  SERVICE_FIELDS.expenseAmount,
   SERVICE_FIELDS.expenseType,
-  SERVICE_FIELDS.debtAmount,
+  ...ROW_METRICS_SOURCE_FIELDS,
 ];
 
 function fmt(d: Date): string {
@@ -145,6 +138,7 @@ function aggregate(records: Row[], ownerId?: string): Aggregates {
   const agg = empty();
   for (const r of records) {
     const f = r.fields;
+    const metrics = computeRowMetrics(f);
     const expense = (f[SERVICE_FIELDS.expenseAmount] as number | undefined) || 0;
     const debt = (f[SERVICE_FIELDS.debtAmount] as number | undefined) || 0;
     const salesLinks = f[SERVICE_FIELDS.sales] as string[] | undefined;
@@ -175,25 +169,22 @@ function aggregate(records: Row[], ownerId?: string): Aggregates {
       // Service or sale (or combined row): турнувер — з окремих полів,
       // чисті доходи — з формул (= 0, коли відповідної операції немає).
       if (type === "sale") {
-        agg.revenueSales += (f[SERVICE_FIELDS.totalSalePrice] as number) || 0;
+        agg.revenueSales += metrics.totalSalePrice;
       } else {
         // Service row: split «Всього вартість послуги» = робота + матеріали.
-        const total = (f[SERVICE_FIELDS.totalServicePrice] as number) || 0;
-        const mats = (f[SERVICE_FIELDS.totalMaterialsCost] as number) || 0;
-        agg.revenueMaterials += mats;
-        agg.revenueServices += Math.max(total - mats, 0);
+        agg.revenueMaterials += metrics.totalMaterialsCost;
+        agg.revenueServices += Math.max(metrics.totalServicePrice - metrics.totalMaterialsCost, 0);
         // Комбінована послуга+продаж — теж тягнемо оборот продажів.
-        agg.revenueSales += (f[SERVICE_FIELDS.totalSalePrice] as number) || 0;
+        agg.revenueSales += metrics.totalSalePrice;
       }
-      agg.netSales += (f[SERVICE_FIELDS.incomeSales] as number) || 0;
-      agg.netMaterials += (f[SERVICE_FIELDS.incomeMaterials] as number) || 0;
+      agg.netSales += metrics.incomeSales;
+      agg.netMaterials += metrics.incomeMaterials;
     }
 
-    // Чистий дохід салону — формула, що покриває і послуги, і продажі, і матеріали.
-    // НЕ віднімає витрати (це робить окремо `Чистий дохід салону` у формулі = Всього - Сума витрат).
-    // Витрати з цієї формули віднімаються у самих рядках-витратах (там решта нулі, а `Сума витрат` > 0 робить результат від'ємним).
-    agg.netSalon += (f[SERVICE_FIELDS.netSalon] as number) || 0;
-    agg.masterPay += (f[SERVICE_FIELDS.masterPayTotal] as number) || 0;
+    // Чистий дохід салону — рахується через pricing.ts (єдина точка правди).
+    // Покриває і послуги, і продажі, і матеріали, за мінусом витрат запису.
+    agg.netSalon += metrics.netSalon;
+    agg.masterPay += metrics.masterPayTotal;
   }
 
   const totalRevenue = agg.revenueServices + agg.revenueMaterials + agg.revenueSales;
@@ -230,12 +221,11 @@ function daily(records: Row[], from: string, to: string): { date: string; revenu
     const bucket = map.get(date) || { revenue: 0, net: 0 };
     const expense = (f[SERVICE_FIELDS.expenseAmount] as number | undefined) || 0;
     const debt = (f[SERVICE_FIELDS.debtAmount] as number | undefined) || 0;
+    const metrics = computeRowMetrics(f);
     if (expense === 0 && debt === 0) {
-      bucket.revenue +=
-        ((f[SERVICE_FIELDS.totalServicePrice] as number) || 0) +
-        ((f[SERVICE_FIELDS.totalSalePrice] as number) || 0);
+      bucket.revenue += metrics.totalServicePrice + metrics.totalSalePrice;
     }
-    bucket.net += (f[SERVICE_FIELDS.netSalon] as number) || 0;
+    bucket.net += metrics.netSalon;
     map.set(date, bucket);
   }
 
@@ -278,15 +268,14 @@ function bySpecialist(records: Row[], nameMap: Map<string, string>): SpecialistR
     const serviceLinks = f[SERVICE_FIELDS.service] as string[] | undefined;
     const isSaleOnly = salesLinks && salesLinks.length > 0 && (!serviceLinks || serviceLinks.length === 0);
 
+    const metrics = computeRowMetrics(f);
     if (!isSaleOnly) {
-      const total = (f[SERVICE_FIELDS.totalServicePrice] as number) || 0;
-      const mats = (f[SERVICE_FIELDS.totalMaterialsCost] as number) || 0;
-      row.revenueServices += Math.max(total - mats, 0);
+      row.revenueServices += Math.max(metrics.totalServicePrice - metrics.totalMaterialsCost, 0);
     }
-    row.netMaterials += (f[SERVICE_FIELDS.incomeMaterials] as number) || 0;
-    row.netSales += (f[SERVICE_FIELDS.incomeSales] as number) || 0;
-    row.masterPay += (f[SERVICE_FIELDS.masterPayTotal] as number) || 0;
-    row.netSalon += (f[SERVICE_FIELDS.netSalon] as number) || 0;
+    row.netMaterials += metrics.incomeMaterials;
+    row.netSales += metrics.incomeSales;
+    row.masterPay += metrics.masterPayTotal;
+    row.netSalon += metrics.netSalon;
   }
 
   return [...map.values()].sort((a, b) => b.netSalon - a.netSalon);
@@ -319,17 +308,14 @@ function byService(records: Row[], nameMap: Map<string, string>): ServiceRow[] {
     }
 
     row.count += 1;
-    const total = (f[SERVICE_FIELDS.totalServicePrice] as number) || 0;
+    const metrics = computeRowMetrics(f);
     // Оборот = повна вартість послуги (робота + матеріали, тобто все що клієнт заплатив).
     // Це консистентно з тим, що net менший за оборот.
-    row.revenue += total;
-    row.netMaterials += (f[SERVICE_FIELDS.incomeMaterials] as number) || 0;
-    // Канонічний `Чистий дохід салону` покриває послугу + продажі + матеріали в одному рядку.
+    row.revenue += metrics.totalServicePrice;
+    row.netMaterials += metrics.incomeMaterials;
+    // Канонічний netSalon покриває послугу + продажі + матеріали в одному рядку.
     // Для byService треба відняти чисту sale-частину, щоб атрибуція була тільки за послугу.
-    // `Дохід Продажі` — net від продажу товарів (ціна - закупка - оплата майстру%).
-    const canonNet = (f[SERVICE_FIELDS.netSalon] as number) || 0;
-    const netSales = (f[SERVICE_FIELDS.incomeSales] as number) || 0;
-    row.netSalon += canonNet - netSales;
+    row.netSalon += metrics.netSalon - metrics.incomeSales;
   }
 
   return [...map.values()].sort((a, b) => b.netSalon - a.netSalon);
@@ -349,8 +335,8 @@ function byServiceType(records: Row[], serviceToCategoryName: Map<string, string
     // Resolve service → category name via pre-built map (replaces deprecated `Вид послуги` lookup).
     const type = serviceToCategoryName.get(serviceLinks[0]) || "Без виду";
 
-    const total = (f[SERVICE_FIELDS.totalServicePrice] as number) || 0;
-    map.set(type, (map.get(type) || 0) + total);
+    const metrics = computeRowMetrics(f);
+    map.set(type, (map.get(type) || 0) + metrics.totalServicePrice);
   }
   return [...map.entries()]
     .map(([name, value]) => ({ name, value }))

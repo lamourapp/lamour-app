@@ -6,6 +6,7 @@ import {
   SERVICE_CATALOG_FIELDS,
   SETTINGS_FIELDS,
 } from "@/lib/airtable-fields";
+import { ROW_METRICS_SOURCE_FIELDS, computeRowMetrics } from "@/lib/service-row";
 
 /**
  * Звіт ЗП майстра за період — публічний endpoint (без PIN), лінк
@@ -70,19 +71,17 @@ export async function GET(request: NextRequest) {
         fetchAllRecords(TABLES.services, {
           filterByFormula: dateFilter,
           sort: [{ field: SERVICE_FIELDS.date, direction: "desc" }],
+          // Обчислювані значення (masterPctFor*, masterPayTotal) беремо з
+          // computeRowMetrics, не з Airtable-formula.
           fields: [
             SERVICE_FIELDS.date,
             SERVICE_FIELDS.master,
             SERVICE_FIELDS.service,
-            SERVICE_FIELDS.masterPayTotal,
-            SERVICE_FIELDS.masterPctForServices,
-            SERVICE_FIELDS.masterPctForMaterials,
             SERVICE_FIELDS.fixedMasterPctForSale,
-            SERVICE_FIELDS.debtAmount,
-            SERVICE_FIELDS.expenseAmount,
             SERVICE_FIELDS.sales,
             SERVICE_FIELDS.saleDetails,
             SERVICE_FIELDS.comments,
+            ...ROW_METRICS_SOURCE_FIELDS,
           ],
         }),
         fetchAllRecords(TABLES.servicesCatalog, {
@@ -211,12 +210,10 @@ export async function GET(request: NextRequest) {
       // до майстра — це салонна операція.
       if (expense !== 0) continue;
 
-      const serviceShare =
-        (f[SERVICE_FIELDS.masterPctForServices] as number) || 0;
-      const materialShare =
-        (f[SERVICE_FIELDS.masterPctForMaterials] as number) || 0;
-      const salesShare =
-        (f[SERVICE_FIELDS.fixedMasterPctForSale] as number) || 0;
+      const metrics = computeRowMetrics(f);
+      const serviceShare = metrics.masterPayForService;
+      const materialShare = metrics.masterPayForMaterials;
+      const salesShare = (f[SERVICE_FIELDS.fixedMasterPctForSale] as number) || 0;
 
       // Якщо є serviceLinks або materialShare/serviceShare > 0 → послуга/оренда.
       // Якщо тільки sales/saleDetails і salesShare → продаж.

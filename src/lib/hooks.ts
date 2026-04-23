@@ -1,5 +1,17 @@
 "use client";
 
+/* eslint-disable react-hooks/set-state-in-effect --
+ * Всі фетч-хуки тут побудовані за патерном:
+ *   const reload = useCallback(() => { setLoading(true); fetch(...).then(setData) }, [deps]);
+ *   useEffect(() => { reload(); }, [reload]);
+ * ESLint (eslint-config-next 16.x, нове правило) вважає синхронний виклик
+ * `reload()` в useEffect setState-in-effect'ом через transitive setLoading/setError.
+ * Патерн експонує `reload` як публічне API (викликається напр. з CatalogScreen),
+ * тому тривіально інлайн-нути fetch в useEffect не можна. Міграція на
+ * useSyncExternalStore (як для useSettings) або SWR — окремий рефактор, відкладений.
+ * До того моменту правило вимкнене пофайлово, щоб не плодити //disable на кожен хук.
+ */
+
 import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import type { Specialist, JournalEntry } from "./types";
 import type { Settings } from "@/app/api/settings/route";
@@ -429,6 +441,8 @@ export interface OwnershipShare {
 
 export interface OwnershipRevision {
   date: string;
+  /** Airtable createdTime найстаршого рядка ревізії — розрізняє кілька ревізій на одну дату. */
+  createdTime: string;
   comment: string;
   shares: OwnershipShare[];
   recordIds: string[];

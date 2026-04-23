@@ -6,6 +6,9 @@ import { Button, Field, Input, Modal, Segmented, type SegmentedOption } from "./
 import { useSettings, useSpecializations, useCategories } from "@/lib/hooks";
 import SingleDatePicker from "./SingleDatePicker";
 import { currencySymbol } from "@/lib/format";
+// Variant A (2026-04): % салону за послугу редагується для всіх типів оплати,
+// тому `defaultSalonPctForService` вже не використовується тут — лишився в
+// pricing.ts як довідник default-значень для нових записів.
 
 interface SpecialistModalProps {
   specialist?: Specialist & { conditions?: number; birthdayRaw?: string };
@@ -13,7 +16,9 @@ interface SpecialistModalProps {
   onSaved: () => void;
 }
 
-const COMP_TYPES: SegmentedOption<CompensationType>[] = [
+type EditableCompensationType = Exclude<CompensationType, "owner">;
+
+const COMP_TYPES: SegmentedOption<EditableCompensationType>[] = [
   { id: "commission", label: "Комісія (%)" },
   { id: "rental", label: "Оренда" },
   { id: "hourly", label: "Погодинна" },
@@ -48,12 +53,20 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
   // прапорець на записі виставляється автоматично з ревізій розподілу прибутку
   // (див. POST /api/ownership → syncIsOwner).
   const isOwner = specialist?.isOwner === true;
-  const [compensationType, setCompensationType] = useState<CompensationType>(
+  const [compensationType, setCompensationType] = useState<EditableCompensationType>(
     specialist?.compensationType && specialist.compensationType !== "owner"
       ? specialist.compensationType
       : "commission",
   );
-  const [serviceCommission, setServiceCommission] = useState(specialist?.serviceCommission ?? 30);
+  // serviceCommission (Variant A): для commission — це % салону за послугу
+  // (default 30). Для salary/hourly/rental — теж % салону, але default 100
+  // (салон забирає все, майстер не отримує комісії з послуги). Адмін може
+  // знизити до, напр., 70 — тоді salary-майстер отримає 30% бонусу саме з
+  // тих послуг, які виконав особисто. Див. `masterPayTotal` в pricing.ts.
+  const [serviceCommission, setServiceCommission] = useState(
+    specialist?.serviceCommission ??
+      (specialist?.compensationType === "commission" || !specialist ? 30 : 100),
+  );
   const [salesCommission, setSalesCommission] = useState(specialist?.salesCommission ?? 10);
   const [productSalesCommission, setProductSalesCommission] = useState(specialist?.productSalesCommission ?? 10);
   const [conditions, setConditions] = useState(specialist?.conditions ?? 0);
@@ -114,13 +127,20 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
         specializationIds,
         birthday: birthday || undefined,
         compensationType,
-        // For rental masters we force 100% salon cut so the rental line
-        // ("Оренда робочого місця" as a service) counts fully as salon income.
-        // Commission masters use their configured %. Salary masters = 0.
-        serviceCommission:
-          compensationType === "commission" ? serviceCommission :
-          compensationType === "rental" ? 100 :
-          0,
+        // `% cалону за послугу` — скільки салон забирає з (TSP−TMC) у формулі
+        // коли FM=0. Для rental/salary/hourly правильно = 100, бо:
+        //   - rental: послуга це сама «оренда», все салону
+        //   - salary: зарплата — окремий expense, послуга → 100% салону
+        //   - hourly: FM (fixed master pay) через IF-гілку перебиває; якщо
+        //     FM=0 — справедливо віддати все салону, а не зануляти дохід.
+        // Commission — значення з форми (за замовч. 30).
+        // Історично (до 2026-04) писалось 0 — це обнуляло salonIncome для
+        // salary-майстрів. Див. `defaultSalonPctForService` в pricing.ts.
+        // Variant A: зберігаємо як є (редагується для всіх типів). Для
+        // salary/hourly/rental default=100 → салон забирає 100% (майстер
+        // не отримує комісії). Якщо адмін знизив до 70 на salary-майстрі
+        // — він отримає 30% бонусу за послуги, які зробив сам.
+        serviceCommission,
         salesCommission,
         productSalesCommission,
         conditions: compensationType !== "commission" ? conditions : 0,
@@ -357,6 +377,18 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
               max={100}
             />
           </Field>
+          <Field
+            label="% салону за послугу"
+            hint="100 = салон забирає весь дохід з послуги (стандарт для орендаря). Знизь, якщо ділиш дохід з послуг окремо від оренди."
+          >
+            <Input
+              type="number"
+              value={serviceCommission}
+              onChange={(e) => setServiceCommission(Number(e.target.value))}
+              min={0}
+              max={100}
+            />
+          </Field>
         </>
       )}
 
@@ -386,6 +418,18 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
               type="number"
               value={productSalesCommission}
               onChange={(e) => setProductSalesCommission(Number(e.target.value))}
+              min={0}
+              max={100}
+            />
+          </Field>
+          <Field
+            label="% салону за послугу (якщо FM=0)"
+            hint="100 = весь дохід салону (стандарт). Ставка × години перебиває це правило."
+          >
+            <Input
+              type="number"
+              value={serviceCommission}
+              onChange={(e) => setServiceCommission(Number(e.target.value))}
               min={0}
               max={100}
             />
@@ -427,9 +471,22 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
               max={100}
             />
           </Field>
+          <Field
+            label="% салону за послугу"
+            hint="100 = майстер не отримує комісії з власних послуг (стандарт для salary). Знизь, якщо адмін-майстер має отримувати бонус за послуги, зроблені особисто."
+          >
+            <Input
+              type="number"
+              value={serviceCommission}
+              onChange={(e) => setServiceCommission(Number(e.target.value))}
+              min={0}
+              max={100}
+            />
+          </Field>
           <div className="text-[11px] text-gray-500 leading-relaxed bg-amber-50/50 border border-amber-100 rounded-lg px-3 py-2">
-            💡 Ставка — це сума, яку <strong>салон платить</strong> спеціалісту.
-            Виплати ЗП записуються в журнал як <strong>витрата</strong> з видом &quot;Зарплата&quot;.
+            💡 Ставка — це сума, яку <strong>салон платить</strong> спеціалісту (нараховується через
+            кнопку «Нарахувати ЗП» на картці). Якщо майстер-адмін виконує послуги сам і отримує за
+            них %, знизь «% салону за послугу» нижче 100.
           </div>
         </>
       )}

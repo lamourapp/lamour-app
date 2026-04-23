@@ -15,29 +15,39 @@
 // ─── Послуги (journal) / tblbscwomS21IlWy6 ─────────────────────────────────
 // Уся журнальна активність: послуги, продажі, витрати, борги. Тип визначається
 // тим, яке поле заповнене (Сума витрат > 0 → витрата, і т.д.).
+//
+// ⚠ SHADOW FORMULA FIELDS (Airtable-side): ці поля ще існують у базі як
+// formula/rollup (Всього вартість послуги, Салону за послугу, Оплата
+// майстру - всього, Загальна вартість роботи/матеріалів, % майстру/салону
+// за послуги/матеріали, Дохід Продажі/Матеріали, Чистий дохід салону,
+// Всього ціна продажі). НЕ додавай їх сюди і не читай. Єдине джерело
+// правди — `pricing.ts` + `computeRowMetrics` у `service-row.ts`. Поля
+// лишаються в Airtable як canary до фінальної міграції на Postgres;
+// після неї їх можна прибрати з бази без змін у коді.
+//
 export const SERVICE_FIELDS = {
   date: "Дата",
   master: "Майстер",
   service: "Послуга",
-  totalServicePrice: "Всього вартість послуги",
   addonServicePrice: "Доповнення",
-  salonForService: "Салону за послугу",
-  masterPayTotal: "Оплата майстру - всього",
   expenseAmount: "Сума витрат",
   expenseType: "Вид витрати",
   debtAmount: "Cума боргу", // (так, в Airtable з латинською С)
   sales: "Продажі",
   saleDetails: "Продажі деталі",
-  totalSalePrice: "Всього ціна продажі",
   addonSalePrice: "Доповнення(продажі)",
   created: "Created",
   paymentType: "вид оплати",
   comments: "Коментарі",
-  totalWorkCost: "Загальна вартість роботи",
-  totalMaterialsCost: "Загальна вартість матеріалів",
-  masterPctForServices: "% майстру за послуги",
-  masterPctForMaterials: "% майстру за матеріали",
-  salonPctForMaterials: "% салону за матеріали",
+  // Lookup/rollup-поля з пов'язаних таблиць (потрібні для `computeRowMetrics`,
+  // щоб рахувати незалежно від Airtable formula-fields). Це НЕ формули —
+  // це сирі значення, просто витягнуті через lookup/rollup.
+  hoursLookup: "К-сть годин", // lookup з каталогу послуг (snapshot тривалості)
+  extraMaterialsCalcRollup: "Додаткові матеріали(Калькуляція) new", // rollup з Замовлень
+  masterPctForMaterialsLookup: "% майстру за матеріали(відсоток)", // lookup з Майстра
+  salonPctForServiceLookup: "% cалону за послугу", // lookup з Майстра (латинська c!)
+  masterCompensationTypeLookup: "Тип оплати (from Майстер)", // lookup з Майстра
+  // Сирі (non-formula) поля журналу.
   fixedMasterPctForSale: "Фікс. % майстру за продаж",
   fixedSalonPctForSale: "Фікс. % салону за продаж",
   additionalMaterials: "Додаткові матеріали(Калькуляція)",
@@ -50,9 +60,6 @@ export const SERVICE_FIELDS = {
   orders: "Замовлення",
   fixedSalePrice: "Фікс. ціна продажу",
   fixedCostPrice: "Фікс. ціна закупки",
-  incomeSales: "Дохід Продажі",
-  incomeMaterials: "Дохід Матеріали",
-  netSalon: "Чистий дохід салону",
   /**
    * Soft-delete flag. true = запис «скасовано» — фільтруємо з усіх GET-ів і
    * агрегацій. Не видаляємо фізично, щоб не ламати історичні числа й мати

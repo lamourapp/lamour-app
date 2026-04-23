@@ -9,6 +9,7 @@ import {
   CATEGORY_FIELDS,
   ORDER_FIELDS,
 } from "@/lib/airtable-fields";
+import { ROW_METRICS_SOURCE_FIELDS, computeRowMetrics } from "@/lib/service-row";
 
 // Intl.DateTimeFormat constructor is surprisingly slow; cache per tz so each
 // request with the same tz reuses the formatter across invocations.
@@ -83,37 +84,24 @@ export async function GET(request: NextRequest) {
       fetchAllRecords(TABLES.services, {
         filterByFormula: dateFilter,
         sort: [{ field: SERVICE_FIELDS.date, direction: "desc" }],
+        // Сирі поля для pricing.ts + метадані рядка. Всі *обчислювані* значення
+        // (totalServicePrice, salonForService, masterPayTotal, masterPctFor*,
+        // salonPctForMaterials, totalMaterialsCost, totalSalePrice) тепер
+        // рахуються в computeRowMetrics — не читаються з Airtable-formula.
         fields: [
           SERVICE_FIELDS.date,
           SERVICE_FIELDS.master,
           SERVICE_FIELDS.service,
-          SERVICE_FIELDS.totalServicePrice,
-          SERVICE_FIELDS.addonServicePrice,
-          SERVICE_FIELDS.salonForService,
-          SERVICE_FIELDS.masterPayTotal,
-          SERVICE_FIELDS.expenseAmount,
           SERVICE_FIELDS.expenseType,
-          SERVICE_FIELDS.debtAmount,
           SERVICE_FIELDS.sales,
           SERVICE_FIELDS.saleDetails,
-          SERVICE_FIELDS.totalSalePrice,
-          SERVICE_FIELDS.addonSalePrice,
           SERVICE_FIELDS.created,
           SERVICE_FIELDS.paymentType,
           SERVICE_FIELDS.comments,
-          SERVICE_FIELDS.totalWorkCost,
-          SERVICE_FIELDS.totalMaterialsCost,
-          SERVICE_FIELDS.masterPctForServices,
-          SERVICE_FIELDS.masterPctForMaterials,
-          SERVICE_FIELDS.salonPctForMaterials,
-          SERVICE_FIELDS.fixedMasterPctForSale,
           SERVICE_FIELDS.fixedSalonPctForSale,
-          SERVICE_FIELDS.additionalMaterials,
-          SERVICE_FIELDS.fixedMaterialsCost,
-          SERVICE_FIELDS.fixedMasterPayForService,
           SERVICE_FIELDS.isCanceled,
-          SERVICE_FIELDS.extraHours,
           SERVICE_FIELDS.orders,
+          ...ROW_METRICS_SOURCE_FIELDS,
         ],
       }),
       fetchAllRecords(TABLES.specialists, { fields: [SPECIALIST_FIELDS.name] }),
@@ -178,6 +166,9 @@ export async function GET(request: NextRequest) {
 
     let entries = records.map((r) => {
       const f = r.fields;
+      // pricing.ts — єдина точка правди (golden-tested на 15 реальних записах).
+      // Раніше ці значення читались напряму з Airtable formula-fields.
+      const metrics = computeRowMetrics(f);
 
       // Determine type
       let type: "service" | "sale" | "expense" | "rental" | "debt" = "service";
@@ -236,7 +227,7 @@ export async function GET(request: NextRequest) {
             productId: salesLinks[0],
             productName: title,
             quantity: 1,
-            lineTotal: (f[SERVICE_FIELDS.totalSalePrice] as number) || 0,
+            lineTotal: metrics.totalSalePrice,
           }];
         }
       }
@@ -273,16 +264,15 @@ export async function GET(request: NextRequest) {
       } else if (type === "debt") {
         amount = debtAmount || 0;
       } else if (type === "sale") {
-        amount = (f[SERVICE_FIELDS.totalSalePrice] as number) || 0;
+        amount = metrics.totalSalePrice;
       } else if (type === "rental") {
         // For rental: show total but pass breakdown (rental fee + materials)
-        amount = (f[SERVICE_FIELDS.totalServicePrice] as number) || 0;
-        const matCost = (f[SERVICE_FIELDS.totalMaterialsCost] as number) || 0;
-        if (matCost > 0) {
-          materialsCost = matCost;
+        amount = metrics.totalServicePrice;
+        if (metrics.totalMaterialsCost > 0) {
+          materialsCost = metrics.totalMaterialsCost;
         }
       } else {
-        amount = (f[SERVICE_FIELDS.totalServicePrice] as number) || 0;
+        amount = metrics.totalServicePrice;
       }
 
       // Source — all records now come from PWA (bot not connected to this base)
@@ -307,13 +297,13 @@ export async function GET(request: NextRequest) {
         supplement: (f[SERVICE_FIELDS.addonServicePrice] as number) || (f[SERVICE_FIELDS.addonSalePrice] as number) || undefined,
         // Service-side aggregates. For sales these are 0/undefined —
         // the sale split lives in specialistSalesShare/salonSalesShare.
-        specialistShare: type === "sale" ? undefined : ((f[SERVICE_FIELDS.masterPayTotal] as number) || undefined),
-        salonShare: type === "sale" ? undefined : ((f[SERVICE_FIELDS.salonForService] as number) || undefined),
+        specialistShare: type === "sale" ? undefined : (metrics.masterPayTotal || undefined),
+        salonShare: type === "sale" ? undefined : (metrics.salonShareForService || undefined),
         // Detailed breakdowns for dashboard
-        specialistServiceShare: (f[SERVICE_FIELDS.masterPctForServices] as number) || undefined,
-        specialistMaterialShare: (f[SERVICE_FIELDS.masterPctForMaterials] as number) || undefined,
+        specialistServiceShare: metrics.masterPayForService || undefined,
+        specialistMaterialShare: metrics.masterPayForMaterials || undefined,
         specialistSalesShare: (f[SERVICE_FIELDS.fixedMasterPctForSale] as number) || undefined,
-        salonMaterialShare: (f[SERVICE_FIELDS.salonPctForMaterials] as number) || undefined,
+        salonMaterialShare: metrics.salonShareForMaterials || undefined,
         salonSalesShare: (f[SERVICE_FIELDS.fixedSalonPctForSale] as number) || undefined,
         materialsCost,
         comment: (f[SERVICE_FIELDS.comments] as string) || undefined,
@@ -322,9 +312,8 @@ export async function GET(request: NextRequest) {
         // Матеріали = extra materials added (total materials minus base)
         // For rental: all materials are "extra" (rental service has no base materials)
         baseMaterialsCost: (() => {
-          const total = (f[SERVICE_FIELDS.totalMaterialsCost] as number) || 0;
           const base = (f[SERVICE_FIELDS.fixedMaterialsCost] as number) || 0;
-          const extra = total - base;
+          const extra = metrics.totalMaterialsCost - base;
           return extra > 0 ? extra : undefined;
         })(),
         // Для sale завжди віддаємо saleItems (включно з одноелементним масивом

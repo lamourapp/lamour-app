@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchAllRecords, createRecord, updateRecord, TABLES } from "@/lib/airtable";
 import { compensationTypeFromLabel, labelFromCompensationType } from "@/lib/compensation";
 import { SPECIALIST_FIELDS, SERVICE_FIELDS, OWNERSHIP_FIELDS } from "@/lib/airtable-fields";
+import { ROW_METRICS_SOURCE_FIELDS, computeRowMetrics } from "@/lib/service-row";
 
 function mapSpecialist(r: { id: string; fields: Record<string, unknown> }) {
   const f = r.fields;
@@ -11,11 +12,15 @@ function mapSpecialist(r: { id: string; fields: Record<string, unknown> }) {
 
   const isOwner = f[SPECIALIST_FIELDS.isOwner] === true;
 
-  // Owner має фіксований «тип оплати» навіть якщо в Airtable зберігається
-  // інше значення — картка не показує ставок, виплат немає.
-  const type = isOwner
-    ? "owner"
-    : compensationTypeFromLabel(f[SPECIALIST_FIELDS.compensationType] as string | undefined);
+  // Ролі «майстер» та «власник» ортогональні. Тип оплати беремо напряму
+  // з Airtable, НЕ перезаписуємо на "owner" коли isOwner=true — інакше
+  // майстер-власник зникає зі списку команди (адмін не може його
+  // розраховувати за послуги). Якщо людина лише власник і послуг не
+  // виконує — в Airtable її «Тип оплати» має бути явно «власник»
+  // (→ compensationType === "owner"), тоді StaffScreen її приховає.
+  const type = compensationTypeFromLabel(
+    f[SPECIALIST_FIELDS.compensationType] as string | undefined,
+  );
 
   let avatarColor: "brand" | "amber" | "gray" = "brand";
   if (isOwner) avatarColor = "brand"; // окремий рендер у StaffScreen — колір не критичний
@@ -105,37 +110,12 @@ function mapSpecialist(r: { id: string; fields: Record<string, unknown> }) {
  * прийнятно. Якщо стане дорого — винесемо у cron-пре-агрегацію.
  */
 
-interface OwnershipRevisionRow {
-  date: string; // ISO
-  specialistId: string;
-  sharePct: number;
-}
-
-/**
- * Повертає список активних власників з частками на дату `date`.
- * Активна ревізія = група рядків з max(Дата) <= date.
- * Якщо ревізій взагалі немає — повертаємо null (caller робить fallback).
- */
-function activeSharesOn(
-  revisions: OwnershipRevisionRow[],
-  date: string,
-): Map<string, number> | null {
-  if (revisions.length === 0) return null;
-  // revisions відсортовані asc по даті; шукаємо найбільшу, що <= date.
-  let effectiveDate: string | null = null;
-  for (const r of revisions) {
-    if (r.date <= date) effectiveDate = r.date;
-    else break;
-  }
-  if (effectiveDate === null) return null; // запис старший за будь-яку ревізію
-  const result = new Map<string, number>();
-  for (const r of revisions) {
-    if (r.date === effectiveDate) {
-      result.set(r.specialistId, (result.get(r.specialistId) || 0) + r.sharePct);
-    }
-  }
-  return result;
-}
+// Pure helpers винесено в @/lib/ownership — так вони тестуються без Next
+// рантайму і переносяться 1:1 при міграції на Postgres. Реекспорт для
+// зворотної сумісності (інші файли імпортують з цього route).
+import { activeSharesOn, type OwnershipRevisionRow } from "@/lib/ownership";
+export { activeSharesOn };
+export type { OwnershipRevisionRow };
 
 async function loadOwnershipRevisions(): Promise<OwnershipRevisionRow[]> {
   const records = await fetchAllRecords(TABLES.ownership, {
@@ -160,9 +140,19 @@ async function loadOwnershipRevisions(): Promise<OwnershipRevisionRow[]> {
     if (!specialistId) continue;
     const sharePct = (f[OWNERSHIP_FIELDS.sharePct] as number) || 0;
     if (sharePct <= 0) continue;
-    rows.push({ date, specialistId, sharePct });
+    rows.push({
+      date,
+      specialistId,
+      sharePct,
+      createdTime: (r as { createdTime?: string }).createdTime || "1970-01-01T00:00:00.000Z",
+    });
   }
-  rows.sort((a, b) => a.date.localeCompare(b.date));
+  // Сортуємо asc по (date, createdTime). Це важливо для switch-break у
+  // activeSharesOn — як тільки зустрів date > target, подальші теж більші.
+  rows.sort((a, b) => {
+    if (a.date !== b.date) return a.date.localeCompare(b.date);
+    return a.createdTime.localeCompare(b.createdTime);
+  });
   return rows;
 }
 
@@ -171,14 +161,15 @@ async function computeBalances(
 ): Promise<{ byMaster: Map<string, number>; byOwner: Map<string, number> }> {
   const [records, revisions] = await Promise.all([
     fetchAllRecords(TABLES.services, {
+      // netSalon/masterPayTotal більше не читаємо з Airtable — рахуємо через
+      // computeRowMetrics(). Але потрібні сирі поля для pricing.ts + метадані
+      // рядка (дата, лінк на майстра, isCanceled, коментар для debt-routing).
       fields: [
         SERVICE_FIELDS.date,
-        SERVICE_FIELDS.netSalon,
-        SERVICE_FIELDS.masterPayTotal,
-        SERVICE_FIELDS.debtAmount,
         SERVICE_FIELDS.master,
         SERVICE_FIELDS.isCanceled,
         SERVICE_FIELDS.comments,
+        ...ROW_METRICS_SOURCE_FIELDS,
       ],
     }),
     loadOwnershipRevisions(),
@@ -200,8 +191,10 @@ async function computeBalances(
     const date = typeof f[SERVICE_FIELDS.date] === "string"
       ? (f[SERVICE_FIELDS.date] as string).slice(0, 10)
       : "";
-    const netSalon = (f[SERVICE_FIELDS.netSalon] as number) || 0;
-    const masterPay = (f[SERVICE_FIELDS.masterPayTotal] as number) || 0;
+    // pricing.ts — єдина точка правди (golden-tested на 15 реальних записах).
+    const metrics = computeRowMetrics(f);
+    const netSalon = metrics.netSalon;
+    const masterPay = metrics.masterPayTotal;
     const debt = (f[SERVICE_FIELDS.debtAmount] as number) || 0;
     const masterLinks = (f[SERVICE_FIELDS.master] as string[] | undefined) || [];
 

@@ -89,20 +89,29 @@ export default function StaffScreen() {
   // різні use cases. Коли відкриваємо — пресет підставляє знак і суму
   // щоб закрити поточний баланс одним натиском.
   const [settlingSpecialist, setSettlingSpecialist] = useState<Specialist | null>(null);
+  // Нарахування ЗП для salary/hourly — створює debt-рядок з debtSign="+" (салон
+  // винен майстру). Префілена дата = сьогодні, сума = daily-rate (salary) або 0
+  // (hourly — адмін ручно вводить години × ставку). Коментар «ЗП за DD.MM.YYYY».
+  // Це мінімально-інвазивний варіант: НЕ вводимо нову сутність «нарахування»,
+  // а перевикористовуємо існуючий механізм боргів (який вже коректно роутить
+  // у балас через computeBalances). При міграції на Postgres — звичайний insert.
+  const [accruingSpecialist, setAccruingSpecialist] = useState<Specialist | null>(null);
   // Звіт ЗП майстра за період — окремий модал-пікер, який відкриває
   // публічний URL /report/master/[id]. Не для власника.
   const [reportingSpecialist, setReportingSpecialist] = useState<Specialist | null>(null);
 
-  // Власники — ХОВАЄМО з цього екрану цілком (дохід власника = sensitive,
-  // майстри/адмін не повинні бачити). Керування та баланси — тільки на
-  // Налаштування → Власники салону (OwnershipScreen), куди пізніше повісимо
-  // owner-only guard.
-  // Виняток: власник, який ТАКОЖ працює як майстер — рахуємо звичайним майстром
-  // (його master balance тут ОК показувати, бо це його ЗП за роботу, не прибуток).
-  // Але у списку активних майстрів власники не з'являються — щоб приховати
-  // сам факт співвласності теж.
-  const activeList = specialists.filter((s) => s.isActive !== false && !s.isOwner);
-  const inactiveList = specialists.filter((s) => s.isActive === false && !s.isOwner);
+  // Показуємо всіх, хто має майстерську роль (тип оплати ≠ "власник").
+  // Майстер-власник з'являється тут зі своїм master-балансом (ЗП за
+  // послуги) — це потрібно адміну для розрахунку. Його owner-частина
+  // прибутку — окремо на екрані «Налаштування → Власники салону» і сюди
+  // не світиться (рендеримо s.balance = master part; ownerBalance не
+  // чіпаємо). Лише «чисті» власники (compensationType = "owner") сховані.
+  const activeList = specialists.filter(
+    (s) => s.isActive !== false && s.compensationType !== "owner",
+  );
+  const inactiveList = specialists.filter(
+    (s) => s.isActive === false && s.compensationType !== "owner",
+  );
 
   function openCreate() {
     setEditingSpecialist(null);
@@ -192,6 +201,19 @@ export default function StaffScreen() {
                   >
                     Звіт
                   </button>
+                  {/* Кнопка «Нарахувати ЗП» — тільки для salary/hourly. Для
+                      commission/rental ЗП нараховується автоматично з послуг
+                      (через masterPayTotal), тому тут вона лише заплутає. */}
+                  {(s.compensationType === "salary" || s.compensationType === "hourly") && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setAccruingSpecialist(s); }}
+                      className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 cursor-pointer transition-colors whitespace-nowrap"
+                      title="Нарахувати ЗП за день/період — створює запис у журналі"
+                    >
+                      + ЗП
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); setSettlingSpecialist(s); }}
@@ -298,6 +320,33 @@ export default function StaffScreen() {
         <MasterReportModal
           specialist={reportingSpecialist}
           onClose={() => setReportingSpecialist(null)}
+        />
+      )}
+
+      {/* Нарахування ЗП. Формула для пресету:
+          • salary: денна ставка (salaryRate) — default припущення «нарахувати день»
+          • hourly: 0 — адмін ручно вводить години×ставку
+          debtSign="+" — салон став винен майстру більше (балас росте у плюс).
+          Коментар фіксує дату, щоб в аудиті було видно «за що нарахували».
+          Далі адмін може змінити будь-що в модалі (суму, коментар, дату). */}
+      {accruingSpecialist && (
+        <CreateEntryModal
+          type="debt"
+          specialists={specialists}
+          onClose={() => setAccruingSpecialist(null)}
+          onCreated={handleSaved}
+          preset={{
+            specialistId: accruingSpecialist.id,
+            amount:
+              accruingSpecialist.compensationType === "salary"
+                ? accruingSpecialist.salaryRate || 0
+                : 0,
+            debtSign: "+",
+            comment:
+              accruingSpecialist.compensationType === "salary"
+                ? `Нарахування ЗП (день) ${new Date().toLocaleDateString("uk-UA")}`
+                : `Нарахування ЗП (погодинна) ${new Date().toLocaleDateString("uk-UA")}`,
+          }}
         />
       )}
     </div>
