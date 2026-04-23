@@ -417,7 +417,11 @@ export default function ServiceEntryModal({
       if (rawSuppl) body.supplement = supplementSign === "-" ? -Math.abs(rawSuppl) : Math.abs(rawSuppl);
       const eh = parseFloat(extraHours);
       if (eh) body.extraHours = eh;
-      const valid = calcMaterials
+      // Для rental — матеріали НЕ відправляємо, навіть якщо встигли заповнитись
+      // у стейті до вибору типу (оренда = тільки плата за місце, без калькуляції).
+      // Захист симетричний приховуванню UI-секції — без цього race можна зберегти
+      // rental з застарілими matUsages у state.
+      const valid = isRental ? [] : calcMaterials
         .filter((m) => m.materialId && m.amount > 0)
         .map((m) => {
           const mat = materials.find((x) => x.id === m.materialId);
@@ -620,12 +624,20 @@ export default function ServiceEntryModal({
                   )}
                 </div>
 
-                {/* Calculation Materials */}
-                <CalcMaterialsSection
-                  materials={materials}
-                  usages={calcMaterials}
-                  onChange={setCalcMaterials}
-                />
+                {/* Calculation Materials — НЕ для оренди: оренда = плата за
+                    робоче місце, матеріали до неї не додаються за визначенням.
+                    Якщо показати — адмін випадково накликає калькуляцію (реальний
+                    кейс 2026-04-23: Денис recPAu6th6x3lCE2g мав 1040₴ матеріалів
+                    в rental-записі, дашборд показав +373₴ «дохід матеріали» що
+                    є нонсенсом). Для rental матеріали можна вести окремим
+                    записом типу «продаж», якщо треба. */}
+                {!isRental && (
+                  <CalcMaterialsSection
+                    materials={materials}
+                    usages={calcMaterials}
+                    onChange={setCalcMaterials}
+                  />
+                )}
 
                 {/* Price Preview */}
                 {preview && (
