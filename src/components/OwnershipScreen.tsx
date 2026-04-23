@@ -482,10 +482,12 @@ function RevisionModal({
           </div>
           {rows.length < 2 && (
             <div className="text-[11px] text-gray-400 mb-2 leading-snug">
-              Щоб розділити прибуток між кількома — натисніть
-              <span className="text-brand-600"> «+ Додати власника» </span>
-              нижче, оберіть спеціаліста, потім натисніть
-              <span className="text-brand-600"> «Розділити порівну»</span>.
+              Щоб розділити прибуток між кількома власниками:
+              <ol className="list-decimal list-inside mt-1 space-y-0.5">
+                <li>Натисніть <span className="text-brand-600">«+ Додати власника»</span>.</li>
+                <li>Оберіть спеціаліста у списку.</li>
+                <li>Натисніть <span className="text-brand-600">«Розділити порівну»</span>.</li>
+              </ol>
             </div>
           )}
           <div className="space-y-2">

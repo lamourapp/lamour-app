@@ -433,7 +433,7 @@ export default function DashboardScreen() {
                         </th>
                         {showDetailCols && (
                           <>
-                            {["Допов.", "Калькул.", "Матер.", "% спец.", "% салону"].map((h) => (
+                            {["Доповн.", "Розрах.", "Матеріали", "% майстру", "% салону"].map((h) => (
                               <th key={h} className="text-right px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider">
                                 {h}
                               </th>

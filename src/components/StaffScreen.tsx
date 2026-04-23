@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useSpecialists, useSettings, useSpecializations } from "@/lib/hooks";
 import type { Specialist } from "@/lib/types";
 import { moneyFormatter, currencySymbol } from "@/lib/format";
+import { pluralizeTerm } from "@/lib/ua-plural";
 
 type Fmt = (amount: number, opts?: { signed?: boolean; maximumFractionDigits?: number; minimumFractionDigits?: number }) => string;
 import SpecialistModal from "./SpecialistModal";
@@ -146,7 +147,7 @@ export default function StaffScreen() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-5">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-[15px] font-semibold text-gray-900 tracking-tight">{specialistTerm}и</h2>
+        <h2 className="text-[15px] font-semibold text-gray-900 tracking-tight">{pluralizeTerm(specialistTerm)}</h2>
         <button
           onClick={openCreate}
           className="bg-brand-600 text-white rounded-[10px] font-medium text-[13px] px-4 py-2 cursor-pointer hover:bg-brand-700 transition-colors"

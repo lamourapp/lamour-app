@@ -252,7 +252,7 @@ export default function QuickEditEntryModal({
 
         {entry.type === "sale" && (
           <div className="text-[11px] text-gray-500 bg-gray-50 rounded-lg px-3 py-2 leading-relaxed">
-            Щоб змінити склад або кількість товарів — скасуй запис і створи заново.
+            Щоб змінити склад або кількість товарів — скасуйте запис і створіть заново.
           </div>
         )}
       </div>

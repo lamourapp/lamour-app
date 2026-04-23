@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { useJournal, useSpecialists, useSettings } from "@/lib/hooks";
 import type { JournalEntry } from "@/lib/types";
 import { moneyFormatter } from "@/lib/format";
+import { pluralizeCount } from "@/lib/ua-plural";
 
 type Fmt = (amount: number, opts?: { signed?: boolean; maximumFractionDigits?: number }) => string;
 import CalendarPicker from "./CalendarPicker";
@@ -84,7 +85,7 @@ function EntryCard({ entry, onDelete, onEdit, onRestore, fmt }: { entry: Journal
               <span className="truncate">{entry.title || "—"}</span>
               {hasMultiProducts && (
                 <span className="inline-flex items-center shrink-0 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-emerald-50 text-emerald-600 border border-emerald-100">
-                  {entry.saleItems!.length} товари
+                  {entry.saleItems!.length} {pluralizeCount(entry.saleItems!.length, ["товар", "товари", "товарів"])}
                   <svg className={`w-3 h-3 ml-0.5 transition-transform ${expanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                   </svg>

@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { useCategories, useServicesCatalog, type Category } from "@/lib/hooks";
 import { Button, Input } from "./ui";
+import { pluralizeCount } from "@/lib/ua-plural";
 
 /**
  * CategoriesScreen — catalog of service categories.
@@ -165,7 +166,12 @@ export default function CategoriesScreen({ onBack }: { onBack: () => void }) {
                   <div className="min-w-0">
                     <div className="text-[13px] font-medium text-gray-500 truncate">{c.name}</div>
                     <div className="text-[11px] text-gray-400">
-                      {(usageById.get(c.id) ?? 0)} послуг посилається
+                      {(() => {
+                        const u = usageById.get(c.id) ?? 0;
+                        const word = pluralizeCount(u, ["послуга", "послуги", "послуг"]);
+                        const verb = pluralizeCount(u, ["посилається", "посилаються", "посилаються"]);
+                        return `${u} ${word} ${verb}`;
+                      })()}
                     </div>
                   </div>
                   <Button
@@ -223,7 +229,7 @@ function CategoryRow({
           <div className="min-w-0">
             <div className="text-[14px] font-semibold text-gray-900 truncate">{category.name}</div>
             <div className="text-[11px] text-gray-400">
-              {usage > 0 ? `${usage} послуг` : "без послуг"}
+              {usage > 0 ? `${usage} ${pluralizeCount(usage, ["послуга", "послуги", "послуг"])}` : "без послуг"}
             </div>
           </div>
           <svg className="w-4 h-4 text-gray-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -245,7 +251,7 @@ function CategoryRow({
       />
       {usage > 0 && (
         <div className="text-[11px] text-amber-700 bg-amber-50 rounded-lg px-2.5 py-1.5">
-          {usage} послуг лінкуються сюди. Архівація приховає категорію з нових виборів,
+          {usage} {pluralizeCount(usage, ["послуга лінкується", "послуги лінкуються", "послуг лінкується"])} сюди. Архівація приховає категорію з нових виборів,
           але старі послуги збережуть назву.
         </div>
       )}
