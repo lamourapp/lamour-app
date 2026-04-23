@@ -89,9 +89,10 @@ function computeMetrics(entries: JournalEntry[]) {
   let specialistSalesShare = 0;
 
   let expenses = 0;
-  let debts = 0; // signed: + довнесення, − виплата
+  let debts = 0; // signed cash movements: + довнесення, − виплата (без нарахувань)
   let paidOut = 0; // |debts < 0| — виплати майстрам/власнику
   let contributed = 0; // debts > 0 — довнесення
+  let accrued = 0; // нарахування ЗП (liability, НЕ рух готівки)
 
   let countServices = 0;
   let countSales = 0;
@@ -114,12 +115,21 @@ function computeMetrics(entries: JournalEntry[]) {
       expenses += Math.abs(e.amount);
       countExpenses++;
     } else if (e.type === "debt") {
-      debts += e.amount;
-      if (e.amount < 0) {
-        paidOut += Math.abs(e.amount);
-        countPayouts++;
-      } else if (e.amount > 0) {
-        contributed += e.amount;
+      // Нарахування ЗП (salary/hourly) — це liability, а НЕ рух готівки. Вони
+      // створюються з debtSign="+" щоб збільшити баланс майстра, але кошти не
+      // заходять у касу. Визначаємо за префіксом коментаря (див. StaffScreen).
+      const isAccrual = e.amount > 0 && (e.comment ?? "").startsWith("Нарахування");
+      if (isAccrual) {
+        accrued += e.amount;
+        // НЕ додаємо до debts / contributed — касу це не рухає.
+      } else {
+        debts += e.amount;
+        if (e.amount < 0) {
+          paidOut += Math.abs(e.amount);
+          countPayouts++;
+        } else if (e.amount > 0) {
+          contributed += e.amount;
+        }
       }
     } else if (e.type === "service") {
       countServices++;

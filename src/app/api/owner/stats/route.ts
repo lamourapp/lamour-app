@@ -97,6 +97,7 @@ const FIELDS = [
   SERVICE_FIELDS.sales,
   SERVICE_FIELDS.saleDetails,
   SERVICE_FIELDS.expenseType,
+  SERVICE_FIELDS.comments,
   ...ROW_METRICS_SOURCE_FIELDS,
 ];
 
@@ -134,7 +135,7 @@ function empty(): Aggregates {
 
 type Row = { fields: Record<string, unknown> };
 
-function aggregate(records: Row[], ownerId?: string): Aggregates {
+function aggregate(records: Row[], ownerIds?: ReadonlySet<string>): Aggregates {
   const agg = empty();
   for (const r of records) {
     const f = r.fields;
@@ -158,11 +159,20 @@ function aggregate(records: Row[], ownerId?: string): Aggregates {
       // АЛЕ якщо запис прив'язаний до власника, це рух прибутку:
       //   negative debt = вилучення (власник забрав з каси)
       //   positive debt = довнесення (власник поклав у касу)
-      if (ownerId) {
+      if (ownerIds && ownerIds.size > 0) {
         const masterLinks = f[SERVICE_FIELDS.master] as string[] | undefined;
-        if (masterLinks && masterLinks.includes(ownerId)) {
-          if (debt < 0) agg.ownerWithdrawals += Math.abs(debt);
-          else agg.ownerContributions += debt;
+        // Any specialist із isOwner=true рахується як власник: якщо борг прив'язаний
+        // до БУДЬ-КОГО з власників (включно з master-owner типу Аліни), це рух
+        // прибутку, а не внутрішня виплата майстру.
+        if (masterLinks && masterLinks.some((id) => ownerIds.has(id))) {
+          // Нарахування ЗП (debt > 0 + "Нарахування…" у коментарі) для майстра-
+          // власника — це liability по його master-частині, а НЕ owner-внесок.
+          const comment = (f[SERVICE_FIELDS.comments] as string | undefined) ?? "";
+          const isAccrual = debt > 0 && comment.startsWith("Нарахування");
+          if (!isAccrual) {
+            if (debt < 0) agg.ownerWithdrawals += Math.abs(debt);
+            else agg.ownerContributions += debt;
+          }
         }
       }
     } else {
@@ -547,10 +557,13 @@ export async function GET(request: NextRequest) {
     };
 
     const nameMap = new Map<string, string>();
-    let ownerId: string | undefined;
+    // Усі власники (включно з master+owner типу Аліни). Раніше тут був один
+    // ownerId — last-match-wins — тож withdrawals від майстра-власника губились
+    // у buckets «виплати майстрам» замість «вилучено власником».
+    const ownerIds = new Set<string>();
     for (const s of specRecs) {
       nameMap.set(s.id, (s.fields[SPECIALIST_FIELDS.name] as string) || "—");
-      if (s.fields[SPECIALIST_FIELDS.isOwner] === true) ownerId = s.id;
+      if (s.fields[SPECIALIST_FIELDS.isOwner] === true) ownerIds.add(s.id);
     }
 
     const svcNameMap = new Map<string, string>();
@@ -601,8 +614,8 @@ export async function GET(request: NextRequest) {
     }
     const topProducts = byProduct(details, productInfo);
 
-    const current = aggregate(currentRecs, ownerId);
-    const previous = aggregate(prevRecs, ownerId);
+    const current = aggregate(currentRecs, ownerIds);
+    const previous = aggregate(prevRecs, ownerIds);
 
     const expensesMap = groupExpenses(currentRecs);
     const expensesByCategory = [...expensesMap.entries()]
