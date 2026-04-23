@@ -42,11 +42,19 @@ export function currencySymbol(currency: Settings["currency"] | undefined): stri
 export function formatMoney(
   amount: number,
   currency: Settings["currency"] | undefined = "UAH",
-  opts?: { signed?: boolean; maximumFractionDigits?: number; locale?: string },
+  opts?: { signed?: boolean; maximumFractionDigits?: number; minimumFractionDigits?: number; locale?: string },
 ): string {
-  const { signed = false, maximumFractionDigits = 0, locale = "uk-UA" } = opts ?? {};
+  // За замовчуванням — 2 знаки після коми (копійки), завжди обидва показуємо.
+  // Якщо викликати з `maximumFractionDigits: 0` — округлюється до цілого (для
+  // випадків, де копійки нерелевантні, напр. підсумкові бари).
+  const {
+    signed = false,
+    maximumFractionDigits = 2,
+    minimumFractionDigits = maximumFractionDigits === 0 ? 0 : 2,
+    locale = "uk-UA",
+  } = opts ?? {};
   const symbol = currencySymbol(currency);
-  const abs = Math.abs(amount).toLocaleString(locale, { maximumFractionDigits });
+  const abs = Math.abs(amount).toLocaleString(locale, { maximumFractionDigits, minimumFractionDigits });
   if (amount < 0) return `−${abs} ${symbol}`;
   if (signed && amount > 0) return `+${abs} ${symbol}`;
   return `${abs} ${symbol}`;
@@ -62,7 +70,7 @@ export function formatMoney(
  */
 export function moneyFormatter(
   settings: Settings | null | undefined,
-): (amount: number, opts?: { signed?: boolean; maximumFractionDigits?: number }) => string {
+): (amount: number, opts?: { signed?: boolean; maximumFractionDigits?: number; minimumFractionDigits?: number }) => string {
   const currency = settings?.currency;
   const locale = localeFromTimezone(settings?.timezone);
   return (amount, opts) => formatMoney(amount, currency, { ...opts, locale });

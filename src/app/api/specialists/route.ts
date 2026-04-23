@@ -178,6 +178,7 @@ async function computeBalances(
         SERVICE_FIELDS.debtAmount,
         SERVICE_FIELDS.master,
         SERVICE_FIELDS.isCanceled,
+        SERVICE_FIELDS.comments,
       ],
     }),
     loadOwnershipRevisions(),
@@ -225,13 +226,28 @@ async function computeBalances(
       }
     }
 
-    // Debt: для власника йде в owner-пул, для майстра — у master-баланс.
+    // Debt routing:
+    //   - НЕ власник → master-пул (ЗП/борг).
+    //   - власник + коментар містить "вилучен" → owner-пул (зняття прибутку).
+    //   - власник + інший коментар (напр. "Виплата ЗП") → master-пул
+    //     (для майстра-власника це розрахунок за його роботу як майстра).
+    //   Дефолт для пустого коментаря у власника — owner-пул (консервативно
+    //   для чистого власника, де debt завжди = зняття; для майстра-власника
+    //   UI завжди підставляє коментар).
     if (debt !== 0) {
+      const comment = (f[SERVICE_FIELDS.comments] as string) || "";
+      const isWithdrawalKw = /вилучен/i.test(comment);
+      const isSalaryKw = /виплат|зп|зарпла|борг|аванс/i.test(comment);
       for (const mid of masterLinks) {
-        if (ownerIds.has(mid)) {
-          byOwner.set(mid, (byOwner.get(mid) || 0) + debt);
-        } else {
+        if (!ownerIds.has(mid)) {
           byMaster.set(mid, (byMaster.get(mid) || 0) + debt);
+          continue;
+        }
+        // Власник: дивимось коментар.
+        if (isSalaryKw && !isWithdrawalKw) {
+          byMaster.set(mid, (byMaster.get(mid) || 0) + debt);
+        } else {
+          byOwner.set(mid, (byOwner.get(mid) || 0) + debt);
         }
       }
     }

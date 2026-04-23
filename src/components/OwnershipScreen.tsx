@@ -142,14 +142,20 @@ export default function OwnershipScreen({ onBack }: { onBack: () => void }) {
               <div className="divide-y divide-black/5">
                 {currentOwners.map((o) => {
                   const ownerBal = o.ownerBalance ?? o.balance ?? 0;
-                  const hasMasterSide = o.ownerBalance !== undefined && Math.abs(o.balance ?? 0) > 0.5;
+                  // Майстер-частина видно ТІЛЬКИ якщо balance ≠ ownerBalance.
+                  // Для owner-only (не працює як майстер) API повертає balance = ownerBalance
+                  // (див. /api/specialists: masterPart===undefined → next.balance = ownerPart).
+                  const masterBal = o.balance ?? 0;
+                  const hasMasterSide =
+                    o.ownerBalance !== undefined &&
+                    Math.abs(masterBal - (o.ownerBalance ?? 0)) > 0.5;
                   return (
                     <div key={o.id} className="flex items-center justify-between py-2 gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="text-[13px] text-gray-800 truncate">{o.name}</div>
                         {hasMasterSide && (
                           <div className="text-[11px] text-gray-400 tabular-nums">
-                            як майстер: {fmt(Math.round(o.balance ?? 0))}
+                            як майстер: {fmt(Math.round(masterBal))}
                           </div>
                         )}
                       </div>
@@ -209,10 +215,9 @@ export default function OwnershipScreen({ onBack }: { onBack: () => void }) {
           onCreated={() => { reload(); reloadSpecialists(); }}
           preset={{
             specialistId: withdrawingOwner.id,
-            amount: Math.max(
-              withdrawingOwner.ownerBalance ?? withdrawingOwner.balance ?? 0,
-              0,
-            ),
+            amount: Math.round(
+              Math.max(withdrawingOwner.ownerBalance ?? withdrawingOwner.balance ?? 0, 0) * 100,
+            ) / 100,
             debtSign: "-",
             comment: "Вилучення прибутку",
           }}

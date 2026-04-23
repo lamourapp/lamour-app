@@ -5,7 +5,7 @@ import { useSpecialists, useSettings, useSpecializations } from "@/lib/hooks";
 import type { Specialist } from "@/lib/types";
 import { moneyFormatter, currencySymbol } from "@/lib/format";
 
-type Fmt = (amount: number, opts?: { signed?: boolean; maximumFractionDigits?: number }) => string;
+type Fmt = (amount: number, opts?: { signed?: boolean; maximumFractionDigits?: number; minimumFractionDigits?: number }) => string;
 import SpecialistModal from "./SpecialistModal";
 import CreateEntryModal from "./CreateEntryModal";
 import MasterReportModal from "./MasterReportModal";
@@ -287,7 +287,7 @@ export default function StaffScreen() {
           onCreated={handleSaved}
           preset={{
             specialistId: settlingSpecialist.id,
-            amount: Math.abs(settlingSpecialist.balance || 0),
+            amount: Math.round(Math.abs(settlingSpecialist.balance || 0) * 100) / 100,
             debtSign: settlingSpecialist.balance > 0 ? "-" : "+",
             comment: settlingSpecialist.balance > 0 ? "Виплата ЗП" : "",
           }}
