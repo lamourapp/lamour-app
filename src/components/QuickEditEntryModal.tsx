@@ -260,7 +260,7 @@ export default function QuickEditEntryModal({
       <div className="flex gap-2 mt-5">
         <Button variant="ghost" onClick={onClose} disabled={saving}>Скасувати</Button>
         <Button onClick={handleSave} disabled={saving} className="flex-1">
-          {saving ? "Збереження..." : "Оновити"}
+          {saving ? "Зберігаю…" : "Оновити"}
         </Button>
       </div>
     </Modal>

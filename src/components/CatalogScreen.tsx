@@ -259,7 +259,7 @@ export default function CatalogScreen({
       {!current.loading && items.some((i) => !i.sku) && (
         <div className="mt-4 text-center">
           <Button variant="ghost" onClick={handleEnsureSku} disabled={skuLoading}>
-            {skuLoading ? "Присвоюю..." : "Присвоїти SKU"}
+            {skuLoading ? "Присвоюю…" : "Присвоїти SKU"}
           </Button>
         </div>
       )}

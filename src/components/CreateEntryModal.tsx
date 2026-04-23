@@ -387,7 +387,7 @@ export default function CreateEntryModal({
                       updated[idx] = { ...updated[idx], productId: id };
                       setSaleItems(updated);
                     }}
-                    placeholder="Пошук товару..."
+                    placeholder="Пошук товару…"
                     groupBy={(p) => p.group || "Інше"}
                     renderItem={(p) => (
                       <div className="flex items-center justify-between gap-2">
@@ -517,7 +517,7 @@ export default function CreateEntryModal({
       )}
 
       <Button onClick={handleSubmit} disabled={saving} fullWidth size="lg">
-        {saving ? "Збереження..." : isEdit ? "Оновити" : "Зберегти"}
+        {saving ? "Зберігаю…" : isEdit ? "Оновити" : "Зберегти"}
       </Button>
     </Modal>
   );

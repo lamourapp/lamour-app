@@ -353,7 +353,7 @@ export default function ServiceItemModal({ item, categories, onClose, onSaved }:
                               items={materials}
                               selectedId={row.materialId}
                               onSelect={(id) => updateRow(idx, { materialId: id })}
-                              placeholder="Пошук матеріалу..."
+                              placeholder="Пошук матеріалу…"
                               renderItem={(m) => (
                                 <div className="flex items-center justify-between gap-2">
                                   <span className="text-[14px] text-gray-900 truncate">{m.name}</span>
@@ -494,7 +494,7 @@ export default function ServiceItemModal({ item, categories, onClose, onSaved }:
       )}
 
       <Button onClick={handleSave} disabled={saving} fullWidth size="lg">
-        {saving ? "Зберігаю..." : isEdit ? "Зберегти зміни" : "Додати"}
+        {saving ? "Зберігаю…" : isEdit ? "Зберегти зміни" : "Додати"}
       </Button>
     </Modal>
   );

@@ -114,7 +114,7 @@ function CalcMaterialsSection({
                       updated[index] = { ...updated[index], materialId: id };
                       onChange(updated);
                     }}
-                    placeholder="Пошук матеріалу..."
+                    placeholder="Пошук матеріалу…"
                     renderItem={(m) => (
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-[14px] text-gray-900 truncate">{m.name}</span>
@@ -597,7 +597,7 @@ export default function ServiceEntryModal({
                   items={filteredServices}
                   selectedId={serviceId}
                   onSelect={setServiceId}
-                  placeholder="Пошук послуги..."
+                  placeholder="Пошук послуги…"
                   groupBy={(s) => categoryNameById.get(s.categoryId) || "Без категорії"}
                   renderItem={(s) => (
                     <div className="flex items-center justify-between gap-2">
@@ -758,7 +758,7 @@ export default function ServiceEntryModal({
               disabled={saving}
               className="w-full h-[48px] bg-brand-600 text-white rounded-xl font-semibold text-[16px] cursor-pointer hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {saving ? "Збереження..." : "Зберегти"}
+              {saving ? "Зберігаю…" : "Зберегти"}
             </button>
           </>
         )}

@@ -289,7 +289,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
                   onClick={handleCreateSpec}
                   disabled={creatingSpec || !newSpecName.trim()}
                 >
-                  {creatingSpec ? "Створюю..." : "Додати"}
+                  {creatingSpec ? "Створюю…" : "Додати"}
                 </Button>
                 <Button
                   size="sm"
@@ -521,7 +521,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
       )}
 
       <Button onClick={handleSave} disabled={saving} fullWidth size="lg">
-        {saving ? "Зберігаю..." : isEdit ? "Зберегти зміни" : "Додати спеціаліста"}
+        {saving ? "Зберігаю…" : isEdit ? "Зберегти зміни" : "Додати спеціаліста"}
       </Button>
 
       {isEdit && (

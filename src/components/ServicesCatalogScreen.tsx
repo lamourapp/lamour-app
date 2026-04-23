@@ -124,7 +124,7 @@ export default function ServicesCatalogScreen({ onBack }: { onBack: () => void }
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Пошук послуг..."
+          placeholder="Пошук послуг…"
           className="w-full h-[42px] border border-black/10 rounded-xl pl-9 pr-3 text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-400"
         />
       </div>

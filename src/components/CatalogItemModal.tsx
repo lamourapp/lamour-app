@@ -150,7 +150,7 @@ export default function CatalogItemModal({ type, item, onClose, onSaved }: Props
       )}
 
       <Button onClick={handleSave} disabled={saving} fullWidth size="lg">
-        {saving ? "Зберігаю..." : isEdit ? "Зберегти зміни" : "Додати"}
+        {saving ? "Зберігаю…" : isEdit ? "Зберегти зміни" : "Додати"}
       </Button>
     </Modal>
   );
