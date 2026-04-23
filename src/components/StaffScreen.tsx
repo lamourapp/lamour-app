@@ -13,15 +13,27 @@ import MasterReportModal from "./MasterReportModal";
 function compensationLabel(s: Specialist, fmt: Fmt, sym: string): string {
   const materialsLabel = s.salesCommission > 0 ? ` · матер. ${s.salesCommission}%` : "";
   const salesLabel = s.productSalesCommission > 0 ? ` · продаж ${s.productSalesCommission}%` : "";
+  // Для salary/hourly + dual-role (masterMode on) дописуємо «+ майстер X%»,
+  // де X = частка майстра за послугу (100 − salonPctForService). Це видно
+  // з (а) serviceCommission<100 — є майстерська частина з послуги, АБО
+  // (б) будь-яка з комісій з матеріалів/продажів > 0.
+  const isDualRoleMaster =
+    (s.compensationType === "salary" || s.compensationType === "hourly") &&
+    ((s.serviceCommission ?? 100) < 100 ||
+      (s.salesCommission ?? 0) > 0 ||
+      (s.productSalesCommission ?? 0) > 0);
+  const masterSuffix = isDualRoleMaster
+    ? ` · + майстер ${100 - (s.serviceCommission ?? 100)}%`
+    : "";
   switch (s.compensationType) {
     case "commission":
       return `комісія ${s.serviceCommission}%${materialsLabel}${salesLabel}`;
     case "rental":
       return `оренда${s.rentalRate ? ` ${fmt(s.rentalRate)}` : ""}${materialsLabel}${salesLabel}`;
     case "hourly":
-      return `погодинна ${s.hourlyRate ? `${fmt(s.hourlyRate)} ${sym}/год` : ""}${materialsLabel}${salesLabel}`;
+      return `погодинна ${s.hourlyRate ? `${fmt(s.hourlyRate)} ${sym}/год` : ""}${masterSuffix}${materialsLabel}${salesLabel}`;
     case "salary":
-      return `ЗП ${s.salaryRate} ${sym}/день${materialsLabel}${salesLabel}`;
+      return `ЗП ${s.salaryRate} ${sym}/день${masterSuffix}${materialsLabel}${salesLabel}`;
     case "owner":
       return "власник салону";
     default:
@@ -186,7 +198,7 @@ export default function StaffScreen() {
                     <div className="text-[10px] text-gray-400 uppercase tracking-wider">Д.Н.</div>
                     <div className="text-[12px] text-gray-500">{s.birthday || "—"}</div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right w-[92px]">
                     <div className="text-[10px] text-gray-400 uppercase tracking-wider">Баланс</div>
                     <BalanceDisplay balance={s.balance} fmt={fmt} />
                   </div>
@@ -201,19 +213,22 @@ export default function StaffScreen() {
                   >
                     Звіт
                   </button>
-                  {/* Кнопка «Нарахувати ЗП» — тільки для salary/hourly. Для
-                      commission/rental ЗП нараховується автоматично з послуг
-                      (через masterPayTotal), тому тут вона лише заплутає. */}
-                  {(s.compensationType === "salary" || s.compensationType === "hourly") && (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); setAccruingSpecialist(s); }}
-                      className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 cursor-pointer transition-colors whitespace-nowrap"
-                      title="Нарахувати ЗП за день/період — створює запис у журналі"
-                    >
-                      + ЗП
-                    </button>
-                  )}
+                  {/* Слот під «+ ЗП» — завжди рендеримо контейнер фіксованої
+                      ширини, щоб права частина рядка не «плавала» між рядками
+                      де є salary/hourly та де немає. Кнопка всередині рендериться
+                      умовно (тільки для salary/hourly). */}
+                  <div className="w-[52px] shrink-0 flex justify-center">
+                    {(s.compensationType === "salary" || s.compensationType === "hourly") && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setAccruingSpecialist(s); }}
+                        className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 cursor-pointer transition-colors whitespace-nowrap"
+                        title="Нарахувати ЗП за день/період — створює запис у журналі"
+                      >
+                        + ЗП
+                      </button>
+                    )}
+                  </div>
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); setSettlingSpecialist(s); }}

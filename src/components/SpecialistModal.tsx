@@ -70,6 +70,23 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
   const [salesCommission, setSalesCommission] = useState(specialist?.salesCommission ?? 10);
   const [productSalesCommission, setProductSalesCommission] = useState(specialist?.productSalesCommission ?? 10);
   const [conditions, setConditions] = useState(specialist?.conditions ?? 0);
+  // «Також виконує послуги як майстер» — тумблер для salary/hourly.
+  // Увімкнений ⟺ людина отримує комісію з послуг/матеріалів/продажів ПОВЕРХ
+  // основної оплати (salary/hourly через +ЗП). Під капотом ховає/показує ті
+  // самі три поля (% салону, % матеріалів, % продажу), але робить очевидним,
+  // що це «додаткова майстерська роль». Коли вимкнено — на save форсимо
+  // salonPct=100 / mat=0 / sale=0 (майстерські частки обнулені).
+  //
+  // Ініціалізація з БД: якщо існуючий salary/hourly має ознаки майстерки
+  // (salonPct<100 АБО matPct>0 АБО saleProductPct>0) — вмикаємо тумблер.
+  // Для нових записів — вимкнено за замовчуванням.
+  const existingMasterMode =
+    !!specialist &&
+    (specialist.compensationType === "salary" || specialist.compensationType === "hourly") &&
+    ((specialist.serviceCommission ?? 100) < 100 ||
+      (specialist.salesCommission ?? 0) > 0 ||
+      (specialist.productSalesCommission ?? 0) > 0);
+  const [masterMode, setMasterMode] = useState<boolean>(existingMasterMode);
   const [birthday, setBirthday] = useState(specialist?.birthdayRaw || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -122,27 +139,25 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
     setError("");
 
     try {
+      // Коли salary/hourly з вимкненим masterMode — форсимо «нульову
+      // майстерську роль» (salon=100%, matPct=0, saleProductPct=0). Це
+      // гарантує, що якщо адмін увімкнув masterMode, налаштував %, а потім
+      // вимкнув — старі значення не залишаться в БД і не нарахують зайве.
+      const isBaseRoleOnly =
+        (compensationType === "salary" || compensationType === "hourly") && !masterMode;
+
       const payload: Record<string, unknown> = {
         name: name.trim(),
         specializationIds,
         birthday: birthday || undefined,
         compensationType,
         // `% cалону за послугу` — скільки салон забирає з (TSP−TMC) у формулі
-        // коли FM=0. Для rental/salary/hourly правильно = 100, бо:
-        //   - rental: послуга це сама «оренда», все салону
-        //   - salary: зарплата — окремий expense, послуга → 100% салону
-        //   - hourly: FM (fixed master pay) через IF-гілку перебиває; якщо
-        //     FM=0 — справедливо віддати все салону, а не зануляти дохід.
-        // Commission — значення з форми (за замовч. 30).
-        // Історично (до 2026-04) писалось 0 — це обнуляло salonIncome для
-        // salary-майстрів. Див. `defaultSalonPctForService` в pricing.ts.
-        // Variant A: зберігаємо як є (редагується для всіх типів). Для
-        // salary/hourly/rental default=100 → салон забирає 100% (майстер
-        // не отримує комісії). Якщо адмін знизив до 70 на salary-майстрі
-        // — він отримає 30% бонусу за послуги, які зробив сам.
-        serviceCommission,
-        salesCommission,
-        productSalesCommission,
+        // коли FM=0. Variant A: редагується для всіх типів. Для salary/hourly
+        // без masterMode — примусово 100, щоб послуга цього співробітника
+        // (якщо випадково створять запис) не «вкрала» дохід салону.
+        serviceCommission: isBaseRoleOnly ? 100 : serviceCommission,
+        salesCommission: isBaseRoleOnly ? 0 : salesCommission,
+        productSalesCommission: isBaseRoleOnly ? 0 : productSalesCommission,
         conditions: compensationType !== "commission" ? conditions : 0,
       };
 
@@ -392,101 +407,111 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
         </>
       )}
 
-      {compensationType === "hourly" && (
+      {(compensationType === "hourly" || compensationType === "salary") && (
         <>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={`Ставка, ${sym}/год`}>
-              <Input
-                type="number"
-                value={conditions}
-                onChange={(e) => setConditions(Number(e.target.value))}
-                min={0}
-              />
-            </Field>
-            <Field label="% майстру з матеріалів">
-              <Input
-                type="number"
-                value={salesCommission}
-                onChange={(e) => setSalesCommission(Number(e.target.value))}
-                min={0}
-                max={100}
-              />
-            </Field>
-          </div>
-          <Field label="% майстру за продаж товарів">
-            <Input
-              type="number"
-              value={productSalesCommission}
-              onChange={(e) => setProductSalesCommission(Number(e.target.value))}
-              min={0}
-              max={100}
-            />
-          </Field>
           <Field
-            label="% салону за послугу (якщо FM=0)"
-            hint="100 = весь дохід салону (стандарт). Ставка × години перебиває це правило."
+            label={`Ставка, ${sym}/${compensationType === "hourly" ? "год" : "день"}`}
           >
             <Input
               type="number"
-              value={serviceCommission}
-              onChange={(e) => setServiceCommission(Number(e.target.value))}
+              value={conditions}
+              onChange={(e) => setConditions(Number(e.target.value))}
               min={0}
-              max={100}
             />
           </Field>
-          <div className="text-[11px] text-gray-500 leading-relaxed bg-brand-50/50 border border-brand-100 rounded-lg px-3 py-2">
-            💡 Оплата майстру = <strong>ставка × кількість годин</strong> в кожному записі послуги.
-            Ставка зберігається в картці та підставляється при внесенні послуги.
+          <div
+            className={`text-[11px] text-gray-500 leading-relaxed rounded-lg px-3 py-2 ${
+              compensationType === "salary"
+                ? "bg-amber-50/50 border border-amber-100"
+                : "bg-brand-50/50 border border-brand-100"
+            }`}
+          >
+            {compensationType === "salary" ? (
+              <>
+                💡 Ставка — сума, яку <strong>салон платить</strong> спеціалісту. Нараховується
+                через кнопку <strong>«+ ЗП»</strong> на картці в команді. До балансу додається як
+                «борг»; виплата закривається звичайним «Розрахунком».
+              </>
+            ) : (
+              <>
+                💡 Оплата майстру = <strong>ставка × години</strong> в кожному записі послуги.
+                Ставка підставляється автоматично з картки при внесенні послуги.
+              </>
+            )}
           </div>
-        </>
-      )}
 
-      {compensationType === "salary" && (
-        <>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={`Ставка, ${sym}/день`}>
-              <Input
-                type="number"
-                value={conditions}
-                onChange={(e) => setConditions(Number(e.target.value))}
-                min={0}
-              />
-            </Field>
-            <Field label="% майстру з матеріалів">
-              <Input
-                type="number"
-                value={salesCommission}
-                onChange={(e) => setSalesCommission(Number(e.target.value))}
-                min={0}
-                max={100}
-              />
-            </Field>
-          </div>
-          <Field label="% майстру за продаж товарів">
-            <Input
-              type="number"
-              value={productSalesCommission}
-              onChange={(e) => setProductSalesCommission(Number(e.target.value))}
-              min={0}
-              max={100}
-            />
-          </Field>
-          <Field
-            label="% салону за послугу"
-            hint="100 = майстер не отримує комісії з власних послуг (стандарт для salary). Знизь, якщо адмін-майстер має отримувати бонус за послуги, зроблені особисто."
-          >
-            <Input
-              type="number"
-              value={serviceCommission}
-              onChange={(e) => setServiceCommission(Number(e.target.value))}
-              min={0}
-              max={100}
-            />
-          </Field>
-          <div className="text-[11px] text-gray-500 leading-relaxed bg-amber-50/50 border border-amber-100 rounded-lg px-3 py-2">
-            💡 Ставка — це сума, яку <strong>салон платить</strong> спеціалісту (нараховується через
-            кнопку «Нарахувати ЗП» на картці). Якщо майстер-адмін виконує послуги сам і отримує за
-            них %, знизь «% салону за послугу» нижче 100.
+          {/* Опційний блок «майстерської ролі» для адмінів/погодинних, які
+              крім основної оплати ще й виконують послуги як майстри. Це
+              Variant A: salonPct<100 → масtery-бонус; matPct/saleProductPct
+              → стандартні комісійні частки. Якщо тумблер вимкнено — на save
+              форсимо 100/0/0, щоб старі значення не лишались активними. */}
+          <div className="border border-black/10 rounded-xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setMasterMode((v) => !v)}
+              className="w-full flex items-center justify-between gap-3 px-3.5 py-3 bg-gray-50/60 hover:bg-gray-100/60 cursor-pointer transition-colors text-left"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] font-semibold text-gray-900">
+                  Також виконує послуги як майстер
+                </div>
+                <div className="text-[11px] text-gray-500 mt-0.5 leading-snug">
+                  Додає комісію з послуг/матеріалів/продажів <strong>поверх</strong>{" "}
+                  {compensationType === "salary" ? "ЗП" : "погодинної оплати"}. Приклад: адмін, який
+                  інколи робить лаш/манікюр.
+                </div>
+              </div>
+              <div
+                className={`shrink-0 w-10 h-6 rounded-full relative transition-colors ${
+                  masterMode ? "bg-brand-600" : "bg-gray-300"
+                }`}
+                role="switch"
+                aria-checked={masterMode}
+              >
+                <div
+                  className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${
+                    masterMode ? "left-[18px]" : "left-0.5"
+                  }`}
+                />
+              </div>
+            </button>
+
+            {masterMode && (
+              <div className="px-3.5 py-3 space-y-3 border-t border-black/5 bg-white">
+                <Field
+                  label="% салону за послугу"
+                  hint="Напр. 70 → майстру лишається 30% з (вартість послуги − матеріали)."
+                >
+                  <Input
+                    type="number"
+                    value={serviceCommission}
+                    onChange={(e) => setServiceCommission(Number(e.target.value))}
+                    min={0}
+                    max={100}
+                  />
+                </Field>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="% майстру з матеріалів">
+                    <Input
+                      type="number"
+                      value={salesCommission}
+                      onChange={(e) => setSalesCommission(Number(e.target.value))}
+                      min={0}
+                      max={100}
+                    />
+                  </Field>
+                  <Field label="% майстру за продаж товарів">
+                    <Input
+                      type="number"
+                      value={productSalesCommission}
+                      onChange={(e) => setProductSalesCommission(Number(e.target.value))}
+                      min={0}
+                      max={100}
+                    />
+                  </Field>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}
