@@ -473,11 +473,21 @@ function RevisionModal({
             <button
               type="button"
               onClick={distributeEvenly}
-              className="text-[11px] text-brand-600 hover:text-brand-700 cursor-pointer font-medium"
+              disabled={rows.length < 2}
+              title={rows.length < 2 ? "Спочатку додайте ще одного власника" : "Проставити рівні частки"}
+              className="text-[11px] font-medium transition-colors text-brand-600 hover:text-brand-700 cursor-pointer disabled:text-gray-300 disabled:cursor-not-allowed disabled:hover:text-gray-300"
             >
               Розділити порівну
             </button>
           </div>
+          {rows.length < 2 && (
+            <div className="text-[11px] text-gray-400 mb-2 leading-snug">
+              Щоб розділити прибуток між кількома — натисніть
+              <span className="text-brand-600"> «+ Додати власника» </span>
+              нижче, оберіть спеціаліста, потім натисніть
+              <span className="text-brand-600"> «Розділити порівну»</span>.
+            </div>
+          )}
           <div className="space-y-2">
             {rows.map((row, i) => {
               // Не даємо вибрати того, хто вже в інших рядках — уникаємо дублікатів.
@@ -498,16 +508,16 @@ function RevisionModal({
                     renderSelected={(s) => <span className="text-[14px] text-gray-900 font-medium">{s.name}</span>}
                   />
                 </div>
-                <div className="relative w-[80px]">
+                <div className="relative w-[96px] flex-shrink-0">
                   <Input
                     type="number"
                     inputMode="decimal"
                     value={row.sharePct}
                     onChange={(e) => updateRow(i, { sharePct: e.target.value })}
                     placeholder="0"
-                    className="tabular-nums pr-6"
+                    className="tabular-nums text-right pr-7 no-spin"
                   />
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-[12px] pointer-events-none">%</span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[13px] pointer-events-none font-medium">%</span>
                 </div>
                 {rows.length > 1 && (
                   <button
