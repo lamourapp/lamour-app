@@ -314,19 +314,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "name is required" }, { status: 400 });
     }
 
-    // Валідація: лише один власник на базу.
-    if (isOwner === true) {
-      const existing = await fetchAllRecords(TABLES.specialists, {
-        fields: [SPECIALIST_FIELDS.isOwner],
-      });
-      const alreadyHasOwner = existing.some((r) => r.fields[SPECIALIST_FIELDS.isOwner] === true);
-      if (alreadyHasOwner) {
-        return NextResponse.json(
-          { error: "Власник вже є. Зніміть прапорець у існуючого або деактивуйте його." },
-          { status: 400 },
-        );
-      }
-    }
+    // N власників на базу — розподіл налаштовується в Налаштування → Власники
+    // та частки. Стара 1-to-1 валідація знята після переходу на Розподіл
+    // прибутку (таблиця Ownership, див. /api/ownership).
 
     const fields: Record<string, unknown> = {
       [SPECIALIST_FIELDS.name]: name,
@@ -368,21 +358,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Invalid record ID" }, { status: 400 });
     }
 
-    // Валідація: лише один власник на базу.
-    if (updates.isOwner === true) {
-      const existing = await fetchAllRecords(TABLES.specialists, {
-        fields: [SPECIALIST_FIELDS.isOwner],
-      });
-      const conflict = existing.find(
-        (r) => r.id !== id && r.fields[SPECIALIST_FIELDS.isOwner] === true,
-      );
-      if (conflict) {
-        return NextResponse.json(
-          { error: "Власник вже є. Зніміть прапорець у існуючого." },
-          { status: 400 },
-        );
-      }
-    }
+    // N власників на базу — див. коментар у POST.
 
     const fields: Record<string, unknown> = {};
 
