@@ -210,11 +210,17 @@ function computeMetrics(entries: JournalEntry[]) {
   };
 }
 
+type CashFilter = "all" | "готівка" | "карта";
+
 export default function DashboardScreen() {
   const [period, setPeriod] = useState("today");
   const [selectedSpecialist, setSelectedSpecialist] = useState("");
   const [showCalendar, setShowCalendar] = useState(false);
   const [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null);
+  // Фільтр каси: "all" — усі записи, "готівка"/"карта" — лише з відповідною
+  // paymentType (історичні unknown потраплять в "all"). Застосовується до ВСІХ
+  // показників за період, крім «Залишку у касах» (lifetime, живе окремо).
+  const [cashFilter, setCashFilter] = useState<CashFilter>("all");
 
   // Залишок у касах — lifetime, не залежить від обраного періоду. Тягнемо
   // один раз з /api/owner/balances (той самий endpoint, що й owner-дашборд).
@@ -273,7 +279,21 @@ export default function DashboardScreen() {
       .catch(() => { /* silent */ });
   };
 
-  const m = useMemo(() => computeMetrics(entries), [entries]);
+  const filteredEntries = useMemo(
+    () => (cashFilter === "all" ? entries : entries.filter((e) => e.paymentType === cashFilter)),
+    [entries, cashFilter],
+  );
+  const m = useMemo(() => computeMetrics(filteredEntries), [filteredEntries]);
+
+  // Середній чек = amount на один запис типу service|sale. Простий KPI, який
+  // швидко показує наскільки великі транзакції (динаміку треба відчувати
+  // саме так — не сумою, а «типовим чеком»).
+  const avgCheck = useMemo(() => {
+    const transactions = filteredEntries.filter((e) => e.type === "service" || e.type === "sale");
+    if (transactions.length === 0) return 0;
+    const sum = transactions.reduce((s, e) => s + e.amount, 0);
+    return sum / transactions.length;
+  }, [filteredEntries]);
 
   // Борги = сума балансів МАЙСТРІВ (без власників). Власники в «Команді» не
   // ЗП-борг командою — сума master-частини всіх, хто має майстерську роль
@@ -365,13 +385,13 @@ export default function DashboardScreen() {
             )}
           </div>
         </div>
-        {/* Row 2: specialist select */}
-        <div className="mt-2">
-          <div className="relative inline-block w-full sm:w-auto">
+        {/* Row 2: specialist select + cash filter */}
+        <div className="mt-2 flex gap-2">
+          <div className="relative flex-1 min-w-0">
             <select
               value={selectedSpecialist}
               onChange={(e) => setSelectedSpecialist(e.target.value)}
-              className="appearance-none w-full sm:w-auto text-[13px] border border-black/[0.08] rounded-xl pl-3 pr-8 py-2 text-gray-700 bg-white cursor-pointer hover:border-brand-300 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400"
+              className="appearance-none w-full text-[13px] border border-black/[0.08] rounded-xl pl-3 pr-8 py-2 text-gray-700 bg-white cursor-pointer hover:border-brand-300 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 truncate"
             >
               <option value="">Всі спеціалісти</option>
               {specialists.map((s) => (
@@ -379,6 +399,27 @@ export default function DashboardScreen() {
               ))}
             </select>
             <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+          </div>
+          {/* Cash-filter сегмент: Всі / 💵 / 💳. Застосовується до всіх метрик
+              за період. «Залишок у касах» (lifetime) живе окремо і фільтр не
+              бачить — це інша семантика (стан vs рух). */}
+          <div className="flex gap-0.5 bg-[#f5f5f7] rounded-xl p-0.5 shrink-0">
+            {([
+              { id: "all", label: "Всі" },
+              { id: "готівка", label: "💵" },
+              { id: "карта", label: "💳" },
+            ] as const).map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setCashFilter(f.id)}
+                className={`px-2.5 py-1.5 rounded-[9px] text-[12px] font-medium cursor-pointer transition-all
+                  ${cashFilter === f.id ? "bg-white text-gray-800 shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
+                title={f.id === "all" ? "Всі каси" : `Лише ${f.id}`}
+              >
+                {f.label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -545,8 +586,15 @@ export default function DashboardScreen() {
             </div>
           </div>
 
-          {/* Row 4: counters */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-6">
+          {/* Row 4: counters + avg check */}
+          <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 mb-6">
+            <MetricCard
+              label="Середній чек"
+              sublabel="послуги + продажі"
+              value={Math.round(avgCheck)}
+              fmt={fmt}
+              variant="brand-dark"
+            />
             <MetricCard label="Послуг" value={m.countServices} suffix="" />
             <MetricCard label="Продажів" value={m.countSales} suffix="" />
             <MetricCard label="Оренд" value={m.countRentals} suffix="" />
