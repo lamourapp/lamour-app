@@ -12,6 +12,7 @@ import CreateEntryModal from "./CreateEntryModal";
 import ServiceEntryModal from "./ServiceEntryModal";
 import QuickEditEntryModal from "./QuickEditEntryModal";
 import ScrollToTop from "./ScrollToTop";
+import { Select } from "./ui";
 
 function TypeDot({ type }: { type: JournalEntry["type"] }) {
   const colors: Record<string, string> = {
@@ -579,33 +580,28 @@ export default function JournalScreen() {
             )}
           </div>
         </div>
-        {/* Row 2: specialist + type selects */}
+        {/* Row 2: specialist + type selects. Через Select з дизайн-токена —
+            уніфікуємо стиль з формами створення (один «стандарт» дропдаунів). */}
         <div className="flex gap-2 mt-2">
-          <div className="relative flex-1 min-w-0">
-            <select
-              value={selectedSpecialist}
-              onChange={(e) => setSelectedSpecialist(e.target.value)}
-              className="appearance-none w-full text-[13px] border border-black/[0.08] rounded-xl pl-3 pr-8 py-2 text-gray-700 bg-white cursor-pointer hover:border-brand-300 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 truncate"
-            >
-              <option value="">Всі спеціалісти</option>
-              {specialists.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-            <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
-          </div>
-          <div className="relative flex-1 min-w-0">
-            <select
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
-              className="appearance-none w-full text-[13px] border border-black/[0.08] rounded-xl pl-3 pr-8 py-2 text-gray-700 bg-white cursor-pointer hover:border-brand-300 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 truncate"
-            >
-              {typeFilters.map((t) => (
-                <option key={t.id} value={t.id}>{t.label}</option>
-              ))}
-            </select>
-            <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
-          </div>
+          <Select
+            value={selectedSpecialist}
+            onChange={(e) => setSelectedSpecialist(e.target.value)}
+            className="flex-1 min-w-0 truncate"
+          >
+            <option value="">Всі спеціалісти</option>
+            {specialists.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </Select>
+          <Select
+            value={selectedType}
+            onChange={(e) => setSelectedType(e.target.value)}
+            className="flex-1 min-w-0 truncate"
+          >
+            {typeFilters.map((t) => (
+              <option key={t.id} value={t.id}>{t.label}</option>
+            ))}
+          </Select>
           {/* Toggle «Показати скасовані» — компактний перемикач. Підсвічений = ON,
               картки скасованих з'являться в стрічці з опцією «Відновити». */}
           <button

@@ -9,6 +9,8 @@ import { moneyFormatter } from "@/lib/format";
 type Fmt = (amount: number, opts?: { signed?: boolean; maximumFractionDigits?: number }) => string;
 import CalendarPicker from "./CalendarPicker";
 import CreateEntryModal from "./CreateEntryModal";
+import { Select } from "./ui";
+import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 function MetricCard({
   label,
@@ -295,6 +297,21 @@ export default function DashboardScreen() {
     return sum / transactions.length;
   }, [filteredEntries]);
 
+  // Дані для міні-графіку: виручка (service+sale) по днях за обраний період.
+  // Для period="today" буде одна точка — графік тоді не показуємо.
+  const dailyRevenue = useMemo(() => {
+    const byDate = new Map<string, number>();
+    for (const e of filteredEntries) {
+      if (e.type !== "service" && e.type !== "sale") continue;
+      const d = e.date || "";
+      if (!d) continue;
+      byDate.set(d, (byDate.get(d) || 0) + e.amount);
+    }
+    return [...byDate.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, revenue]) => ({ date, revenue }));
+  }, [filteredEntries]);
+
   // Борги = сума балансів МАЙСТРІВ (без власників). Власники в «Команді» не
   // ЗП-борг командою — сума master-частини всіх, хто має майстерську роль
   // (compensationType ≠ "owner"). Майстер-співвласник потрапляє сюди зі
@@ -385,21 +402,21 @@ export default function DashboardScreen() {
             )}
           </div>
         </div>
-        {/* Row 2: specialist select + cash filter */}
+        {/* Row 2: specialist select + cash filter. Фільтр-селект уніфікований
+            через Select з дизайн-токена — той самий стиль, що й нативні
+            селекти у формах створення (rounded-xl, h-[44px], chevron у
+            background). Менше різних дропдаунів — менше плутанини. */}
         <div className="mt-2 flex gap-2">
-          <div className="relative flex-1 min-w-0">
-            <select
-              value={selectedSpecialist}
-              onChange={(e) => setSelectedSpecialist(e.target.value)}
-              className="appearance-none w-full text-[13px] border border-black/[0.08] rounded-xl pl-3 pr-8 py-2 text-gray-700 bg-white cursor-pointer hover:border-brand-300 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 truncate"
-            >
-              <option value="">Всі спеціалісти</option>
-              {specialists.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-            <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
-          </div>
+          <Select
+            value={selectedSpecialist}
+            onChange={(e) => setSelectedSpecialist(e.target.value)}
+            className="flex-1 min-w-0 truncate"
+          >
+            <option value="">Всі спеціалісти</option>
+            {specialists.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </Select>
           {/* Cash-filter сегмент: Всі / 💵 / 💳. Застосовується до всіх метрик
               за період. «Залишок у касах» (lifetime) живе окремо і фільтр не
               бачить — це інша семантика (стан vs рух). */}
@@ -435,10 +452,12 @@ export default function DashboardScreen() {
 
       {!loading && !error && (
         <>
-          {/* Operational-stack: залишок у касах + кого виплатити. Flex-wrap
-              дає side-by-side на десктопі, стек на мобільному; max-w-xl на
-              кожному тримає від розтягування в порожнечу. */}
-          <div className="flex flex-wrap gap-3 mb-4">
+          {/* Operational-stack: залишок у касах + міні-графік виручки +
+              кого виплатити. Flex-wrap — side-by-side на десктопі, стек на
+              мобільному; max-w-xl на кожному тримає від розтягування в
+              порожнечу. Графік заповнює простір поруч із касою коли
+              payoutQueue порожня. */}
+          <div className="flex flex-wrap gap-3 mb-4 items-stretch">
           {/* Залишок у касах (lifetime) — головне число, яке власник/адмін
               хоче бачити одразу: скільки фізично є в готівці/карті зараз.
               Незалежне від обраного періоду (інакше плутається з рухом). */}
@@ -469,6 +488,55 @@ export default function DashboardScreen() {
                     <span className="font-medium">{fmt(Math.round(cashBalance.cashByMethod.unknown))}</span>
                   </span>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Мініграфік виручки по днях за обраний період. Показуємо лише
+              якщо є >=2 точок — інакше графік вироджений і тільки плутає.
+              Заповнює порожнечу поруч із касою, коли payoutQueue пуста. */}
+          {dailyRevenue.length >= 2 && (
+            <div className="flex-1 basis-[320px] max-w-xl rounded-2xl border border-black/[0.06] bg-white px-4 py-3 flex flex-col">
+              <div className="flex items-baseline justify-between mb-1 gap-3">
+                <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">
+                  Виручка по днях
+                </div>
+                <div className="text-[11px] text-gray-400 tabular-nums">
+                  {dailyRevenue.length} {dailyRevenue.length === 1 ? "день" : "днів"} · {periodLabel.toLowerCase()}
+                </div>
+              </div>
+              <div className="flex-1 min-h-[100px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={dailyRevenue} margin={{ top: 8, right: 4, bottom: 0, left: 4 }}>
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 10, fill: "#9ca3af" }}
+                      tickFormatter={(d: string) => d.slice(8, 10) + "." + d.slice(5, 7)}
+                      axisLine={false}
+                      tickLine={false}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis hide domain={[0, "auto"]} />
+                    <Tooltip
+                      formatter={(v) => [fmt(Math.round(Number(v) || 0)), "виручка"]}
+                      labelFormatter={(d) => String(d).split("-").reverse().join(".")}
+                      contentStyle={{
+                        fontSize: 11,
+                        borderRadius: 8,
+                        border: "1px solid rgba(0,0,0,0.06)",
+                        padding: "4px 8px",
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke="#10b981"
+                      strokeWidth={2}
+                      dot={{ r: 2, fill: "#10b981" }}
+                      activeDot={{ r: 4 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
             </div>
           )}

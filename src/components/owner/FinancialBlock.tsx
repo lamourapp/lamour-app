@@ -245,31 +245,31 @@ export default function FinancialBlock({ current, previous, daily, settings, loa
         {loading && <span className="text-[10px] text-gray-400">завантаження…</span>}
       </div>
 
+      {/* Operational + P&L stack. Flex-wrap → side-by-side на десктопі,
+          стек на мобільному; max-w тримає кожен блок у розумній ширині. */}
+      <div className="flex flex-wrap gap-3 mb-5 items-start">
       {/* Зараз у касах — lifetime, не залежить від обраного періоду. Показує
           фактичний фізичний залишок у готівці/карті просто зараз. */}
       {balances && (
-        <div className="mb-3 rounded-xl border border-brand-100 bg-gradient-to-br from-brand-50/60 to-white px-4 py-3">
-          <div className="flex items-baseline justify-between mb-2">
+        <div className="flex-1 basis-[280px] max-w-xl rounded-xl border border-brand-100 bg-gradient-to-br from-brand-50/60 to-white px-4 py-3">
+          <div className="flex items-baseline justify-between mb-2 gap-3">
             <div className="text-[10px] text-brand-600 uppercase tracking-wider font-semibold">Залишок у касах</div>
             <div className="text-[16px] font-semibold text-gray-900 tabular-nums">{money(Math.round(balances.cashTotal))}</div>
           </div>
-          <div className="grid grid-cols-2 gap-2 text-[12px] tabular-nums">
-            <div className="flex items-center justify-between bg-white/60 rounded-lg px-2.5 py-1.5 border border-black/[0.03]">
-              <span className="text-gray-500">💵 Готівка</span>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] tabular-nums">
+            <span className="inline-flex items-baseline gap-1.5">
+              <span className="text-gray-500">💵 Готівка:</span>
               <span className="text-gray-900 font-medium">{money(Math.round(balances.cashByMethod.cash))}</span>
-            </div>
-            <div className="flex items-center justify-between bg-white/60 rounded-lg px-2.5 py-1.5 border border-black/[0.03]">
-              <span className="text-gray-500">💳 Карта</span>
+            </span>
+            <span className="inline-flex items-baseline gap-1.5">
+              <span className="text-gray-500">💳 Карта:</span>
               <span className="text-gray-900 font-medium">{money(Math.round(balances.cashByMethod.card))}</span>
-            </div>
+            </span>
             {Math.abs(balances.cashByMethod.unknown) > 0.5 && (
-              <div
-                className="col-span-2 flex items-center justify-between bg-white/40 rounded-lg px-2.5 py-1.5 border border-black/[0.03] text-gray-400"
-                title="Історичні записи без вказаної каси"
-              >
-                <span>? Без каси (історичні)</span>
-                <span className="tabular-nums">{money(Math.round(balances.cashByMethod.unknown))}</span>
-              </div>
+              <span className="inline-flex items-baseline gap-1.5 text-gray-400" title="Історичні записи без вказаної каси">
+                <span>? Без каси:</span>
+                <span className="font-medium">{money(Math.round(balances.cashByMethod.unknown))}</span>
+              </span>
             )}
           </div>
         </div>
@@ -279,7 +279,7 @@ export default function FinancialBlock({ current, previous, daily, settings, loa
           Оборот розгортається в деталізацію (послуги/товари/матеріали).
           Під «Оборот» і «Витрати» — розбивка по касах, рух коштів стає
           прозорим: видно з якої каси скільки зайшло/пішло за період. */}
-      <div className="mb-5 bg-gray-50/50 rounded-xl border border-black/[0.04] px-4 py-3">
+      <div className="flex-1 basis-[360px] max-w-2xl bg-gray-50/50 rounded-xl border border-black/[0.04] px-4 py-3">
         <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1.5">
           P&amp;L за період
         </div>
@@ -328,6 +328,7 @@ export default function FinancialBlock({ current, previous, daily, settings, loa
             />
           </>
         )}
+      </div>
       </div>
 
       {/* KPI — «власницькі» числа: середній чек, ефективність візиту,
