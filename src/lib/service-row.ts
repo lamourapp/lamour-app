@@ -61,12 +61,23 @@ function firstString(value: unknown): string {
   return "";
 }
 
+/**
+ * Снепшот-fallback: спочатку дивимось у fixed-* поле (яке POST пише з API
+ * синхронно), якщо порожнє — fallback на lookup. Так нові записи рахуються
+ * одразу при створенні (без 400-800мс затримки на Airtable lookup), а старі
+ * записи без снепшоту й далі читаються через lookup.
+ */
+function preferFixed(fixed: unknown, lookup: unknown): number {
+  if (typeof fixed === "number" && fixed !== 0) return fixed;
+  return firstNumber(lookup);
+}
+
 /** Сирі входи одного рядка журналу, витягнуті з Airtable fields object. */
 export function serviceRowInputs(f: FieldsMap): ServiceRowInputs {
   return {
     fixedPrice: (f[SERVICE_FIELDS.fixedPrice] as number) || 0,
     fixedHourlyRate: (f[SERVICE_FIELDS.fixedHourlyRate] as number) || 0,
-    hours: firstNumber(f[SERVICE_FIELDS.hoursLookup]),
+    hours: preferFixed(f[SERVICE_FIELDS.fixedHours], f[SERVICE_FIELDS.hoursLookup]),
     extraHours: (f[SERVICE_FIELDS.extraHours] as number) || 0,
     addonServicePrice: (f[SERVICE_FIELDS.addonServicePrice] as number) || 0,
     fixedMaterialsCost: (f[SERVICE_FIELDS.fixedMaterialsCost] as number) || 0,
@@ -84,15 +95,26 @@ export function serviceRowInputs(f: FieldsMap): ServiceRowInputs {
   };
 }
 
-/** Контекст майстра, витягнутий з lookup-полів запису. */
+/** Контекст майстра, витягнутий з fixed-* (снепшот) або lookup (fallback). */
 export function masterContextFromRow(f: FieldsMap): MasterContext {
   // pricing.ts очікує тип без "owner" (власник на рядку поведе себе як
   // commission — стандартний розрахунок частки салону, без вилучення).
-  const type = compensationTypeFromLabel(firstString(f[SERVICE_FIELDS.masterCompensationTypeLookup]));
+  // Тип беремо з fixed-снепшоту якщо є, інакше — з lookup.
+  const fixedTypeRaw = f[SERVICE_FIELDS.fixedMasterCompensationType];
+  const typeLabel = typeof fixedTypeRaw === "string" && fixedTypeRaw
+    ? fixedTypeRaw
+    : firstString(f[SERVICE_FIELDS.masterCompensationTypeLookup]);
+  const type = compensationTypeFromLabel(typeLabel);
   return {
     type: type === "owner" ? "commission" : type,
-    salonPctForService: firstNumber(f[SERVICE_FIELDS.salonPctForServiceLookup]),
-    masterPctForMaterials: firstNumber(f[SERVICE_FIELDS.masterPctForMaterialsLookup]),
+    salonPctForService: preferFixed(
+      f[SERVICE_FIELDS.fixedSalonPctForService],
+      f[SERVICE_FIELDS.salonPctForServiceLookup],
+    ),
+    masterPctForMaterials: preferFixed(
+      f[SERVICE_FIELDS.fixedMasterPctForMaterials],
+      f[SERVICE_FIELDS.masterPctForMaterialsLookup],
+    ),
   };
 }
 
@@ -160,4 +182,8 @@ export const ROW_METRICS_SOURCE_FIELDS: readonly string[] = [
   SERVICE_FIELDS.salonPctForServiceLookup,
   SERVICE_FIELDS.masterPctForMaterialsLookup,
   SERVICE_FIELDS.masterCompensationTypeLookup,
+  SERVICE_FIELDS.fixedSalonPctForService,
+  SERVICE_FIELDS.fixedMasterPctForMaterials,
+  SERVICE_FIELDS.fixedMasterCompensationType,
+  SERVICE_FIELDS.fixedHours,
 ] as const;

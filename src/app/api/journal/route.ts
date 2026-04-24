@@ -538,6 +538,45 @@ export async function POST(request: NextRequest) {
         if (body.extraMaterialsCost) fields[SERVICE_FIELDS.additionalMaterials] = body.extraMaterialsCost;
         // paymentType тепер пишеться у спільному блоці вище (для всіх типів).
 
+        // Snapshot тривалості з каталогу — щоб pricing.ts не залежав від
+        // асинхронного Airtable lookup `К-сть годин`. Раніше через цю
+        // затримку CreateEntryModal/ServiceEntryModal робили setTimeout(800).
+        if (typeof body.hours === "number" && body.hours > 0) {
+          fields[SERVICE_FIELDS.fixedHours] = body.hours;
+        }
+
+        // Snapshot контексту майстра (тип оплати, % салону за послугу,
+        // % майстру за матеріали) — POST читає актуальні значення зі
+        // Співробітники один раз і пише в рядок журналу. Це звільняє
+        // pricing.ts від чекання Airtable lookup-полів `% cалону за
+        // послугу`, `% майстру за матеріали(відсоток)`, `Тип оплати
+        // (from Майстер)` — вони все ще лишаються для backfill старих
+        // записів через preferFixed-fallback у service-row.ts.
+        try {
+          const specRes = await fetchRecords(TABLES.specialists, {
+            filterByFormula: `RECORD_ID()='${specialistId}'`,
+            fields: [
+              SPECIALIST_FIELDS.salonPctForService,
+              SPECIALIST_FIELDS.masterPctForMaterialsSale,
+              SPECIALIST_FIELDS.compensationType,
+            ],
+            maxRecords: 1,
+          });
+          if (specRes.records.length > 0) {
+            const sf = specRes.records[0].fields;
+            const salonPct = sf[SPECIALIST_FIELDS.salonPctForService];
+            const matsPct = sf[SPECIALIST_FIELDS.masterPctForMaterialsSale];
+            const compType = sf[SPECIALIST_FIELDS.compensationType];
+            if (typeof salonPct === "number") fields[SERVICE_FIELDS.fixedSalonPctForService] = salonPct;
+            if (typeof matsPct === "number") fields[SERVICE_FIELDS.fixedMasterPctForMaterials] = matsPct;
+            if (typeof compType === "string" && compType) fields[SERVICE_FIELDS.fixedMasterCompensationType] = compType;
+          }
+        } catch (err) {
+          // Не блокуємо створення запису — у крайньому разі pricing.ts
+          // зробить fallback на lookup, як було до цього.
+          console.warn("Failed to snapshot specialist context for service entry:", err);
+        }
+
         // If product is sold alongside
         if (body.productId) {
           fields[SERVICE_FIELDS.sales] = [body.productId];

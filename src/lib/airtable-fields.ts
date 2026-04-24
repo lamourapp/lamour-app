@@ -47,6 +47,15 @@ export const SERVICE_FIELDS = {
   masterPctForMaterialsLookup: "% майстру за матеріали(відсоток)", // lookup з Майстра
   salonPctForServiceLookup: "% cалону за послугу", // lookup з Майстра (латинська c!)
   masterCompensationTypeLookup: "Тип оплати (from Майстер)", // lookup з Майстра
+  // Fixed snapshots майстер-/послуго-контексту, які POST пише з API. Замінюють
+  // lookup-поля вище, щоб pricing.ts не залежав від асинхронних Airtable
+  // lookups (вони заповнюються через 100-800мс після створення запису —
+  // звідси були setTimeout-и у CreateEntryModal). Читаємо fixed-* у першу
+  // чергу; якщо 0/empty (старі записи без снепшоту) — fallback на lookup.
+  fixedSalonPctForService: "Фікс. % салону за послугу",
+  fixedMasterPctForMaterials: "Фікс. % майстру за матеріали",
+  fixedMasterCompensationType: "Фікс. тип оплати",
+  fixedHours: "Фікс. К-сть годин",
   // Сирі (non-formula) поля журналу.
   fixedMasterPctForSale: "Фікс. % майстру за продаж",
   fixedSalonPctForSale: "Фікс. % салону за продаж",

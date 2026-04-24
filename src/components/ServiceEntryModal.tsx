@@ -401,6 +401,10 @@ export default function ServiceEntryModal({
 
       const body: Record<string, unknown> = {
         type: "service", date, specialistId, serviceId,
+        // Snapshot тривалості (caталог hours або duration/60). Сервер запише
+        // у `Фікс. К-сть годин`, щоб pricing.ts не залежав від асинхронного
+        // Airtable lookup `К-сть годин` — раніше через нього був setTimeout.
+        hours: fallbackH,
         hourlyRate: isHourlySvc ? (selectedService?.hourlyRate || 0) : undefined,
         // Rental: price from specialist card; hourly svc: no fixedPrice; otherwise catalog price.
         fixedPrice: isRental
@@ -455,7 +459,9 @@ export default function ServiceEntryModal({
         }
       }
 
-      await new Promise((r) => setTimeout(r, 800));
+      // setTimeout-затримки тут більше не потрібно: pricing.ts читає
+      // fixed-* снепшоти, які POST пише синхронно — нові метрики
+      // доступні з першим GET-ом без чекання Airtable lookup-перерахунку.
       onCreated();
       onClose();
     } catch (err) {

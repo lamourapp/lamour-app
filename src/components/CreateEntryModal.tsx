@@ -210,7 +210,9 @@ export default function CreateEntryModal({
           body: JSON.stringify(patchBody),
         });
         if (!res.ok) throw new Error((await res.json()).error || "Failed");
-        await new Promise((resolve) => setTimeout(resolve, 400));
+        // setTimeout більше не потрібен: pricing.ts читає сирі поля
+        // (включно з fixed-* снепшотами для service/sale), а не Airtable
+        // formula-fields, тому свіжі метрики доступні з першим GET-ом.
         onCreated();
         onClose();
         return;
@@ -268,7 +270,7 @@ export default function CreateEntryModal({
         }
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      // setTimeout більше не потрібен (див. коментар вище в edit-гілці).
       onCreated();
       onClose();
     } catch (err) {
