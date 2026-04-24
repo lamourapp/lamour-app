@@ -164,7 +164,14 @@ export default function CreateEntryModal({
   async function handleSubmit() {
     setError("");
 
-    if (type === "expense" && !amount) { setError("Вкажіть суму"); return; }
+    // Defensive: SingleDatePicker дефолтиться на today, але якщо користувач
+    // очистив — явно зупиняємо submit (замість запису з порожньою датою).
+    if (!date) { setError("Вкажіть дату"); return; }
+
+    if (type === "expense") {
+      if (!amount) { setError("Вкажіть суму"); return; }
+      if (!expenseType) { setError("Оберіть вид витрати"); return; }
+    }
     if (type === "debt") {
       if (!amount) { setError("Вкажіть суму"); return; }
       if (!specialistId) { setError("Оберіть спеціаліста"); return; }
@@ -281,13 +288,17 @@ export default function CreateEntryModal({
 
   return (
     <Modal title={titles[type]} onClose={onClose}>
-      <Field label="Дата">
+      <Field label={<>Дата <span className="text-red-500">*</span></>}>
         <SingleDatePicker value={date} onChange={setDate} />
       </Field>
 
       {(type === "debt" || type === "sale" || type === "expense") && (
         <Field
-          label={settings?.specialistTerm || "Спеціаліст"}
+          label={
+            type === "expense"
+              ? (settings?.specialistTerm || "Спеціаліст")
+              : <>{settings?.specialistTerm || "Спеціаліст"} <span className="text-red-500">*</span></>
+          }
           hint={type === "expense" ? "(опціонально, для ЗП)" : undefined}
         >
           <SearchableSelect
@@ -306,7 +317,7 @@ export default function CreateEntryModal({
       )}
 
       {type === "expense" && (
-        <Field label="Вид витрати">
+        <Field label={<>Вид витрати <span className="text-red-500">*</span></>}>
           {(() => {
             // Edit-mode fallback: якщо поточне значення відсутнє в активному списку
             // (архівоване / перейменоване) — додаємо його віртуально, щоб не пропав.
@@ -339,7 +350,7 @@ export default function CreateEntryModal({
       )}
 
       {(type === "expense" || type === "debt") && (
-        <Field label={type === "debt" ? "Сума" : "Сума"}
+        <Field label={<>Сума <span className="text-red-500">*</span></>}
           hint={type === "debt"
             ? "+ збільшити наш борг майстру (напр. довнарахували)  ·  − зменшити / виплата ЗП"
             : undefined}
@@ -379,7 +390,7 @@ export default function CreateEntryModal({
 
       {type === "sale" && (
         <div className="block">
-          <Label>Товари</Label>
+          <Label>Товари <span className="text-red-500">*</span></Label>
           <div className="space-y-2">
             {saleItems.map((si, idx) => {
               const product = products.find((p) => p.id === si.productId);

@@ -413,8 +413,9 @@ export default function ServiceEntryModal({
 
   async function handleSubmit() {
     setError("");
-    if (!serviceId) { setError("Оберіть послугу"); return; }
+    if (!date) { setError("Вкажіть дату"); return; }
     if (!specialistId) { setError("Оберіть спеціаліста"); return; }
+    if (!serviceId) { setError("Оберіть послугу"); return; }
 
     setSaving(true);
     try {
@@ -549,7 +550,7 @@ export default function ServiceEntryModal({
           <>
             {/* Date */}
             <div className="mb-4">
-              <label className={labelCls}>Дата</label>
+              <label className={labelCls}>Дата <span className="text-red-500">*</span></label>
               <SingleDatePicker value={date} onChange={setDate} />
             </div>
 
@@ -562,7 +563,7 @@ export default function ServiceEntryModal({
 
             {/* Specialist */}
             <div className="mb-4">
-              <label className={labelCls}>{settings?.specialistTerm || "Спеціаліст"}</label>
+              <label className={labelCls}>{settings?.specialistTerm || "Спеціаліст"} <span className="text-red-500">*</span></label>
               <SearchableSelect
                 items={specialists}
                 selectedId={specialistId}
@@ -589,7 +590,7 @@ export default function ServiceEntryModal({
             ) : (
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className={labelCls + " mb-0"}>Послуга</label>
+                  <label className={labelCls + " mb-0"}>Послуга <span className="text-red-500">*</span></label>
                   {(selectedSpecialist?.specializationIds?.length ?? 0) > 0 && (
                     <button
                       type="button"
