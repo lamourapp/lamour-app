@@ -34,6 +34,13 @@ interface Aggregates {
    * але коректно включається у P&L як «повернення в пул».
    */
   ownerContributions: number;
+  /**
+   * Фактичний рух коштів по касах за період: готівка / карта / unknown
+   * (історичні записи без вказаної каси). Сума трьох = оборот − виплати
+   * майстрам − витрати − вилучення власника + довнесення власника, тобто
+   * приріст «кошти в касі» за період.
+   */
+  cashByMethod: { cash: number; card: number; unknown: number };
 }
 
 export interface ServiceRow {
@@ -98,6 +105,7 @@ const FIELDS = [
   SERVICE_FIELDS.saleDetails,
   SERVICE_FIELDS.expenseType,
   SERVICE_FIELDS.comments,
+  SERVICE_FIELDS.paymentType,
   ...ROW_METRICS_SOURCE_FIELDS,
 ];
 
@@ -142,6 +150,7 @@ function empty(): Aggregates {
     count: 0,
     ownerWithdrawals: 0,
     ownerContributions: 0,
+    cashByMethod: { cash: 0, card: 0, unknown: 0 },
   };
 }
 
@@ -156,6 +165,9 @@ function aggregate(records: Row[], ownerIds?: ReadonlySet<string>): Aggregates {
     const debt = (f[SERVICE_FIELDS.debtAmount] as number | undefined) || 0;
     const salesLinks = f[SERVICE_FIELDS.sales] as string[] | undefined;
     const serviceLinks = f[SERVICE_FIELDS.service] as string[] | undefined;
+    const payment = f[SERVICE_FIELDS.paymentType] as string | undefined;
+    const mk: "cash" | "card" | "unknown" =
+      payment === "готівка" ? "cash" : payment === "карта" ? "card" : "unknown";
 
     let type: "service" | "sale" | "expense" | "debt" = "service";
     if (expense !== 0) type = "expense";
@@ -166,6 +178,7 @@ function aggregate(records: Row[], ownerIds?: ReadonlySet<string>): Aggregates {
 
     if (type === "expense") {
       agg.expensesTotal += Math.abs(expense);
+      agg.cashByMethod[mk] -= Math.abs(expense);
     } else if (type === "debt") {
       // Борги з майстрами — внутрішні перекази, в оборот/дохід не йдуть.
       // АЛЕ якщо запис прив'язаний до власника, це рух прибутку:
@@ -187,6 +200,14 @@ function aggregate(records: Row[], ownerIds?: ReadonlySet<string>): Aggregates {
           }
         }
       }
+      // Рух коштів: виплата (debt<0) виводить з каси, довнесення (debt>0,
+      // НЕ «Нарахування…») — заводить у касу. Accrual — бухгалтерський рух
+      // без касової операції, в касі не відбивається.
+      const comment = (f[SERVICE_FIELDS.comments] as string | undefined) ?? "";
+      const isAccrual = /^нарахування/i.test(comment.trim());
+      if (!isAccrual) {
+        agg.cashByMethod[mk] += debt < 0 ? -Math.abs(debt) : Math.abs(debt);
+      }
     } else {
       // Service or sale (or combined row): турнувер — з окремих полів,
       // чисті доходи — з формул (= 0, коли відповідної операції немає).
@@ -201,6 +222,9 @@ function aggregate(records: Row[], ownerIds?: ReadonlySet<string>): Aggregates {
       }
       agg.netSales += metrics.incomeSales;
       agg.netMaterials += metrics.incomeMaterials;
+      // Вся виручка запису (те, що клієнт фактично поклав у касу) —
+      // повна вартість послуги + продажів у цьому ж записі.
+      agg.cashByMethod[mk] += metrics.totalServicePrice + metrics.totalSalePrice;
     }
 
     // Чистий дохід салону — рахується через pricing.ts (єдина точка правди).

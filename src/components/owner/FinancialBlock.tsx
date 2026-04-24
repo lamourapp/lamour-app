@@ -18,6 +18,7 @@ interface Aggregates {
   count: number;
   ownerWithdrawals: number;
   ownerContributions: number;
+  cashByMethod: { cash: number; card: number; unknown: number };
 }
 
 interface Props {
@@ -197,6 +198,47 @@ export default function FinancialBlock({ current, previous, daily, settings, loa
         </div>
         {loading && <span className="text-[10px] text-gray-400">завантаження…</span>}
       </div>
+
+      {/* Рух по касах за період — скільки реально пройшло через готівку / карту.
+          Сума buckets = приріст «кошти в касі» за період (виручка − витрати
+          − виплати + довнесення). Unknown — історичні записи без paymentType. */}
+      {(() => {
+        const { cash, card, unknown } = current.cashByMethod;
+        const total = cash + card + unknown;
+        return (
+          <div className="mb-3 bg-gray-50/50 rounded-xl border border-black/[0.04] px-4 py-3">
+            <div className="flex items-baseline justify-between mb-1.5">
+              <div className="text-[10px] text-gray-400 uppercase tracking-wider">Рух по касах</div>
+              <div className="text-[11px] text-gray-500 tabular-nums">{money(Math.round(total))}</div>
+            </div>
+            <div className="flex items-center gap-3 text-[12px] tabular-nums flex-wrap">
+              <span className="flex items-center gap-1.5">
+                <span>💵</span>
+                <span className="text-gray-500">Готівка</span>
+                <span className="text-gray-900 font-medium">{money(Math.round(cash))}</span>
+              </span>
+              <span className="text-gray-300">·</span>
+              <span className="flex items-center gap-1.5">
+                <span>💳</span>
+                <span className="text-gray-500">Карта</span>
+                <span className="text-gray-900 font-medium">{money(Math.round(card))}</span>
+              </span>
+              {Math.abs(unknown) > 0.5 && (
+                <>
+                  <span className="text-gray-300">·</span>
+                  <span
+                    className="flex items-center gap-1.5"
+                    title="Історичні записи без вказаної каси"
+                  >
+                    <span className="text-gray-400">?</span>
+                    <span className="text-gray-400">{money(Math.round(unknown))}</span>
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* P&L-каскад — компактна «стрічка» від обороту до нерозподіленого.
           Оборот розгортається в деталізацію (послуги/товари/матеріали). */}

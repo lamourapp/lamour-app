@@ -44,6 +44,7 @@ interface Aggregates {
   count: number;
   ownerWithdrawals: number;
   ownerContributions: number;
+  cashByMethod: { cash: number; card: number; unknown: number };
 }
 
 interface StatsResponse {
@@ -400,5 +401,6 @@ function emptyAgg(): Aggregates {
     count: 0,
     ownerWithdrawals: 0,
     ownerContributions: 0,
+    cashByMethod: { cash: 0, card: 0, unknown: 0 },
   };
 }
