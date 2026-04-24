@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { moneyFormatter } from "@/lib/format";
 import type { Settings } from "@/app/api/settings/route";
@@ -216,6 +216,24 @@ export default function FinancialBlock({ current, previous, daily, settings, loa
   const [expandedRevenue, setExpandedRevenue] = useState(false);
   const [expandedOwed, setExpandedOwed] = useState(false);
 
+  // Історія балансу каси (lifetime, cumulative) для sparkline під «Залишком у
+  // касах». Окремий ендпоінт, бо балансовий endpoint повертає тільки поточний
+  // snapshot. Не чіпаємо period-filter — ця метрика тренда, а не руху.
+  const [cashHistory, setCashHistory] = useState<{ date: string; balance: number }[]>([]);
+  const [cashHistoryDelta, setCashHistoryDelta] = useState<number | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/owner/cash-history?days=30")
+      .then((r) => r.json())
+      .then((d: { history?: { date: string; balance: number }[]; delta?: number | null }) => {
+        if (cancelled) return;
+        if (Array.isArray(d.history)) setCashHistory(d.history);
+        if (typeof d.delta === "number" || d.delta === null) setCashHistoryDelta(d.delta ?? null);
+      })
+      .catch(() => { /* silent — sparkline optional */ });
+    return () => { cancelled = true; };
+  }, []);
+
   const chartData = useMemo(
     () => daily.map((d) => ({
       ...d,
@@ -272,6 +290,53 @@ export default function FinancialBlock({ current, previous, daily, settings, loa
               </span>
             )}
           </div>
+          {/* Sparkline: тренд балансу каси за 30 днів. Показує історію STAN,
+              а не FLOW (flow живе у P&L поруч). Рендеримо лише якщо є >=2 точок
+              — інакше лінія виродилась у крапку і тільки плутає. */}
+          {cashHistory.length >= 2 && (
+            <div className="mt-3 pt-2.5 border-t border-brand-100/70">
+              <div className="flex items-baseline justify-between mb-1">
+                <div className="text-[10px] text-brand-600/80 uppercase tracking-wider font-semibold">
+                  Тренд · 30 днів
+                </div>
+                {cashHistoryDelta !== null && (
+                  <div className={`text-[11px] tabular-nums font-medium ${
+                    Math.abs(cashHistoryDelta) < 1 ? "text-gray-400"
+                      : cashHistoryDelta > 0 ? "text-emerald-600"
+                      : "text-rose-500"
+                  }`}>
+                    {Math.abs(cashHistoryDelta) < 1 ? "→" : cashHistoryDelta > 0 ? "↑" : "↓"}{" "}
+                    {cashHistoryDelta > 0 ? "+" : ""}{money(Math.round(cashHistoryDelta))}
+                  </div>
+                )}
+              </div>
+              <div className="h-[52px] -mx-1">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={cashHistory} margin={{ top: 2, right: 2, bottom: 0, left: 2 }}>
+                    <YAxis hide domain={["dataMin", "dataMax"]} />
+                    <Tooltip
+                      formatter={(v) => [money(Math.round(Number(v) || 0)), "залишок"]}
+                      labelFormatter={(d) => String(d).split("-").reverse().join(".")}
+                      contentStyle={{
+                        fontSize: 11,
+                        borderRadius: 8,
+                        border: "1px solid rgba(0,0,0,0.06)",
+                        padding: "4px 8px",
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="balance"
+                      stroke="#10b981"
+                      strokeWidth={1.75}
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
