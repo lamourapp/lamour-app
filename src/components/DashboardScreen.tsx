@@ -435,12 +435,16 @@ export default function DashboardScreen() {
 
       {!loading && !error && (
         <>
+          {/* Operational-stack: залишок у касах + кого виплатити. Flex-wrap
+              дає side-by-side на десктопі, стек на мобільному; max-w-xl на
+              кожному тримає від розтягування в порожнечу. */}
+          <div className="flex flex-wrap gap-3 mb-4">
           {/* Залишок у касах (lifetime) — головне число, яке власник/адмін
               хоче бачити одразу: скільки фізично є в готівці/карті зараз.
               Незалежне від обраного періоду (інакше плутається з рухом). */}
           {cashBalance && (
-            <div className="mb-4 rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50/60 to-white px-4 py-3">
-              <div className="flex items-baseline justify-between mb-2">
+            <div className="flex-1 basis-[280px] max-w-xl rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50/60 to-white px-4 py-3">
+              <div className="flex items-baseline justify-between mb-2 gap-3">
                 <div className="text-[10px] text-brand-600 uppercase tracking-wider font-semibold">
                   Залишок у касах
                 </div>
@@ -448,23 +452,22 @@ export default function DashboardScreen() {
                   {fmt(Math.round(cashBalance.cashTotal))}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-[12px] tabular-nums">
-                <div className="flex items-center justify-between bg-white/70 rounded-lg px-2.5 py-1.5 border border-black/[0.03]">
-                  <span className="text-gray-500">💵 Готівка</span>
+              {/* Inline-рядок з breakdown: 💵 / 💳 / ? — компактніше ніж grid 2×1,
+                  на десктопі не утворює порожнечі праворуч. */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] tabular-nums">
+                <span className="inline-flex items-baseline gap-1.5">
+                  <span className="text-gray-500">💵 Готівка:</span>
                   <span className="text-gray-900 font-medium">{fmt(Math.round(cashBalance.cashByMethod.cash))}</span>
-                </div>
-                <div className="flex items-center justify-between bg-white/70 rounded-lg px-2.5 py-1.5 border border-black/[0.03]">
-                  <span className="text-gray-500">💳 Карта</span>
+                </span>
+                <span className="inline-flex items-baseline gap-1.5">
+                  <span className="text-gray-500">💳 Карта:</span>
                   <span className="text-gray-900 font-medium">{fmt(Math.round(cashBalance.cashByMethod.card))}</span>
-                </div>
+                </span>
                 {Math.abs(cashBalance.cashByMethod.unknown) > 0.5 && (
-                  <div
-                    className="col-span-2 flex items-center justify-between bg-white/40 rounded-lg px-2.5 py-1.5 border border-black/[0.03] text-gray-400"
-                    title="Історичні записи без вказаної каси"
-                  >
-                    <span>? Без каси (історичні)</span>
-                    <span className="tabular-nums">{fmt(Math.round(cashBalance.cashByMethod.unknown))}</span>
-                  </div>
+                  <span className="inline-flex items-baseline gap-1.5 text-gray-400" title="Історичні записи без вказаної каси">
+                    <span>? Без каси:</span>
+                    <span className="font-medium">{fmt(Math.round(cashBalance.cashByMethod.unknown))}</span>
+                  </span>
                 )}
               </div>
             </div>
@@ -475,7 +478,7 @@ export default function DashboardScreen() {
               Клік по майстру одразу відкриває CreateEntryModal з preset'ом
               — виплата однієї кнопкою. */}
           {payoutQueue.length > 0 && (
-            <div className="mb-4 rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50/40 to-white px-4 py-3">
+            <div className="flex-1 basis-[320px] max-w-xl rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50/40 to-white px-4 py-3">
               <div className="flex items-baseline justify-between mb-2">
                 <div className="text-[10px] text-amber-700 uppercase tracking-wider font-semibold">
                   Розрахуватись з майстрами
@@ -520,6 +523,7 @@ export default function DashboardScreen() {
               )}
             </div>
           )}
+          </div>
 
           {/* Metrics */}
           <div className="mb-6">
