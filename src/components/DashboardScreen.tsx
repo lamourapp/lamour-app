@@ -9,7 +9,7 @@ import { moneyFormatter } from "@/lib/format";
 type Fmt = (amount: number, opts?: { signed?: boolean; maximumFractionDigits?: number }) => string;
 import CalendarPicker from "./CalendarPicker";
 import CreateEntryModal from "./CreateEntryModal";
-import { Select } from "./ui";
+import SearchableSelect from "./SearchableSelect";
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 function MetricCard({
@@ -402,21 +402,21 @@ export default function DashboardScreen() {
             )}
           </div>
         </div>
-        {/* Row 2: specialist select + cash filter. Фільтр-селект уніфікований
-            через Select з дизайн-токена — той самий стиль, що й нативні
-            селекти у формах створення (rounded-xl, h-[44px], chevron у
-            background). Менше різних дропдаунів — менше плутанини. */}
+        {/* Row 2: specialist select + cash filter. Фільтр-селект —
+            SearchableSelect (той самий bottom-sheet, що й у формах створення
+            послуг/продажів). Єдиний патерн вибору по всьому додатку. */}
         <div className="mt-2 flex gap-2">
-          <Select
-            value={selectedSpecialist}
-            onChange={(e) => setSelectedSpecialist(e.target.value)}
-            className="flex-1 min-w-0 truncate"
-          >
-            <option value="">Всі спеціалісти</option>
-            {specialists.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </Select>
+          <div className="flex-1 min-w-0">
+            <SearchableSelect
+              items={specialists}
+              selectedId={selectedSpecialist}
+              onSelect={setSelectedSpecialist}
+              placeholder="Всі спеціалісти"
+              title="Спеціаліст"
+              renderItem={(s) => <span className="text-[14px] text-gray-900 truncate">{s.name}</span>}
+              renderSelected={(s) => <span className="text-[14px] text-gray-900 font-medium truncate">{s.name}</span>}
+            />
+          </div>
           {/* Cash-filter сегмент: Всі / 💵 / 💳. Застосовується до всіх метрик
               за період. «Залишок у касах» (lifetime) живе окремо і фільтр не
               бачить — це інша семантика (стан vs рух). */}

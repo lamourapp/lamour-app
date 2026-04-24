@@ -12,7 +12,7 @@ import CreateEntryModal from "./CreateEntryModal";
 import ServiceEntryModal from "./ServiceEntryModal";
 import QuickEditEntryModal from "./QuickEditEntryModal";
 import ScrollToTop from "./ScrollToTop";
-import { Select } from "./ui";
+import SearchableSelect from "./SearchableSelect";
 
 function TypeDot({ type }: { type: JournalEntry["type"] }) {
   const colors: Record<string, string> = {
@@ -379,12 +379,11 @@ const periodButtons = [
 ];
 
 const typeFilters = [
-  { id: "", label: "Всі типи" },
-  { id: "service", label: "Послуги" },
-  { id: "sale", label: "Продажі" },
-  { id: "expense", label: "Витрати" },
-  { id: "debt", label: "Борги" },
-  { id: "rental", label: "Оренда" },
+  { id: "service", name: "Послуги" },
+  { id: "sale", name: "Продажі" },
+  { id: "expense", name: "Витрати" },
+  { id: "debt", name: "Борги" },
+  { id: "rental", name: "Оренда" },
 ];
 
 export default function JournalScreen() {
@@ -580,28 +579,31 @@ export default function JournalScreen() {
             )}
           </div>
         </div>
-        {/* Row 2: specialist + type selects. Через Select з дизайн-токена —
-            уніфікуємо стиль з формами створення (один «стандарт» дропдаунів). */}
+        {/* Row 2: specialist + type selects. SearchableSelect — єдиний
+            патерн вибору у формах створення і фільтрах. */}
         <div className="flex gap-2 mt-2">
-          <Select
-            value={selectedSpecialist}
-            onChange={(e) => setSelectedSpecialist(e.target.value)}
-            className="flex-1 min-w-0 truncate"
-          >
-            <option value="">Всі спеціалісти</option>
-            {specialists.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </Select>
-          <Select
-            value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value)}
-            className="flex-1 min-w-0 truncate"
-          >
-            {typeFilters.map((t) => (
-              <option key={t.id} value={t.id}>{t.label}</option>
-            ))}
-          </Select>
+          <div className="flex-1 min-w-0">
+            <SearchableSelect
+              items={specialists}
+              selectedId={selectedSpecialist}
+              onSelect={setSelectedSpecialist}
+              placeholder="Всі спеціалісти"
+              title="Спеціаліст"
+              renderItem={(s) => <span className="text-[14px] text-gray-900 truncate">{s.name}</span>}
+              renderSelected={(s) => <span className="text-[14px] text-gray-900 font-medium truncate">{s.name}</span>}
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <SearchableSelect
+              items={typeFilters}
+              selectedId={selectedType}
+              onSelect={setSelectedType}
+              placeholder="Всі типи"
+              title="Тип"
+              renderItem={(t) => <span className="text-[14px] text-gray-900">{t.name}</span>}
+              renderSelected={(t) => <span className="text-[14px] text-gray-900 font-medium">{t.name}</span>}
+            />
+          </div>
           {/* Toggle «Показати скасовані» — компактний перемикач. Підсвічений = ON,
               картки скасованих з'являться в стрічці з опцією «Відновити». */}
           <button
