@@ -7,6 +7,7 @@ import CalendarPicker from "@/components/CalendarPicker";
 import ExpensesBlock from "@/components/owner/ExpensesBlock";
 import SpecialistsBlock from "@/components/owner/SpecialistsBlock";
 import ServicesBlock from "@/components/owner/ServicesBlock";
+import ServiceTypesBlock from "@/components/owner/ServiceTypesBlock";
 import ProductsBlock from "@/components/owner/ProductsBlock";
 import AlertsBlock from "@/components/owner/AlertsBlock";
 import HeroMetrics from "@/components/owner/HeroMetrics";
@@ -436,7 +437,6 @@ export default function OwnerScreen() {
           <div className="lg:col-span-6">
             <ServicesBlock
               top={stats?.topServices ?? []}
-              types={stats?.serviceTypes ?? []}
               settings={settings}
               loading={statsLoading}
             />
@@ -449,7 +449,16 @@ export default function OwnerScreen() {
             />
           </div>
 
-          {/* Row 4 — таблиця майстрів. Повна ширина, щоб колонки дихали. */}
+          {/* Row 4 — види послуг: список + pie на всю ширину. */}
+          <div className="lg:col-span-12">
+            <ServiceTypesBlock
+              types={stats?.serviceTypes ?? []}
+              settings={settings}
+              loading={statsLoading}
+            />
+          </div>
+
+          {/* Row 5 — таблиця майстрів. Повна ширина, щоб колонки дихали. */}
           <div className="lg:col-span-12">
             <SpecialistsBlock
               data={stats?.specialists ?? []}
