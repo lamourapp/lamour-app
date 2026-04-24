@@ -390,36 +390,30 @@ export default function DashboardScreen() {
               <MetricCard label="Витрати" sublabel="операційні" value={Math.round(m.expenses)} fmt={fmt} />
               <MetricCard label="Виплати" sublabel="майстрам і власнику" value={Math.round(m.paidOut)} fmt={fmt} />
               <MetricCard label="Оренда" sublabel="без матеріалів" value={Math.round(m.rentalSum)} fmt={fmt} />
-              <MetricCard
-                label="Кошти в касі"
-                sublabel="виручка − витрати − виплати"
-                value={Math.round(m.cashInRegister)}
-                fmt={fmt}
-              />
-            </div>
-
-            {/* Row 3b: розбивка каси за способом оплати (готівка / карта) */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
-              <MetricCard
-                label="💵 Готівка"
-                sublabel="рух за період"
-                value={Math.round(m.cashByMethod.cash)}
-                fmt={fmt}
-              />
-              <MetricCard
-                label="💳 Карта"
-                sublabel="рух за період"
-                value={Math.round(m.cashByMethod.card)}
-                fmt={fmt}
-              />
-              {Math.abs(m.cashByMethod.unknown) > 0.5 && (
-                <MetricCard
-                  label="? Без каси"
-                  sublabel="історичні записи"
-                  value={Math.round(m.cashByMethod.unknown)}
-                  fmt={fmt}
-                />
-              )}
+              {/* Кошти в касі — основна цифра + компактна розбивка
+                  💵/💳 під нею. Без окремого рядка, щоб не перевантажувати
+                  дашборд; деталі по касах інлайн у «тултип» під сумою. */}
+              <div
+                className="rounded-xl border p-3.5 transition-transform hover:-translate-y-px bg-white border-black/[0.06]"
+                title={`💵 ${fmt(Math.round(m.cashByMethod.cash))}  ·  💳 ${fmt(Math.round(m.cashByMethod.card))}${Math.abs(m.cashByMethod.unknown) > 0.5 ? `  ·  ? ${fmt(Math.round(m.cashByMethod.unknown))}` : ""}`}
+              >
+                <div className="text-[10px] uppercase tracking-wider mb-1 text-gray-400">Кошти в касі</div>
+                <div className="text-[9px] text-gray-400 -mt-0.5 mb-1">виручка − витрати − виплати</div>
+                <div className="text-lg font-semibold tabular-nums text-gray-900">
+                  {fmt(Math.round(m.cashInRegister))}
+                </div>
+                <div className="text-[10px] text-gray-500 mt-1 tabular-nums flex items-center gap-2 flex-wrap leading-tight">
+                  <span>💵 {fmt(Math.round(m.cashByMethod.cash))}</span>
+                  <span className="text-gray-300">·</span>
+                  <span>💳 {fmt(Math.round(m.cashByMethod.card))}</span>
+                  {Math.abs(m.cashByMethod.unknown) > 0.5 && (
+                    <>
+                      <span className="text-gray-300">·</span>
+                      <span className="text-gray-400" title="Історичні записи без вказаної каси">? {fmt(Math.round(m.cashByMethod.unknown))}</span>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
