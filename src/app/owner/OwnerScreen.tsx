@@ -4,13 +4,16 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import PinPad from "@/components/PinPad";
 import CalendarPicker from "@/components/CalendarPicker";
-import FinancialBlock from "@/components/owner/FinancialBlock";
 import ExpensesBlock from "@/components/owner/ExpensesBlock";
 import SpecialistsBlock from "@/components/owner/SpecialistsBlock";
 import ServicesBlock from "@/components/owner/ServicesBlock";
 import ProductsBlock from "@/components/owner/ProductsBlock";
 import AlertsBlock from "@/components/owner/AlertsBlock";
 import HeroMetrics from "@/components/owner/HeroMetrics";
+import CashStatus from "@/components/owner/CashStatus";
+import OwedMasters from "@/components/owner/OwedMasters";
+import PnlBlock from "@/components/owner/PnlBlock";
+import TrendChart from "@/components/owner/TrendChart";
 import type {
   SpecialistRow,
   ServiceRow,
@@ -384,39 +387,75 @@ export default function OwnerScreen() {
             рендериться, не залишає порожнього блока. */}
         <AlertsBlock alerts={stats?.alerts ?? []} loading={statsLoading} />
 
-        {/* Решта блоків — поки що в старому 2-col гріді. На наступному етапі
-            розіб'ю FinancialBlock і переграю в 12-col layout. */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <FinancialBlock
+        {/* 12-колонковий dashboard grid. Зонований:
+              Row 1: 8/4 — головний trend-chart + sidebar (каса + борги)
+              Row 2: 6/6 — P&L + Витрати по категоріях
+              Row 3: 6/6 — Спеціалісти + Послуги
+              Row 4: 12  — Продукти (повна ширина, часто довгий список)
+            На мобільному все стакається (grid-cols-1). */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+          {/* Row 1 */}
+          <TrendChart
+            className="lg:col-span-8"
+            daily={stats?.daily ?? []}
             current={current ?? emptyAgg()}
             previous={previous ?? emptyAgg()}
-            daily={stats?.daily ?? []}
-            settings={settings}
-            loading={statsLoading}
-            balances={balances}
-          />
-          <ExpensesBlock
-            data={stats?.expensesByCategory ?? []}
-            total={current?.expensesTotal ?? 0}
             settings={settings}
             loading={statsLoading}
           />
-          <SpecialistsBlock
-            data={stats?.specialists ?? []}
-            settings={settings}
-            loading={statsLoading}
-          />
-          <ServicesBlock
-            top={stats?.topServices ?? []}
-            types={stats?.serviceTypes ?? []}
-            settings={settings}
-            loading={statsLoading}
-          />
-          <ProductsBlock
-            top={stats?.topProducts ?? []}
-            settings={settings}
-            loading={statsLoading}
-          />
+          <div className="lg:col-span-4 flex flex-col gap-3">
+            <CashStatus balances={balances} settings={settings} />
+            {balances && (
+              <OwedMasters
+                owedToMasters={balances.owedToMasters}
+                owedTotal={balances.owedTotal}
+                settings={settings}
+              />
+            )}
+          </div>
+
+          {/* Row 2 */}
+          <div className="lg:col-span-6">
+            <PnlBlock
+              current={current ?? emptyAgg()}
+              settings={settings}
+              loading={statsLoading}
+            />
+          </div>
+          <div className="lg:col-span-6">
+            <ExpensesBlock
+              data={stats?.expensesByCategory ?? []}
+              total={current?.expensesTotal ?? 0}
+              settings={settings}
+              loading={statsLoading}
+            />
+          </div>
+
+          {/* Row 3 */}
+          <div className="lg:col-span-6">
+            <SpecialistsBlock
+              data={stats?.specialists ?? []}
+              settings={settings}
+              loading={statsLoading}
+            />
+          </div>
+          <div className="lg:col-span-6">
+            <ServicesBlock
+              top={stats?.topServices ?? []}
+              types={stats?.serviceTypes ?? []}
+              settings={settings}
+              loading={statsLoading}
+            />
+          </div>
+
+          {/* Row 4 */}
+          <div className="lg:col-span-12">
+            <ProductsBlock
+              top={stats?.topProducts ?? []}
+              settings={settings}
+              loading={statsLoading}
+            />
+          </div>
         </div>
       </div>
 
