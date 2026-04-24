@@ -15,6 +15,7 @@
 import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import type { Specialist, JournalEntry } from "./types";
 import type { Settings } from "@/app/api/settings/route";
+import { todayISO } from "./format";
 
 /* ─── Settings (tenant-wide, shared cache) ─── */
 
@@ -508,6 +509,10 @@ export function useJournal(
       params.set("to", dateTo);
     } else {
       params.set("period", period);
+      // Локальне «сьогодні» (Europe/Kyiv) — без нього сервер впав би на
+      // Airtable TODAY() (UTC), і у нічні години Києва period=today
+      // повертало б учорашні записи (#19-records-not-3 баг).
+      params.set("today", todayISO());
     }
 
     if (specialistId) params.set("specialist", specialistId);

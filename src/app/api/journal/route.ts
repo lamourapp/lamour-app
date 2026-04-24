@@ -45,6 +45,13 @@ export async function GET(request: NextRequest) {
     const includeCanceled = searchParams.get("includeCanceled") === "1";
     const timeFormatter = getTimeFormatter(tz);
 
+    // Локальне «сьогодні» з клієнта (Europe/Kyiv). Без нього period=today
+    // фільтрує по Airtable TODAY() (UTC) — у нічні години Києва це повертає
+    // вчорашні записи. Клієнт передає `?today=YYYY-MM-DD` зі свого `todayISO()`.
+    const todayParam = searchParams.get("today") || "";
+    const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+    const localToday = ISO_DATE.test(todayParam) ? todayParam : "";
+
     // Build date filter only — specialist filtering is done client-side
     // because Airtable linked record formula is unreliable with IDs
     let dateFilter = "";
@@ -60,24 +67,31 @@ export async function GET(request: NextRequest) {
       }
       dateFilter = `AND(IS_AFTER({Дата}, DATEADD('${dateFrom}', -1, 'day')), IS_BEFORE({Дата}, DATEADD('${dateTo}', 1, 'day')))`;
     } else {
+      // Базова дата для відносних періодів — локальне сьогодні з клієнта
+      // (`?today=YYYY-MM-DD`). Якщо не передано (legacy виклики, MCP) —
+      // fallback на Airtable TODAY() (UTC), який раніше ламав нічні години.
+      const todayExpr = localToday ? `'${localToday}'` : "TODAY()";
       switch (period) {
         case "today":
-          dateFilter = `IS_SAME({Дата}, TODAY(), 'day')`;
+          dateFilter = `IS_SAME({Дата}, ${todayExpr}, 'day')`;
           break;
         case "yesterday":
-          dateFilter = `IS_SAME({Дата}, DATEADD(TODAY(), -1, 'day'), 'day')`;
+          dateFilter = `IS_SAME({Дата}, DATEADD(${todayExpr}, -1, 'day'), 'day')`;
           break;
         case "week":
-          dateFilter = `IS_AFTER({Дата}, DATEADD(TODAY(), -7, 'day'))`;
+          dateFilter = `IS_AFTER({Дата}, DATEADD(${todayExpr}, -7, 'day'))`;
           break;
         case "month": {
-          const now = new Date();
-          const firstOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+          // Перше число поточного місяця в локальній зоні (з клієнта).
+          // Server-side `new Date()` на Vercel — UTC, що зсуває границю
+          // 1-го числа на одну добу для нічних годин Києва.
+          const base = localToday ? new Date(`${localToday}T00:00:00`) : new Date();
+          const firstOfMonth = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, "0")}-01`;
           dateFilter = `IS_AFTER({Дата}, DATEADD('${firstOfMonth}', -1, 'day'))`;
           break;
         }
         default:
-          dateFilter = `IS_AFTER({Дата}, DATEADD(TODAY(), -30, 'day'))`;
+          dateFilter = `IS_AFTER({Дата}, DATEADD(${todayExpr}, -30, 'day'))`;
       }
     }
 
