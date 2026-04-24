@@ -8,6 +8,7 @@ import { moneyFormatter } from "@/lib/format";
 
 type Fmt = (amount: number, opts?: { signed?: boolean; maximumFractionDigits?: number }) => string;
 import CalendarPicker from "./CalendarPicker";
+import CreateEntryModal from "./CreateEntryModal";
 
 function MetricCard({
   label,
@@ -238,13 +239,39 @@ export default function DashboardScreen() {
 
   const { settings } = useSettings();
   const fmt = useMemo(() => moneyFormatter(settings), [settings]);
-  const { entries, loading, error } = useJournal(
+  const { entries, loading, error, reload: reloadJournal } = useJournal(
     customRange ? "custom" : period,
     selectedSpecialist,
     customRange?.from,
     customRange?.to,
   );
-  const { specialists } = useSpecialists();
+  const { specialists, reload: reloadSpecialists } = useSpecialists();
+
+  // «Кого виплатити» — швидкий operational-блок. Майстри (без чистих власників)
+  // з позитивним балансом, сортовані за сумою. Клік → CreateEntryModal з
+  // preset (debtSign="-", amount=баланс), одним рухом.
+  const payoutQueue = useMemo(
+    () =>
+      specialists
+        .filter((s) => s.compensationType !== "owner" && (s.balance || 0) > 0)
+        .sort((a, b) => (b.balance || 0) - (a.balance || 0)),
+    [specialists],
+  );
+  const [payoutTarget, setPayoutTarget] = useState<{ id: string; name: string; amount: number } | null>(null);
+  const [showAllPayouts, setShowAllPayouts] = useState(false);
+
+  // Refresh balances also after pay-out (specialist balance change).
+  // Cash balance теж — виплата зменшує касу.
+  const refreshCashBalance = () => {
+    fetch("/api/owner/balances")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d && typeof d.cashTotal === "number") {
+          setCashBalance({ cashTotal: d.cashTotal, cashByMethod: d.cashByMethod });
+        }
+      })
+      .catch(() => { /* silent */ });
+  };
 
   const m = useMemo(() => computeMetrics(entries), [entries]);
 
@@ -402,6 +429,57 @@ export default function DashboardScreen() {
             </div>
           )}
 
+          {/* Кого виплатити — operational-блок. Показуємо тільки якщо є хто
+              чекає; за замовчуванням top-3, «Показати всіх» розгортає решту.
+              Клік по майстру одразу відкриває CreateEntryModal з preset'ом
+              — виплата однієї кнопкою. */}
+          {payoutQueue.length > 0 && (
+            <div className="mb-4 rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50/40 to-white px-4 py-3">
+              <div className="flex items-baseline justify-between mb-2">
+                <div className="text-[10px] text-amber-700 uppercase tracking-wider font-semibold">
+                  Розрахуватись з майстрами
+                </div>
+                <div className="text-[11px] text-gray-500 tabular-nums">
+                  {payoutQueue.length} {payoutQueue.length === 1 ? "майстер" : "майстрів"} ·{" "}
+                  <span className="font-medium text-gray-700">
+                    {fmt(Math.round(payoutQueue.reduce((s, m) => s + (m.balance || 0), 0)))}
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                {(showAllPayouts ? payoutQueue : payoutQueue.slice(0, 3)).map((s) => (
+                  <div
+                    key={s.id}
+                    className="flex items-center justify-between gap-3 bg-white/70 rounded-lg px-3 py-2 border border-black/[0.03]"
+                  >
+                    <div className="text-[13px] text-gray-800 truncate">{s.name}</div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="text-[13px] font-semibold tabular-nums text-red-600">
+                        {fmt(Math.round(s.balance || 0))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPayoutTarget({ id: s.id, name: s.name, amount: Math.round(s.balance || 0) })}
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-brand-600 text-white hover:bg-brand-700 cursor-pointer transition-colors whitespace-nowrap"
+                      >
+                        Виплатити
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {payoutQueue.length > 3 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllPayouts((v) => !v)}
+                  className="mt-2 text-[11px] text-gray-500 hover:text-brand-600 cursor-pointer transition-colors"
+                >
+                  {showAllPayouts ? "Згорнути" : `Показати ще ${payoutQueue.length - 3}`}
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Metrics */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3 px-0.5">
@@ -498,6 +576,28 @@ export default function DashboardScreen() {
           </Link>
 
         </>
+      )}
+
+      {/* Payout-модал — preset з конкретним майстром і сумою. Після успіху
+          перезавантажуємо специалістів (баланс оновиться) + каса-залишок +
+          журнал поточного періоду. */}
+      {payoutTarget && (
+        <CreateEntryModal
+          type="debt"
+          specialists={specialists.filter((s) => s.compensationType !== "owner")}
+          onClose={() => setPayoutTarget(null)}
+          onCreated={() => {
+            reloadSpecialists();
+            reloadJournal();
+            refreshCashBalance();
+          }}
+          preset={{
+            specialistId: payoutTarget.id,
+            amount: payoutTarget.amount,
+            debtSign: "-",
+            comment: "Виплата",
+          }}
+        />
       )}
     </div>
   );
