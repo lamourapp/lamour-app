@@ -55,8 +55,8 @@ function BreakdownRow({ label, value, muted, accent }: { label: string; value: R
     : muted ? "text-gray-400"
     : "text-gray-700";
   return (
-    <div className="flex items-center justify-between text-[12px] gap-3">
-      <span className="text-gray-500">{label}</span>
+    <div className="flex items-baseline gap-1.5 text-[12px]">
+      <span className="text-gray-500">{label}:</span>
       <span className={`${valueColor} tabular-nums font-medium`}>{value}</span>
     </div>
   );
@@ -111,12 +111,13 @@ function EntryBreakdown({ entry, fmt }: { entry: JournalEntry; fmt: Fmt }) {
         {items.length > 0 && (
           <div className="space-y-0.5 pb-1">
             {items.map((item, i) => (
-              <div key={i} className="flex items-center justify-between text-[12px]">
+              <div key={i} className="flex items-baseline gap-1.5 text-[12px]">
                 <span className="text-gray-600">
                   {item.productName}
                   {item.quantity > 1 && <span className="text-gray-400"> ×{item.quantity}</span>}
                 </span>
-                <span className="text-gray-500 tabular-nums">{fmt(item.lineTotal)}</span>
+                <span className="text-gray-300">—</span>
+                <span className="text-gray-500 tabular-nums font-medium">{fmt(item.lineTotal)}</span>
               </div>
             ))}
           </div>
