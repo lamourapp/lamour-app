@@ -250,7 +250,7 @@ export default function FinancialBlock({ current, previous, daily, settings, loa
       {balances && (
         <div className="mb-3 rounded-xl border border-brand-100 bg-gradient-to-br from-brand-50/60 to-white px-4 py-3">
           <div className="flex items-baseline justify-between mb-2">
-            <div className="text-[10px] text-brand-600 uppercase tracking-wider font-semibold">Зараз у касах</div>
+            <div className="text-[10px] text-brand-600 uppercase tracking-wider font-semibold">Залишок у касах</div>
             <div className="text-[16px] font-semibold text-gray-900 tabular-nums">{money(Math.round(balances.cashTotal))}</div>
           </div>
           <div className="grid grid-cols-2 gap-2 text-[12px] tabular-nums">

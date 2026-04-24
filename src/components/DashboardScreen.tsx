@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useJournal, useSpecialists, useSettings } from "@/lib/hooks";
 import type { JournalEntry } from "@/lib/types";
@@ -216,6 +216,27 @@ export default function DashboardScreen() {
   const [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null);
   const [showDetailCols, setShowDetailCols] = useState(false);
 
+  // Залишок у касах — lifetime, не залежить від обраного періоду. Тягнемо
+  // один раз з /api/owner/balances (той самий endpoint, що й owner-дашборд).
+  // Це «скільки реально лежить у касі просто зараз», а «Рух за період» у
+  // Row 3 — окрема метрика period-delta (різниця зрозуміла).
+  const [cashBalance, setCashBalance] = useState<{
+    cashTotal: number;
+    cashByMethod: { cash: number; card: number; unknown: number };
+  } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/owner/balances")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled && d && typeof d.cashTotal === "number") {
+          setCashBalance({ cashTotal: d.cashTotal, cashByMethod: d.cashByMethod });
+        }
+      })
+      .catch(() => { /* не критично — просто не рендеримо картку */ });
+    return () => { cancelled = true; };
+  }, []);
+
   const { settings } = useSettings();
   const fmt = useMemo(() => moneyFormatter(settings), [settings]);
   const locale = localeFromTimezone(settings?.timezone);
@@ -261,6 +282,13 @@ export default function DashboardScreen() {
     : period === "today" ? "Сьогодні"
     : period === "week" ? "Цей тиждень"
     : "Цей місяць";
+
+  // Короткий прийменниковий варіант для підписів типу «Рух за день».
+  const periodShort = customRange
+    ? "період"
+    : period === "today" ? "день"
+    : period === "week" ? "тиждень"
+    : "місяць";
 
   // Dot color helper
   function dotColor(type: JournalEntry["type"]) {
@@ -353,6 +381,41 @@ export default function DashboardScreen() {
 
       {!loading && !error && (
         <>
+          {/* Залишок у касах (lifetime) — головне число, яке власник/адмін
+              хоче бачити одразу: скільки фізично є в готівці/карті зараз.
+              Незалежне від обраного періоду (інакше плутається з рухом). */}
+          {cashBalance && (
+            <div className="mb-4 rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50/60 to-white px-4 py-3">
+              <div className="flex items-baseline justify-between mb-2">
+                <div className="text-[10px] text-brand-600 uppercase tracking-wider font-semibold">
+                  Залишок у касах
+                </div>
+                <div className="text-[18px] font-semibold text-gray-900 tabular-nums">
+                  {fmt(Math.round(cashBalance.cashTotal))}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[12px] tabular-nums">
+                <div className="flex items-center justify-between bg-white/70 rounded-lg px-2.5 py-1.5 border border-black/[0.03]">
+                  <span className="text-gray-500">💵 Готівка</span>
+                  <span className="text-gray-900 font-medium">{fmt(Math.round(cashBalance.cashByMethod.cash))}</span>
+                </div>
+                <div className="flex items-center justify-between bg-white/70 rounded-lg px-2.5 py-1.5 border border-black/[0.03]">
+                  <span className="text-gray-500">💳 Карта</span>
+                  <span className="text-gray-900 font-medium">{fmt(Math.round(cashBalance.cashByMethod.card))}</span>
+                </div>
+                {Math.abs(cashBalance.cashByMethod.unknown) > 0.5 && (
+                  <div
+                    className="col-span-2 flex items-center justify-between bg-white/40 rounded-lg px-2.5 py-1.5 border border-black/[0.03] text-gray-400"
+                    title="Історичні записи без вказаної каси"
+                  >
+                    <span>? Без каси (історичні)</span>
+                    <span className="tabular-nums">{fmt(Math.round(cashBalance.cashByMethod.unknown))}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Metrics */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3 px-0.5">
@@ -390,14 +453,15 @@ export default function DashboardScreen() {
               <MetricCard label="Витрати" sublabel="операційні" value={Math.round(m.expenses)} fmt={fmt} />
               <MetricCard label="Виплати" sublabel="майстрам і власнику" value={Math.round(m.paidOut)} fmt={fmt} />
               <MetricCard label="Оренда" sublabel="без матеріалів" value={Math.round(m.rentalSum)} fmt={fmt} />
-              {/* Кошти в касі — основна цифра + компактна розбивка
-                  💵/💳 під нею. Без окремого рядка, щоб не перевантажувати
-                  дашборд; деталі по касах інлайн у «тултип» під сумою. */}
+              {/* Рух за період (нетто) — скільки зайшло/вийшло з кас за
+                  обраний день/тиждень/місяць. Не плутати з «Залишок у
+                  касах» (lifetime, окремою карткою зверху) — тут саме
+                  period-delta. Розбивка 💵/💳 теж period-only. */}
               <div
                 className="rounded-xl border p-3.5 transition-transform hover:-translate-y-px bg-white border-black/[0.06]"
-                title={`💵 ${fmt(Math.round(m.cashByMethod.cash))}  ·  💳 ${fmt(Math.round(m.cashByMethod.card))}${Math.abs(m.cashByMethod.unknown) > 0.5 ? `  ·  ? ${fmt(Math.round(m.cashByMethod.unknown))}` : ""}`}
+                title={`Виручка − витрати − виплати за ${periodShort}. 💵 ${fmt(Math.round(m.cashByMethod.cash))}  ·  💳 ${fmt(Math.round(m.cashByMethod.card))}${Math.abs(m.cashByMethod.unknown) > 0.5 ? `  ·  ? ${fmt(Math.round(m.cashByMethod.unknown))}` : ""}`}
               >
-                <div className="text-[10px] uppercase tracking-wider mb-1 text-gray-400">Кошти в касі</div>
+                <div className="text-[10px] uppercase tracking-wider mb-1 text-gray-400">Рух за {periodShort}</div>
                 <div className="text-[9px] text-gray-400 -mt-0.5 mb-1">виручка − витрати − виплати</div>
                 <div className="text-lg font-semibold tabular-nums text-gray-900">
                   {fmt(Math.round(m.cashInRegister))}
