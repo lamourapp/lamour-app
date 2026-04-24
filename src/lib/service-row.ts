@@ -15,8 +15,8 @@
  */
 
 import { SERVICE_FIELDS } from "./airtable-fields";
+import { compensationTypeFromLabel } from "./compensation";
 import {
-  type CompensationType,
   type MasterContext,
   type ServiceRowInputs,
   incomeMaterials,
@@ -61,21 +61,6 @@ function firstString(value: unknown): string {
   return "";
 }
 
-/** «погодинна»/«оренда»/«зарплата»/«комісія» → ключ CompensationType. */
-function mapCompensationLabel(label: string): CompensationType {
-  switch (label) {
-    case "погодинна":
-      return "hourly";
-    case "оренда":
-      return "rental";
-    case "зарплата":
-      return "salary";
-    case "комісія":
-    default:
-      return "commission";
-  }
-}
-
 /** Сирі входи одного рядка журналу, витягнуті з Airtable fields object. */
 export function serviceRowInputs(f: FieldsMap): ServiceRowInputs {
   return {
@@ -101,8 +86,11 @@ export function serviceRowInputs(f: FieldsMap): ServiceRowInputs {
 
 /** Контекст майстра, витягнутий з lookup-полів запису. */
 export function masterContextFromRow(f: FieldsMap): MasterContext {
+  // pricing.ts очікує тип без "owner" (власник на рядку поведе себе як
+  // commission — стандартний розрахунок частки салону, без вилучення).
+  const type = compensationTypeFromLabel(firstString(f[SERVICE_FIELDS.masterCompensationTypeLookup]));
   return {
-    type: mapCompensationLabel(firstString(f[SERVICE_FIELDS.masterCompensationTypeLookup])),
+    type: type === "owner" ? "commission" : type,
     salonPctForService: firstNumber(f[SERVICE_FIELDS.salonPctForServiceLookup]),
     masterPctForMaterials: firstNumber(f[SERVICE_FIELDS.masterPctForMaterialsLookup]),
   };

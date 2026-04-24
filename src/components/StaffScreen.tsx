@@ -124,10 +124,10 @@ export default function StaffScreen() {
   // не світиться (рендеримо s.balance = master part; ownerBalance не
   // чіпаємо). Лише «чисті» власники (compensationType = "owner") сховані.
   const activeList = specialists.filter(
-    (s) => s.isActive !== false && s.compensationType !== "owner",
+    (s) => s.isActive && s.compensationType !== "owner",
   );
   const inactiveList = specialists.filter(
-    (s) => s.isActive === false && s.compensationType !== "owner",
+    (s) => !s.isActive && s.compensationType !== "owner",
   );
 
   function openCreate() {

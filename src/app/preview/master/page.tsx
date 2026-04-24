@@ -102,7 +102,7 @@ export default function MasterPreviewPage() {
 
   // Тільки активні не-власники — «майстри».
   const masters = useMemo(
-    () => specialists.filter((s) => !s.isOwner && s.isActive !== false),
+    () => specialists.filter((s) => !s.isOwner && s.isActive),
     [specialists],
   );
 

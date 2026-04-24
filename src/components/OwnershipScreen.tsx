@@ -346,7 +346,7 @@ function RevisionModal({
   onSave,
   saving,
 }: {
-  specialists: { id: string; name: string; isOwner?: boolean }[];
+  specialists: { id: string; name: string; isOwner?: boolean; isActive: boolean }[];
   prefill: OwnershipRevision | null;
   onClose: () => void;
   onSave: (payload: {
@@ -383,7 +383,7 @@ function RevisionModal({
   const pickable = useMemo(
     // Власники + активні спеціалісти (на випадок, якщо хтось додає
     // співвласника з уже існуючого майстра).
-    () => specialists.filter((s) => s.isOwner || (s as { isActive?: boolean }).isActive !== false),
+    () => specialists.filter((s) => s.isOwner || s.isActive),
     [specialists],
   );
 

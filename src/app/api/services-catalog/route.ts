@@ -294,7 +294,9 @@ export async function PATCH(request: NextRequest) {
     }
     if (updates.duration !== undefined) fields[SERVICE_CATALOG_FIELDS.duration] = updates.duration;
     if (updates.isActive !== undefined) {
-      fields[SERVICE_CATALOG_FIELDS.inactive] = updates.isActive ? null : true;
+      // Уніфіковано з materials/products: пишемо boolean, не null. Спрощує
+      // майбутню міграцію на Postgres (один тип значення для checkbox).
+      fields[SERVICE_CATALOG_FIELDS.inactive] = !updates.isActive;
     }
 
     // Calculator branch — симетрично POST.

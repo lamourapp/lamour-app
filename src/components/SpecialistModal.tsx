@@ -526,7 +526,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
 
       {isEdit && (
         <div className="pt-2 border-t border-black/5">
-          {specialist!.isActive !== false ? (
+          {specialist!.isActive ? (
             !confirmDeactivate ? (
               <Button
                 variant="danger-ghost"

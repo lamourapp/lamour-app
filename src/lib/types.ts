@@ -32,7 +32,12 @@ export interface Specialist {
   balance: number;
   birthday: string;
   avatarColor: "brand" | "amber" | "gray";
-  isActive?: boolean;
+  /**
+   * API нормалізує `f[isActive] === true`, тому фронт завжди отримує boolean.
+   * Поле обовʼязкове — не використовуйте `!== false` (legacy для сирого
+   * Airtable, де unchecked = undefined).
+   */
+  isActive: boolean;
   /**
    * IDs of linked Спеціалізації records. A specialist can have multiple
    * спеціалізації (admin who also does brows, manicurist who does brows, etc.).
