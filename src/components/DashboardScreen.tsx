@@ -94,6 +94,16 @@ function computeMetrics(entries: JournalEntry[]) {
   let contributed = 0; // debts > 0 — довнесення
   let accrued = 0; // нарахування ЗП (liability, НЕ рух готівки)
 
+  // Розбивка руху каси за способом оплати. Вхідний потік (виручка) − витрати +
+  // signed borgs-рух. Для історичних записів без paymentType — bucket "unknown".
+  // Сума трьох buckets === cashInRegister (контроль у тестах та дев-режимі).
+  type BucketKey = "готівка" | "карта" | "unknown";
+  const byMethod: Record<BucketKey, { revenue: number; expenses: number; debts: number }> = {
+    "готівка": { revenue: 0, expenses: 0, debts: 0 },
+    "карта":   { revenue: 0, expenses: 0, debts: 0 },
+    "unknown": { revenue: 0, expenses: 0, debts: 0 },
+  };
+
   let countServices = 0;
   let countSales = 0;
   let countExpenses = 0;
@@ -110,9 +120,18 @@ function computeMetrics(entries: JournalEntry[]) {
     specialistMaterialShare += e.specialistMaterialShare || 0;
     specialistSalesShare += e.specialistSalesShare || 0;
 
+    const mk: BucketKey =
+      e.paymentType === "готівка" ? "готівка"
+      : e.paymentType === "карта" ? "карта"
+      : "unknown";
+    const entryRevenue =
+      (e.salonShare || 0) + (e.salonMaterialShare || 0) + (e.salonSalesShare || 0)
+      + (e.specialistServiceShare || 0) + (e.specialistMaterialShare || 0) + (e.specialistSalesShare || 0);
+
     // Type-specific
     if (e.type === "expense") {
       expenses += Math.abs(e.amount);
+      byMethod[mk].expenses += Math.abs(e.amount);
       countExpenses++;
     } else if (e.type === "debt") {
       // Нарахування ЗП (salary/hourly) — це liability, а НЕ рух готівки. Вони
@@ -124,6 +143,7 @@ function computeMetrics(entries: JournalEntry[]) {
         // НЕ додаємо до debts / contributed — касу це не рухає.
       } else {
         debts += e.amount;
+        byMethod[mk].debts += e.amount;
         if (e.amount < 0) {
           paidOut += Math.abs(e.amount);
           countPayouts++;
@@ -133,10 +153,13 @@ function computeMetrics(entries: JournalEntry[]) {
       }
     } else if (e.type === "service") {
       countServices++;
+      byMethod[mk].revenue += entryRevenue;
     } else if (e.type === "sale") {
       countSales++;
+      byMethod[mk].revenue += entryRevenue;
     } else if (e.type === "rental") {
       countRentals++;
+      byMethod[mk].revenue += entryRevenue;
       // Rent only = total amount minus materials
       rentalSum += e.amount - (e.materialsCost || 0);
     }
@@ -154,6 +177,12 @@ function computeMetrics(entries: JournalEntry[]) {
   const totalRevenue = salonTotal + specialistTotal;
   const cashInRegister = totalRevenue + debts - expenses;
 
+  const cashByMethod = {
+    cash: byMethod["готівка"].revenue + byMethod["готівка"].debts - byMethod["готівка"].expenses,
+    card: byMethod["карта"].revenue + byMethod["карта"].debts - byMethod["карта"].expenses,
+    unknown: byMethod["unknown"].revenue + byMethod["unknown"].debts - byMethod["unknown"].expenses,
+  };
+
   return {
     salonServiceShare,
     salonMaterialShare,
@@ -169,6 +198,7 @@ function computeMetrics(entries: JournalEntry[]) {
     contributed,
     totalRevenue,
     cashInRegister,
+    cashByMethod,
     rentalSum,
     countServices,
     countSales,
@@ -366,6 +396,30 @@ export default function DashboardScreen() {
                 value={Math.round(m.cashInRegister)}
                 fmt={fmt}
               />
+            </div>
+
+            {/* Row 3b: розбивка каси за способом оплати (готівка / карта) */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+              <MetricCard
+                label="💵 Готівка"
+                sublabel="рух за період"
+                value={Math.round(m.cashByMethod.cash)}
+                fmt={fmt}
+              />
+              <MetricCard
+                label="💳 Карта"
+                sublabel="рух за період"
+                value={Math.round(m.cashByMethod.card)}
+                fmt={fmt}
+              />
+              {Math.abs(m.cashByMethod.unknown) > 0.5 && (
+                <MetricCard
+                  label="? Без каси"
+                  sublabel="історичні записи"
+                  value={Math.round(m.cashByMethod.unknown)}
+                  fmt={fmt}
+                />
+              )}
             </div>
           </div>
 

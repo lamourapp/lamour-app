@@ -97,6 +97,12 @@ function EntryCard({ entry, onDelete, onEdit, onRestore, fmt }: { entry: Journal
               {entry.time && <span>· {entry.time}</span>}
               {!entry.specialistName && entry.type === "expense" && <span>Витрата</span>}
               {entry.source === "bot" && <span className="text-brand-500">· бот</span>}
+              {entry.paymentType === "готівка" && (
+                <span className="text-gray-500" title="Готівка">· 💵</span>
+              )}
+              {entry.paymentType === "карта" && (
+                <span className="text-gray-500" title="Карта">· 💳</span>
+              )}
               {entry.supplement && entry.supplement > 0 && (
                 <span className="text-brand-400">· +{entry.supplement}</span>
               )}
@@ -602,6 +608,7 @@ export default function JournalScreen() {
             extraHours: editingEntry.extraHours,
             comment: editingEntry.comment,
             calcMaterials: editingEntry.calcMaterials,
+            paymentType: editingEntry.paymentType,
           }}
         />
       )}
@@ -625,6 +632,7 @@ export default function JournalScreen() {
               quantity: si.quantity,
             })),
             supplement: editingEntry.supplement,
+            paymentType: editingEntry.paymentType,
           }}
         />
       )}

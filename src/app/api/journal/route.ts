@@ -10,6 +10,7 @@ import {
   ORDER_FIELDS,
 } from "@/lib/airtable-fields";
 import { ROW_METRICS_SOURCE_FIELDS, computeRowMetrics } from "@/lib/service-row";
+import { isPaymentMethod } from "@/lib/types";
 
 // Intl.DateTimeFormat constructor is surprisingly slow; cache per tz so each
 // request with the same tz reuses the formatter across invocations.
@@ -330,7 +331,10 @@ export async function GET(request: NextRequest) {
         saleItems: type === "sale" ? saleItems : (saleItems && saleItems.length > 1 ? saleItems : undefined),
         source,
         time,
-        paymentType: (f[SERVICE_FIELDS.paymentType] as string) || undefined,
+        paymentType: (() => {
+          const v = f[SERVICE_FIELDS.paymentType];
+          return isPaymentMethod(v) ? v : undefined;
+        })(),
         // Експозим для edit-modal: treba zrozumity який «Вид витрати» був у записі.
         expenseType: type === "expense" ? ((f[SERVICE_FIELDS.expenseType] as string) || undefined) : undefined,
         // Для edit-mode: service/rental-редактор потребує ID послуги, щоб
@@ -384,6 +388,20 @@ export async function POST(request: NextRequest) {
 
     if (comment) fields[SERVICE_FIELDS.comments] = comment;
     if (specialistId) fields[SERVICE_FIELDS.master] = [specialistId];
+
+    // Спосіб оплати / каса — обов'язково для всіх фінансових операцій
+    // (послуга, продаж, витрата, виплата, борг). Щоб дашборд міг рахувати
+    // баланси готівки/картки окремо. Історичні записи лишаються з null;
+    // UI за замовчуванням пропонує «готівка».
+    if (body.paymentType !== undefined && body.paymentType !== null && body.paymentType !== "") {
+      if (!isPaymentMethod(body.paymentType)) {
+        return NextResponse.json(
+          { error: "paymentType must be 'готівка' or 'карта'" },
+          { status: 400 },
+        );
+      }
+      fields[SERVICE_FIELDS.paymentType] = body.paymentType;
+    }
 
     switch (type) {
       case "expense":
@@ -509,7 +527,7 @@ export async function POST(request: NextRequest) {
         if (body.supplement) fields[SERVICE_FIELDS.addonServicePrice] = body.supplement;
         if (body.extraHours) fields[SERVICE_FIELDS.extraHours] = body.extraHours;
         if (body.extraMaterialsCost) fields[SERVICE_FIELDS.additionalMaterials] = body.extraMaterialsCost;
-        if (body.paymentType) fields[SERVICE_FIELDS.paymentType] = body.paymentType;
+        // paymentType тепер пишеться у спільному блоці вище (для всіх типів).
 
         // If product is sold alongside
         if (body.productId) {
@@ -600,11 +618,23 @@ export async function PATCH(request: NextRequest) {
 
     const fields: Record<string, unknown> = {};
 
-    // Спільні для всіх типів ─ дата, спеціаліст, коментар.
+    // Спільні для всіх типів ─ дата, спеціаліст, коментар, спосіб оплати.
     if (body.date !== undefined) fields[SERVICE_FIELDS.date] = body.date;
     if (body.comment !== undefined) fields[SERVICE_FIELDS.comments] = body.comment || null;
     if (body.specialistId !== undefined) {
       fields[SERVICE_FIELDS.master] = body.specialistId ? [body.specialistId] : [];
+    }
+    if (body.paymentType !== undefined) {
+      if (body.paymentType === null || body.paymentType === "") {
+        fields[SERVICE_FIELDS.paymentType] = null;
+      } else if (isPaymentMethod(body.paymentType)) {
+        fields[SERVICE_FIELDS.paymentType] = body.paymentType;
+      } else {
+        return NextResponse.json(
+          { error: "paymentType must be 'готівка' or 'карта'" },
+          { status: 400 },
+        );
+      }
     }
 
     // Тип-специфічні поля.

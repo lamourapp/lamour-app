@@ -6,6 +6,8 @@ import { useSettings, useSpecializations, useCategories } from "@/lib/hooks";
 import { moneyFormatter, todayISO } from "@/lib/format";
 import SingleDatePicker from "./SingleDatePicker";
 import SearchableSelect from "./SearchableSelect";
+import PaymentMethodPicker from "./PaymentMethodPicker";
+import type { PaymentMethod } from "@/lib/types";
 
 interface Specialist {
   id: string;
@@ -193,6 +195,7 @@ export interface ServiceEntryInitial {
   comment?: string;
   /** Додаткові матеріали з попереднього запису (prefilled для edit-mode). */
   calcMaterials?: { materialId: string; amount: number }[];
+  paymentType?: PaymentMethod;
 }
 
 export default function ServiceEntryModal({
@@ -241,6 +244,9 @@ export default function ServiceEntryModal({
     () => initial?.calcMaterials?.map((m) => ({ materialId: m.materialId, amount: m.amount })) || [],
   );
   const [comment, setComment] = useState(() => initial?.comment || "");
+  const [paymentType, setPaymentType] = useState<PaymentMethod>(
+    () => initial?.paymentType || "готівка",
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -435,6 +441,7 @@ export default function ServiceEntryModal({
         materialsPurchaseCost: selectedService?.hasCalculator ? 0 : (selectedService?.materialsPurchaseCost || 0),
         masterHourlyPay,
         comment: comment || undefined,
+        paymentType,
       };
       const rawSuppl = parseFloat(supplement);
       if (rawSuppl) body.supplement = supplementSign === "-" ? -Math.abs(rawSuppl) : Math.abs(rawSuppl);
@@ -734,6 +741,12 @@ export default function ServiceEntryModal({
                 )}
               </>
             )}
+
+            {/* Payment method */}
+            <div className="mb-5">
+              <label className={labelCls}>Каса</label>
+              <PaymentMethodPicker value={paymentType} onChange={setPaymentType} />
+            </div>
 
             {/* Comment */}
             <div className="mb-5">

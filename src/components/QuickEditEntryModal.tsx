@@ -3,9 +3,10 @@
 import { useState, useMemo } from "react";
 import { Button, Field, Input, Modal } from "./ui";
 import { useExpenseTypes } from "@/lib/hooks";
-import type { JournalEntry } from "@/lib/types";
+import type { JournalEntry, PaymentMethod } from "@/lib/types";
 import SingleDatePicker from "./SingleDatePicker";
 import SearchableSelect from "./SearchableSelect";
+import PaymentMethodPicker from "./PaymentMethodPicker";
 
 interface Specialist {
   id: string;
@@ -60,6 +61,11 @@ export default function QuickEditEntryModal({
   const [supplementSign, setSupplementSign] = useState<"+" | "-">(() =>
     (entry.supplement ?? 0) < 0 ? "-" : "+",
   );
+  // Для боргу каса не релевантна (це не рух коштів, а облік).
+  const showsPayment = entry.type !== "debt";
+  const [paymentType, setPaymentType] = useState<PaymentMethod | undefined>(
+    entry.paymentType,
+  );
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -102,6 +108,10 @@ export default function QuickEditEntryModal({
       const n = Number(supplement);
       const signed = !Number.isFinite(n) || n === 0 ? 0 : (supplementSign === "-" ? -Math.abs(n) : Math.abs(n));
       body.supplement = signed;
+    }
+
+    if (showsPayment && paymentType) {
+      body.paymentType = paymentType;
     }
 
     setSaving(true);
@@ -238,6 +248,12 @@ export default function QuickEditEntryModal({
               onChange={(e) => setSupplement(e.target.value)}
               placeholder="0"
             />
+          </Field>
+        )}
+
+        {showsPayment && (
+          <Field label="Каса" hint={entry.type === "expense" ? "з якої видано" : "куди прийнято"}>
+            <PaymentMethodPicker value={paymentType} onChange={setPaymentType} />
           </Field>
         )}
 

@@ -3,6 +3,22 @@
 
 export type CompensationType = "commission" | "hourly" | "rental" | "salary" | "owner";
 
+/**
+ * Спосіб оплати / каса фінансової операції. Прив'язується до КОЖНОГО
+ * запису журналу (послуга, продаж, витрата, виплата, борг) — щоб
+ * дашборд міг показати окремі баланси по готівці та картці.
+ *
+ * Значення повинні збігатися з опціями Airtable singleSelect
+ * «вид оплати» у таблиці Послуги (див. SERVICE_FIELDS.paymentType).
+ * Спочатку там була опція «ФОП» — не використовуємо, лишили як
+ * легасі до ручного видалення.
+ */
+export type PaymentMethod = "готівка" | "карта";
+export const PAYMENT_METHODS: readonly PaymentMethod[] = ["готівка", "карта"] as const;
+export function isPaymentMethod(v: unknown): v is PaymentMethod {
+  return v === "готівка" || v === "карта";
+}
+
 export interface Specialist {
   id: string;
   name: string;
@@ -79,4 +95,9 @@ export interface JournalEntry {
    * показати архів і кнопку «Відновити».
    */
   isCanceled?: boolean;
+  /**
+   * Спосіб оплати / каса операції («готівка» | «карта»).
+   * Для історичних записів до введення цього поля — `undefined`.
+   */
+  paymentType?: PaymentMethod;
 }

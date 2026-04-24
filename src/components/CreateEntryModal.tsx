@@ -5,7 +5,9 @@ import { Button, Field, Input, Label, Modal } from "./ui";
 import { useSettings, useExpenseTypes } from "@/lib/hooks";
 import SingleDatePicker from "./SingleDatePicker";
 import SearchableSelect from "./SearchableSelect";
+import PaymentMethodPicker from "./PaymentMethodPicker";
 import { moneyFormatter, todayISO } from "@/lib/format";
+import type { PaymentMethod } from "@/lib/types";
 
 interface Specialist {
   id: string;
@@ -49,6 +51,7 @@ export interface EntryEditInitial {
   /** Для sale edit — початковий склад і надбавка/знижка. */
   saleItems?: { productId?: string; quantity: number }[];
   supplement?: number;
+  paymentType?: PaymentMethod;
 }
 
 /**
@@ -115,6 +118,11 @@ export default function CreateEntryModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [debtSign, setDebtSign] = useState<"+" | "-">(preset?.debtSign || "+");
+  // Каса — для всіх типів, крім боргу (облікова операція, не рух коштів).
+  const [paymentType, setPaymentType] = useState<PaymentMethod>(
+    () => initial?.paymentType || "готівка",
+  );
+  const showsPayment = type !== "debt";
 
   useEffect(() => {
     if (type === "sale") {
@@ -182,6 +190,7 @@ export default function CreateEntryModal({
           expenseType: expenseType,
           specialistId: specialistId,
           comment: comment,
+          paymentType,
         };
         const res = await fetch("/api/journal", {
           method: "PATCH",
@@ -196,6 +205,7 @@ export default function CreateEntryModal({
       }
 
       const body: Record<string, unknown> = { type, date, comment: comment || undefined };
+      if (showsPayment) body.paymentType = paymentType;
 
       if (type === "expense") {
         body.amount = parseFloat(amount);
@@ -501,6 +511,12 @@ export default function CreateEntryModal({
             </div>
           </div>
         </div>
+      )}
+
+      {showsPayment && (
+        <Field label="Каса" hint={type === "expense" ? "з якої видано" : "куди прийнято"}>
+          <PaymentMethodPicker value={paymentType} onChange={setPaymentType} />
+        </Field>
       )}
 
       <Field label="Коментар">
