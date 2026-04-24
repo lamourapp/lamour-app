@@ -4,6 +4,9 @@ import { SERVICE_FIELDS, SPECIALIST_FIELDS } from "@/lib/airtable-fields";
 import { ROW_METRICS_SOURCE_FIELDS, computeRowMetrics } from "@/lib/service-row";
 
 export const runtime = "nodejs";
+// Next 16: без цього баланси показують стару кеш-копію після PATCH у журналі.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 /**
  * /api/owner/balances — lifetime-агрегати, не залежать від періоду:

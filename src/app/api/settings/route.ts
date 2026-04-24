@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchAllRecords, updateRecord, TABLES } from "@/lib/airtable";
 import { SETTINGS_FIELDS } from "@/lib/airtable-fields";
 
+// Next 16: Route Handlers кешуються за замовчуванням. Без цього зміни назви
+// салону / валюти / PIN не видно до хард-релоаду.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export interface Settings {
   id: string;
   name: string;

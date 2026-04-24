@@ -7,6 +7,11 @@ import {
 } from "@/lib/airtable";
 import { OWNERSHIP_FIELDS, SPECIALIST_FIELDS } from "@/lib/airtable-fields";
 
+// Next 16: Route Handlers кешуються за замовчуванням. Без цього нові ревізії
+// часток власників не видно в UI до хард-релоаду.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const runtime = "nodejs";
 
 /**

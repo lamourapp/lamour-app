@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchAllRecords, createRecord, updateRecord, deleteRecord, TABLES } from "@/lib/airtable";
 import { PRICE_LIST_FIELDS } from "@/lib/airtable-fields";
 
+// Next 16: Route Handlers кешуються за замовчуванням. Без цього PATCH-архівація
+// товару не видна в UI (GET повертає стару кеш-копію).
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const FIELDS = [
   PRICE_LIST_FIELDS.name,
   PRICE_LIST_FIELDS.salePrice,
