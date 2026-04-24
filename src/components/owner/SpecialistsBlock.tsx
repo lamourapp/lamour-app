@@ -11,15 +11,24 @@ interface Props {
   loading: boolean;
 }
 
+// Розширений рядок з обчисленим повним оборотом (послуги-робота + товари-gross).
+// Виносимо в окремий тип, щоб sort/render не плутались з SpecialistRow.
+type EnrichedRow = SpecialistRow & { revenueTotal: number };
+
 type SortKey = keyof Pick<
-  SpecialistRow,
-  "name" | "count" | "revenueServices" | "masterPay" | "netSalon"
+  EnrichedRow,
+  "name" | "count" | "revenueTotal" | "masterPay" | "netSalon"
 >;
 
-const COLUMNS: { key: SortKey; label: string; numeric: boolean }[] = [
+const COLUMNS: { key: SortKey; label: string; numeric: boolean; tooltip?: string }[] = [
   { key: "name", label: "Майстер", numeric: false },
   { key: "count", label: "К-сть", numeric: true },
-  { key: "revenueServices", label: "Оборот", numeric: true },
+  {
+    key: "revenueTotal",
+    label: "Оборот",
+    numeric: true,
+    tooltip: "Послуги (робота, без матеріалів) + товари (gross). Повний потік грошей через майстра.",
+  },
   { key: "masterPay", label: "Майстру", numeric: true },
   { key: "netSalon", label: "Чистий салону", numeric: true },
 ];
@@ -38,8 +47,17 @@ export default function SpecialistsBlock({ data, settings, loading }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("netSalon");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
+  // Збагачуємо рядки повним оборотом = робота-без-матеріалів + товари-gross.
+  // Це дає очікуваний інваріант: revenueTotal ≥ masterPay ≥ netSalon (усе
+  // що пройшло ≥ виплачено майстру ≥ лишилося салону), без візуальних
+  // парадоксів, які виникали коли «Оборот» = тільки revenueServices.
+  const enriched: EnrichedRow[] = useMemo(
+    () => data.map((d) => ({ ...d, revenueTotal: d.revenueServices + d.revenueSales })),
+    [data],
+  );
+
   const sorted = useMemo(() => {
-    const copy = data.slice();
+    const copy = enriched.slice();
     copy.sort((a, b) => {
       const va = a[sortKey];
       const vb = b[sortKey];
@@ -49,7 +67,7 @@ export default function SpecialistsBlock({ data, settings, loading }: Props) {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return copy;
-  }, [data, sortKey, sortDir]);
+  }, [enriched, sortKey, sortDir]);
 
   const maxNet = useMemo(
     () => Math.max(...data.map((d) => Math.abs(d.netSalon)), 1),
@@ -97,7 +115,7 @@ export default function SpecialistsBlock({ data, settings, loading }: Props) {
                     <div className="grid grid-cols-3 gap-1.5 text-[11px]">
                       <div>
                         <div className="text-gray-400 text-[10px] uppercase tracking-wider">Оборот</div>
-                        <div className="text-gray-900 font-medium tabular-nums">{money(s.revenueServices)}</div>
+                        <div className="text-gray-900 font-medium tabular-nums">{money(s.revenueTotal)}</div>
                       </div>
                       <div>
                         <div className="text-gray-400 text-[10px] uppercase tracking-wider">Майстру</div>
@@ -125,6 +143,7 @@ export default function SpecialistsBlock({ data, settings, loading }: Props) {
                       <th
                         key={c.key}
                         onClick={() => toggleSort(c.key)}
+                        title={c.tooltip}
                         className={`py-2 px-2 font-medium cursor-pointer select-none whitespace-nowrap ${
                           c.numeric ? "text-right" : "text-left"
                         } ${active ? "text-gray-900" : "hover:text-gray-700"}`}
@@ -139,12 +158,12 @@ export default function SpecialistsBlock({ data, settings, loading }: Props) {
               <tbody>
                 {sorted.map((s) => {
                   const pct = Math.max(0, (s.netSalon / maxNet) * 100);
-                  const tooltip = `Чистий матеріали: ${money(s.netMaterials)} · Чистий продажі: ${money(s.netSales)}`;
+                  const tooltip = `Робота: ${money(s.revenueServices)} · Товари: ${money(s.revenueSales)} · Чистий матеріали: ${money(s.netMaterials)} · Чистий продажі: ${money(s.netSales)}`;
                   return (
                     <tr key={s.id} className="border-b border-black/[0.03] last:border-0 relative">
                       <td className="py-2 px-2 text-gray-900 font-medium whitespace-nowrap">{s.name}</td>
                       <td className="py-2 px-2 text-right text-gray-700 tabular-nums">{s.count}</td>
-                      <td className="py-2 px-2 text-right text-gray-700 tabular-nums">{money(s.revenueServices)}</td>
+                      <td className="py-2 px-2 text-right text-gray-700 tabular-nums" title={`Робота ${money(s.revenueServices)} + товари ${money(s.revenueSales)}`}>{money(s.revenueTotal)}</td>
                       <td className="py-2 px-2 text-right text-gray-700 tabular-nums">{money(s.masterPay)}</td>
                       <td className="py-2 px-2 text-right relative" title={tooltip}>
                         {/* inline bar-fill під числом */}
