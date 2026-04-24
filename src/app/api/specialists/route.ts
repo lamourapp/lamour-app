@@ -4,6 +4,11 @@ import { compensationTypeFromLabel, labelFromCompensationType } from "@/lib/comp
 import { SPECIALIST_FIELDS, SERVICE_FIELDS, OWNERSHIP_FIELDS } from "@/lib/airtable-fields";
 import { ROW_METRICS_SOURCE_FIELDS, computeRowMetrics } from "@/lib/service-row";
 
+// Next 16: route cache вимкнено. Route вже auto-dynamic через searchParams,
+// але явне явно — для симетрії з іншими довідниками.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 function mapSpecialist(r: { id: string; fields: Record<string, unknown> }) {
   const f = r.fields;
   const salonPercent = (f[SPECIALIST_FIELDS.salonPctForService] as number) || 0;

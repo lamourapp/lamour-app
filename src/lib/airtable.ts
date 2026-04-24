@@ -47,6 +47,41 @@ interface AirtableResponse {
   offset?: string;
 }
 
+/**
+ * Wrapper над fetch з retry/backoff на 429 і 5xx.
+ *
+ * Airtable rate-limit = 5 req/sec на base. У нас GET /api/journal робить
+ * до 7 паралельних fetchAllRecords (Promise.all) — на холодному запиті
+ * легко вилетіти в 429. Без retry користувач бачить 500 на першому
+ * відкритті дня.
+ *
+ * Стратегія: експоненційний backoff 1s → 2s → 4s, до 3 спроб. Якщо
+ * Airtable повертає Retry-After (на 429 інколи буває) — поважаємо.
+ */
+async function fetchWithRetry(input: string, init?: RequestInit): Promise<Response> {
+  const RETRY_STATUSES = new Set([429, 500, 502, 503, 504]);
+  const MAX_ATTEMPTS = 3;
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(input, init);
+      if (res.ok) return res;
+      if (!RETRY_STATUSES.has(res.status) || attempt === MAX_ATTEMPTS - 1) return res;
+      const retryAfter = Number(res.headers.get("retry-after")) * 1000;
+      const backoff = Number.isFinite(retryAfter) && retryAfter > 0
+        ? retryAfter
+        : 1000 * Math.pow(2, attempt); // 1s, 2s, 4s
+      await new Promise((r) => setTimeout(r, backoff));
+    } catch (e) {
+      lastErr = e;
+      if (attempt === MAX_ATTEMPTS - 1) throw e;
+      await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
+    }
+  }
+  // unreachable, але TS не знає
+  throw lastErr ?? new Error("fetchWithRetry: exhausted");
+}
+
 export async function fetchRecords(
   tableId: string,
   options?: {
@@ -79,7 +114,7 @@ export async function fetchRecords(
   }
 
   const url = `${API_URL}/${getBaseId()}/${tableId}?${params.toString()}`;
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     headers: {
       Authorization: `Bearer ${getToken()}`,
       "Content-Type": "application/json",
@@ -122,7 +157,7 @@ export async function createRecord(
   fields: Record<string, unknown>,
 ): Promise<{ id: string; fields: Record<string, unknown> }> {
   const url = `${API_URL}/${getBaseId()}/${tableId}`;
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${getToken()}`,
@@ -149,7 +184,7 @@ export async function updateRecord(
   fields: Record<string, unknown>,
 ): Promise<{ id: string; fields: Record<string, unknown> }> {
   const url = `${API_URL}/${getBaseId()}/${tableId}/${recordId}`;
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     method: "PATCH",
     headers: {
       Authorization: `Bearer ${getToken()}`,
@@ -177,7 +212,7 @@ export async function batchCreateRecords(
   for (let i = 0; i < records.length; i += 10) {
     const batch = records.slice(i, i + 10);
     const url = `${API_URL}/${getBaseId()}/${tableId}`;
-    const res = await fetch(url, {
+    const res = await fetchWithRetry(url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${getToken()}`,
@@ -205,7 +240,7 @@ export async function batchUpdateRecords(
   for (let i = 0; i < updates.length; i += 10) {
     const batch = updates.slice(i, i + 10);
     const url = `${API_URL}/${getBaseId()}/${tableId}`;
-    const res = await fetch(url, {
+    const res = await fetchWithRetry(url, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${getToken()}`,
@@ -225,7 +260,7 @@ export async function batchUpdateRecords(
 export async function deleteRecord(tableId: string, recordId: string): Promise<void> {
   // Airtable API: batch delete format with records[] query param
   const url = `${API_URL}/${getBaseId()}/${tableId}?records[]=${recordId}`;
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${getToken()}`,

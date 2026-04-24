@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { LineChart, Line, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import type { Settings } from "@/app/api/settings/route";
-import { moneyFormatter } from "@/lib/format";
+import { moneyFormatter, todayISO } from "@/lib/format";
 
 /**
  * Operational-картка «Залишок у касах» (lifetime). Живе у sidebar 4-col на
@@ -35,7 +35,9 @@ export default function CashStatus({ balances, settings, className = "" }: Props
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/owner/cash-history?days=30")
+    // `today` з локалі юзера — щоб останній бар на sparkline був «сьогодні»
+    // у його часовому поясі, а не UTC-сьогодні (Vercel рантайм у UTC).
+    fetch(`/api/owner/cash-history?days=30&today=${todayISO()}`)
       .then((r) => r.json())
       .then((d: { history?: { date: string; balance: number }[]; delta?: number | null }) => {
         if (cancelled) return;

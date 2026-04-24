@@ -63,6 +63,15 @@ export async function GET(request: Request) {
     const daysParam = Number(url.searchParams.get("days")) || 30;
     const days = Math.max(1, Math.min(365, daysParam)); // розумні межі
 
+    // Сервер на Vercel працює в UTC, тому `new Date()` тут поверне UTC-сьогодні.
+    // Юзер у Києві о 02:00 за локальним часом — UTC ще «вчора» → останній день
+    // на графіку був би на 1 коротшим. Клієнт може передати `?today=YYYY-MM-DD`
+    // зі свого `todayISO()`, тоді графік закінчується на локальному «сьогодні».
+    const todayParam = url.searchParams.get("today");
+    const todayISO = todayParam && /^\d{4}-\d{2}-\d{2}$/.test(todayParam)
+      ? todayParam
+      : toISODate(new Date());
+
     const records = await fetchAllRecords(TABLES.services, {
       filterByFormula: `NOT({${SERVICE_FIELDS.isCanceled}})`,
       fields: FIELDS,
@@ -102,7 +111,7 @@ export async function GET(request: Request) {
     //    заповнюючи дні без руху попереднім балансом.
     const sortedDates = [...deltaByDate.keys()].sort();
     const startDate = parseISODate(sortedDates[0]);
-    const today = parseISODate(toISODate(new Date()));
+    const today = parseISODate(todayISO);
 
     const daily: CashHistoryPoint[] = [];
     let balance = 0;

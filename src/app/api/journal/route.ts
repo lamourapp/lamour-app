@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchAllRecords, fetchRecords, createRecord, updateRecord, TABLES } from "@/lib/airtable";
+import { fetchAllRecords, fetchRecords, createRecord, updateRecord, batchCreateRecords, TABLES } from "@/lib/airtable";
 import {
   SERVICE_FIELDS,
   SPECIALIST_FIELDS,
@@ -427,11 +427,14 @@ export async function POST(request: NextRequest) {
           typeof n === "number" && Number.isFinite(n) && n >= 0;
 
         if (saleItems && saleItems.length > 0) {
-          // Multi-product sale: create detail records, sum totals
-          const detailIds: string[] = [];
+          // Multi-product sale: валідуємо всі позиції, потім batchCreate
+          // (один HTTP-запит на ≤10 деталей замість N послідовних — критично
+          // для rate-limit Airtable 5 req/sec, особливо при паралельних
+          // продажах двох продавців).
           const productIds: string[] = [];
           let totalSalePrice = 0;
           let totalCostPrice = 0;
+          const detailRecords: { fields: Record<string, unknown> }[] = [];
 
           for (const [idx, item] of saleItems.entries()) {
             if (!item.productId || typeof item.productId !== "string") continue;
@@ -450,20 +453,24 @@ export async function POST(request: NextRequest) {
             }
             const lineTotal = item.salePrice * item.quantity;
             const lineCost = item.costPrice * item.quantity;
-            const detail = await createRecord(TABLES.saleDetails, {
-              [SALE_DETAIL_FIELDS.quantity]: item.quantity,
-              [SALE_DETAIL_FIELDS.priceListItem]: [item.productId],
-              [SALE_DETAIL_FIELDS.fixedSalePrice]: item.salePrice,
-              [SALE_DETAIL_FIELDS.fixedCostPrice]: item.costPrice,
-              [SALE_DETAIL_FIELDS.totalDue]: lineTotal,
+            detailRecords.push({
+              fields: {
+                [SALE_DETAIL_FIELDS.quantity]: item.quantity,
+                [SALE_DETAIL_FIELDS.priceListItem]: [item.productId],
+                [SALE_DETAIL_FIELDS.fixedSalePrice]: item.salePrice,
+                [SALE_DETAIL_FIELDS.fixedCostPrice]: item.costPrice,
+                [SALE_DETAIL_FIELDS.totalDue]: lineTotal,
+              },
             });
-            detailIds.push(detail.id);
             if (!productIds.includes(item.productId)) productIds.push(item.productId);
             totalSalePrice += lineTotal;
             totalCostPrice += lineCost;
           }
 
-          if (detailIds.length === 0) return NextResponse.json({ error: "No valid sale items" }, { status: 400 });
+          if (detailRecords.length === 0) return NextResponse.json({ error: "No valid sale items" }, { status: 400 });
+
+          const created = await batchCreateRecords(TABLES.saleDetails, detailRecords);
+          const detailIds = created.map((r) => r.id);
 
           fields[SERVICE_FIELDS.saleDetails] = detailIds;
           fields[SERVICE_FIELDS.sales] = productIds;
@@ -481,8 +488,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "costPrice must be a non-negative number" }, { status: 400 });
           }
           fields[SERVICE_FIELDS.sales] = [body.productId];
-          if (body.salePrice) fields[SERVICE_FIELDS.fixedSalePrice] = body.salePrice;
-          if (body.costPrice) fields[SERVICE_FIELDS.fixedCostPrice] = body.costPrice;
+          // salePrice/costPrice можуть бути 0 (бонусний товар) — фільтруємо
+          // undefined, а не truthiness (валідацію вище вже пройшли).
+          if (body.salePrice !== undefined) fields[SERVICE_FIELDS.fixedSalePrice] = body.salePrice;
+          if (body.costPrice !== undefined) fields[SERVICE_FIELDS.fixedCostPrice] = body.costPrice;
         } else {
           return NextResponse.json({ error: "saleItems or productId is required" }, { status: 400 });
         }
@@ -533,8 +542,8 @@ export async function POST(request: NextRequest) {
         if (body.productId) {
           fields[SERVICE_FIELDS.sales] = [body.productId];
           if (body.productSupplement) fields[SERVICE_FIELDS.addonSalePrice] = body.productSupplement;
-          if (body.salePrice) fields[SERVICE_FIELDS.fixedSalePrice] = body.salePrice;
-          if (body.costPrice) fields[SERVICE_FIELDS.fixedCostPrice] = body.costPrice;
+          if (body.salePrice !== undefined) fields[SERVICE_FIELDS.fixedSalePrice] = body.salePrice;
+          if (body.costPrice !== undefined) fields[SERVICE_FIELDS.fixedCostPrice] = body.costPrice;
         }
 
         // Create Замовлення (order) records for calculation materials.
@@ -622,6 +631,18 @@ export async function PATCH(request: NextRequest) {
     if (body.date !== undefined) fields[SERVICE_FIELDS.date] = body.date;
     if (body.comment !== undefined) fields[SERVICE_FIELDS.comments] = body.comment || null;
     if (body.specialistId !== undefined) {
+      // Для service/rental зміна майстра НЕ робиться через PATCH: snapshot-поля
+      // (fixedMasterPay, fixedMaterialsCost тощо) вже зашиті під попереднього
+      // майстра, а lookup-и (salonPctForServiceLookup, masterPctForMaterials…)
+      // перерахувалися б під нового — рядок став би неконсистентним для
+      // pricing.ts. Правильний шлях: cancel-old + create-new (як робить
+      // ServiceEntryModal). Для решти типів (expense/debt/sale) — без обмежень.
+      if (kind === "service" || kind === "rental") {
+        return NextResponse.json(
+          { error: "Зміна майстра для послуги/оренди робиться через скасування + новий запис" },
+          { status: 400 },
+        );
+      }
       fields[SERVICE_FIELDS.master] = body.specialistId ? [body.specialistId] : [];
     }
     if (body.paymentType !== undefined) {

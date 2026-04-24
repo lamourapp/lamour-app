@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchAllRecords, createRecord, updateRecord, TABLES } from "@/lib/airtable";
 import { CATEGORY_FIELDS } from "@/lib/airtable-fields";
 
+// Next 16: route cache вимкнено, щоб PATCH-архівація одразу була видна в UI.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 /**
  * Категорії послуг — tenant-defined taxonomy for service types.
  *

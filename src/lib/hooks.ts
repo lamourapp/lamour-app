@@ -74,7 +74,7 @@ async function refetchSettings(): Promise<void> {
   if (inflight) return inflight;
   inflight = (async () => {
     try {
-      const res = await fetch("/api/settings", { cache: "no-store" });
+      const res = await fetch("/api/settings");
       if (!res.ok) throw new Error((await res.json()).error || "Failed");
       const data = (await res.json()) as Settings;
       writeLS(data);
@@ -167,7 +167,7 @@ export function useCatalog<T extends "products" | "materials">(type: T) {
   const reload = useCallback(() => {
     setLoading(true);
     setError(null);
-    fetch(`/api/${type}?_t=${Date.now()}`, { cache: "no-store" })
+    fetch(`/api/${type}`)
       .then((res) => { if (!res.ok) throw new Error("Failed"); return res.json(); })
       .then((d) => { setData(d); setLoading(false); })
       .catch((e) => { setError(e.message); setLoading(false); });
@@ -201,7 +201,7 @@ export function useServicesCatalog() {
   const reload = useCallback(() => {
     setLoading(true);
     setError(null);
-    fetch(`/api/services-catalog?_t=${Date.now()}`, { cache: "no-store" })
+    fetch(`/api/services-catalog`)
       .then((res) => { if (!res.ok) throw new Error("Failed"); return res.json(); })
       .then((d) => { setData(d); setLoading(false); })
       .catch((e) => { setError(e.message); setLoading(false); });
@@ -237,8 +237,7 @@ export function useCategories(includeInactive = false) {
     setError(null);
     const params = new URLSearchParams();
     if (includeInactive) params.set("all", "1");
-    params.set("_t", String(Date.now()));
-    fetch(`/api/categories?${params.toString()}`, { cache: "no-store" })
+    fetch(`/api/categories?${params.toString()}`)
       .then((res) => { if (!res.ok) throw new Error("Failed"); return res.json(); })
       .then((d) => { setData(d); setLoading(false); })
       .catch((e) => { setError(e.message); setLoading(false); });
@@ -255,7 +254,7 @@ export function useCategories(includeInactive = false) {
     if (!res.ok) throw new Error((await res.json()).error || "Failed");
     const { id } = (await res.json()) as { id: string };
     await new Promise<void>((resolve) => {
-      fetch(`/api/categories?all=1&_t=${Date.now()}`, { cache: "no-store" })
+      fetch(`/api/categories?all=1`)
         .then((r) => r.json())
         .then((d: Category[]) => { setData(d); resolve(); })
         .catch(() => resolve());
@@ -287,8 +286,7 @@ export function useSpecializations(includeInactive = false) {
     setError(null);
     const params = new URLSearchParams();
     if (includeInactive) params.set("all", "1");
-    params.set("_t", String(Date.now()));
-    fetch(`/api/specializations?${params.toString()}`, { cache: "no-store" })
+    fetch(`/api/specializations?${params.toString()}`)
       .then((res) => { if (!res.ok) throw new Error("Failed"); return res.json(); })
       .then((d) => { setData(d); setLoading(false); })
       .catch((e) => { setError(e.message); setLoading(false); });
@@ -310,7 +308,7 @@ export function useSpecializations(includeInactive = false) {
     if (!res.ok) throw new Error((await res.json()).error || "Failed");
     const { id } = (await res.json()) as { id: string };
     await new Promise<void>((resolve) => {
-      fetch(`/api/specializations?_t=${Date.now()}`, { cache: "no-store" })
+      fetch(`/api/specializations`)
         .then((r) => r.json())
         .then((d: Specialization[]) => { setData(d); resolve(); })
         .catch(() => resolve());
@@ -348,8 +346,7 @@ export function useExpenseTypes(includeInactive = false) {
     setError(null);
     const params = new URLSearchParams();
     if (includeInactive) params.set("all", "1");
-    params.set("_t", String(Date.now()));
-    fetch(`/api/expense-types?${params.toString()}`, { cache: "no-store" })
+    fetch(`/api/expense-types?${params.toString()}`)
       .then((res) => { if (!res.ok) throw new Error("Failed"); return res.json(); })
       .then((d) => { setData(d); setLoading(false); })
       .catch((e) => { setError(e.message); setLoading(false); });
@@ -366,7 +363,7 @@ export function useExpenseTypes(includeInactive = false) {
     if (!res.ok) throw new Error((await res.json()).error || "Failed");
     const { id, name } = (await res.json()) as { id: string; name: string };
     await new Promise<void>((resolve) => {
-      fetch(`/api/expense-types?all=1&_t=${Date.now()}`, { cache: "no-store" })
+      fetch(`/api/expense-types?all=1`)
         .then((r) => r.json())
         .then((d: ExpenseType[]) => { setData(d); resolve(); })
         .catch(() => resolve());
@@ -387,7 +384,7 @@ export function useExpenseTypes(includeInactive = false) {
     });
     if (!res.ok) throw new Error((await res.json()).error || "Failed");
     await new Promise<void>((resolve) => {
-      fetch(`/api/expense-types?all=1&_t=${Date.now()}`, { cache: "no-store" })
+      fetch(`/api/expense-types?all=1`)
         .then((r) => r.json())
         .then((d: ExpenseType[]) => { setData(d); resolve(); })
         .catch(() => resolve());
@@ -407,8 +404,7 @@ export function useSpecialists(includeInactive = false) {
     setError(null);
     const params = new URLSearchParams();
     if (includeInactive) params.set("all", "1");
-    params.set("_t", String(Date.now()));
-    fetch(`/api/specialists?${params.toString()}`, { cache: "no-store" })
+    fetch(`/api/specialists?${params.toString()}`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch");
         return res.json();
@@ -456,7 +452,7 @@ export function useOwnership() {
   const reload = useCallback(() => {
     setLoading(true);
     setError(null);
-    fetch(`/api/ownership?_t=${Date.now()}`, { cache: "no-store" })
+    fetch(`/api/ownership`)
       .then((r) => {
         if (!r.ok) throw new Error("Failed");
         return r.json();
