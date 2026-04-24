@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useJournal, useSpecialists, useSettings } from "@/lib/hooks";
 import type { JournalEntry } from "@/lib/types";
-import { moneyFormatter, localeFromTimezone } from "@/lib/format";
+import { moneyFormatter } from "@/lib/format";
 
 type Fmt = (amount: number, opts?: { signed?: boolean; maximumFractionDigits?: number }) => string;
 import CalendarPicker from "./CalendarPicker";
@@ -214,7 +214,6 @@ export default function DashboardScreen() {
   const [selectedSpecialist, setSelectedSpecialist] = useState("");
   const [showCalendar, setShowCalendar] = useState(false);
   const [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null);
-  const [showDetailCols, setShowDetailCols] = useState(false);
 
   // Залишок у касах — lifetime, не залежить від обраного періоду. Тягнемо
   // один раз з /api/owner/balances (той самий endpoint, що й owner-дашборд).
@@ -239,7 +238,6 @@ export default function DashboardScreen() {
 
   const { settings } = useSettings();
   const fmt = useMemo(() => moneyFormatter(settings), [settings]);
-  const locale = localeFromTimezone(settings?.timezone);
   const { entries, loading, error } = useJournal(
     customRange ? "custom" : period,
     selectedSpecialist,
@@ -289,18 +287,6 @@ export default function DashboardScreen() {
     : period === "today" ? "день"
     : period === "week" ? "тиждень"
     : "місяць";
-
-  // Dot color helper
-  function dotColor(type: JournalEntry["type"]) {
-    switch (type) {
-      case "service": return "bg-brand-400";
-      case "sale": return "bg-emerald-400";
-      case "expense": return "bg-gray-300";
-      case "rental": return "bg-amber-400";
-      case "debt": return "bg-red-400";
-      default: return "bg-gray-300";
-    }
-  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-5">
@@ -511,150 +497,6 @@ export default function DashboardScreen() {
             </div>
           </Link>
 
-          {/* Journal table */}
-          <div>
-            <div className="flex items-center justify-between mb-3 px-0.5">
-              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
-                Журнал за період
-              </div>
-              <span className="text-[11px] text-gray-400">{entries.length} записів</span>
-            </div>
-
-            {entries.length === 0 ? (
-              <div className="text-center py-8 text-gray-400 text-[13px]">Немає записів за цей період</div>
-            ) : (
-              <div className="bg-white rounded-xl border border-black/[0.06] overflow-hidden">
-                <div className="overflow-x-auto max-h-[70vh] relative">
-                  <table className="w-full text-[12px] border-collapse">
-                    <thead className="sticky top-0 z-20 bg-white">
-                      <tr className="border-b border-black/5">
-                        <th className="sticky left-0 z-30 bg-white text-left px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider min-w-[52px]">
-                          Дата
-                        </th>
-                        <th className="sticky left-[52px] z-30 bg-white text-left px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider min-w-[100px] border-r border-black/5">
-                          {settings?.specialistTerm || "Спеціаліст"}
-                        </th>
-                        <th className="text-left px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider">
-                          Послуга / Продаж / Витрата
-                        </th>
-                        <th className="text-right px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider">
-                          Вартість
-                        </th>
-                        <th className="text-left px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider">
-                          Коментар
-                        </th>
-                        {showDetailCols && (
-                          <>
-                            {["Доповн.", "Розрах.", "Матеріали", "% майстру", "% салону"].map((h) => (
-                              <th key={h} className="text-right px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider">
-                                {h}
-                              </th>
-                            ))}
-                            <th className="text-center px-3 py-2.5 font-medium text-gray-400 whitespace-nowrap text-[10px] uppercase tracking-wider">
-                              Автор
-                            </th>
-                          </>
-                        )}
-                        <th className="sticky right-0 z-30 bg-white px-2 py-2.5">
-                          <button
-                            onClick={() => setShowDetailCols(!showDetailCols)}
-                            className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 text-[11px] font-bold cursor-pointer transition-colors flex items-center justify-center"
-                            title={showDetailCols ? "Сховати деталі" : "Показати деталі"}
-                          >
-                            {showDetailCols ? "−" : "+"}
-                          </button>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {entries.map((e) => {
-                        const textColor = e.type === "expense" ? "text-gray-500" : "text-gray-700";
-                        const dateStr = new Date(e.date + "T00:00:00").toLocaleDateString("uk-UA", { day: "2-digit", month: "2-digit" });
-
-                        return (
-                          <tr key={e.id} className="border-b border-black/[0.03] hover:bg-gray-50/50">
-                            <td className="sticky left-0 z-10 bg-white px-3 py-2.5 text-gray-500 whitespace-nowrap tabular-nums">{dateStr}</td>
-                            <td className={`sticky left-[52px] z-10 bg-white px-3 py-2.5 whitespace-nowrap font-medium border-r border-black/5 ${e.specialistName ? "text-gray-900" : "text-gray-400"}`}>
-                              {e.specialistName || "—"}
-                            </td>
-                            <td className="px-3 py-2.5 min-w-[120px] max-w-[220px]">
-                              <span className="inline-flex items-start gap-1.5">
-                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1 ${dotColor(e.type)}`} />
-                                <span className={`${textColor} break-words`}>
-                                  {e.title || "—"}
-                                  {e.saleItems && e.saleItems.length > 1 && (
-                                    <span className="ml-1 inline-flex items-center px-1 py-0.5 rounded text-[9px] font-medium bg-emerald-50 text-emerald-600" title={e.saleItems.map(si => `${si.productName} ×${si.quantity}`).join(", ")}>
-                                      {e.saleItems.length} тов.
-                                    </span>
-                                  )}
-                                </span>
-                              </span>
-                            </td>
-                            <td className="px-3 py-2.5 text-right font-medium text-gray-900 tabular-nums">
-                              {e.amount < 0 ? `−${Math.round(Math.abs(e.amount)).toLocaleString(locale)}` : Math.round(e.amount).toLocaleString(locale)}
-                            </td>
-                            <td className="px-3 py-2.5 text-left text-[11px] text-gray-500 max-w-[150px] truncate">
-                              {e.comment || <span className="text-gray-300">—</span>}
-                            </td>
-                            {showDetailCols && (
-                              <>
-                                <td className="px-3 py-2.5 text-right tabular-nums">
-                                  {e.supplement ? (
-                                    <span className="text-gray-900">
-                                      {e.supplement > 0 ? `+${e.supplement}` : e.supplement}
-                                    </span>
-                                  ) : (
-                                    <span className="text-gray-300">—</span>
-                                  )}
-                                </td>
-                                <td className="px-3 py-2.5 text-right tabular-nums">
-                                  {e.baseMaterialsCost ? (
-                                    <span className="text-purple-600">{Math.round(e.baseMaterialsCost).toLocaleString(locale)}</span>
-                                  ) : (
-                                    <span className="text-gray-300">—</span>
-                                  )}
-                                </td>
-                                <td className="px-3 py-2.5 text-right tabular-nums">
-                                  {e.calculationCost ? (
-                                    <span className="text-amber-600">{Math.round(e.calculationCost).toLocaleString(locale)}</span>
-                                  ) : (
-                                    <span className="text-gray-300">—</span>
-                                  )}
-                                </td>
-                                <td className="px-3 py-2.5 text-right text-gray-500 tabular-nums">
-                                  {(() => {
-                                    // Master side = service take + material cut + sale commission.
-                                    // For services, specialistShare already totals service+material; for sales it's undefined
-                                    // and specialistSalesShare carries the snapshot.
-                                    const total = (e.specialistShare || 0) + (e.specialistSalesShare || 0);
-                                    return total ? Math.round(total).toLocaleString(locale) : <span className="text-gray-300">—</span>;
-                                  })()}
-                                </td>
-                                <td className="px-3 py-2.5 text-right text-gray-500 tabular-nums">
-                                  {(() => {
-                                    const total = (e.salonShare || 0) + (e.salonMaterialShare || 0) + (e.salonSalesShare || 0);
-                                    return total ? Math.round(total).toLocaleString(locale) : <span className="text-gray-300">—</span>;
-                                  })()}
-                                </td>
-                                <td className="px-3 py-2.5 text-center">
-                                  {e.source === "bot" ? (
-                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-brand-50 text-brand-600">бот</span>
-                                  ) : (
-                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-gray-100 text-gray-500">адмін</span>
-                                  )}
-                                </td>
-                              </>
-                            )}
-                            <td className="sticky right-0 z-10 bg-white px-2 py-2.5" />
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
         </>
       )}
     </div>
