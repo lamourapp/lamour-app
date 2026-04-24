@@ -462,7 +462,7 @@ export default function DashboardScreen() {
               хоче бачити одразу: скільки фізично є в готівці/карті зараз.
               Незалежне від обраного періоду (інакше плутається з рухом). */}
           {cashBalance && (
-            <div className="flex-1 basis-[280px] max-w-xl rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50/60 to-white px-4 py-3">
+            <div className="flex-1 basis-[280px] max-w-xl rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50/60 to-white px-4 py-3 flex flex-col">
               <div className="flex items-baseline justify-between mb-2 gap-3">
                 <div className="text-[10px] text-brand-600 uppercase tracking-wider font-semibold">
                   Залишок у касах
@@ -488,6 +488,40 @@ export default function DashboardScreen() {
                     <span className="font-medium">{fmt(Math.round(cashBalance.cashByMethod.unknown))}</span>
                   </span>
                 )}
+              </div>
+              {/* Рух за період — «state vs flow»: головне число вгорі це stan
+                  (lifetime), а тут rух за обраний період. З урахуванням
+                  cash-filter (m = computeMetrics(filteredEntries)). Прихід =
+                  виручка + довнесення; Витрати = витрати + виплати; Різниця =
+                  cashInRegister (= зміна каси за період, коли б він був стартом
+                  обліку). */}
+              <div className="mt-2.5 pt-2.5 border-t border-brand-100/70">
+                <div className="flex items-baseline justify-between mb-1">
+                  <div className="text-[10px] text-brand-600/80 uppercase tracking-wider font-semibold">
+                    Рух · {periodShort}
+                  </div>
+                  {cashFilter !== "all" && (
+                    <div className="text-[10px] text-gray-400 tabular-nums">
+                      {cashFilter === "готівка" ? "💵 готівка" : "💳 карта"}
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-0.5 text-[12px] tabular-nums">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-gray-500">Прихід:</span>
+                    <span className="text-emerald-600 font-medium">+{fmt(Math.round(m.totalRevenue + m.contributed))}</span>
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-gray-500">Витрати:</span>
+                    <span className="text-red-500 font-medium">−{fmt(Math.round(m.expenses + m.paidOut))}</span>
+                  </div>
+                  <div className="flex items-baseline gap-1.5 pt-0.5">
+                    <span className="text-gray-600 font-medium">Різниця:</span>
+                    <span className={`font-semibold ${m.cashInRegister >= 0 ? "text-emerald-700" : "text-red-600"}`}>
+                      {m.cashInRegister >= 0 ? "+" : ""}{fmt(Math.round(m.cashInRegister))}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           )}
