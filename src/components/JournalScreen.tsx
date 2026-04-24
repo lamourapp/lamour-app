@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, type ReactNode } from "react";
 import { useJournal, useSpecialists, useSettings } from "@/lib/hooks";
 import type { JournalEntry } from "@/lib/types";
 import { moneyFormatter } from "@/lib/format";
@@ -46,6 +46,129 @@ function TypeLabel({ type }: { type: JournalEntry["type"] }) {
   );
 }
 
+function BreakdownRow({ label, value, muted, accent }: { label: string; value: ReactNode; muted?: boolean; accent?: "brand" | "emerald" | "red" | "amber" }) {
+  const valueColor =
+    accent === "brand" ? "text-brand-600"
+    : accent === "emerald" ? "text-emerald-600"
+    : accent === "red" ? "text-red-500"
+    : accent === "amber" ? "text-amber-600"
+    : muted ? "text-gray-400"
+    : "text-gray-700";
+  return (
+    <div className="flex items-center justify-between text-[12px] gap-3">
+      <span className="text-gray-500">{label}</span>
+      <span className={`${valueColor} tabular-nums font-medium`}>{value}</span>
+    </div>
+  );
+}
+
+function paymentLabel(pt: JournalEntry["paymentType"]): string {
+  if (pt === "готівка") return "💵 готівка";
+  if (pt === "карта") return "💳 карта";
+  return "—";
+}
+
+function EntryBreakdown({ entry, fmt }: { entry: JournalEntry; fmt: Fmt }) {
+  // service / rental: калькуляція послуги
+  if (entry.type === "service" || entry.type === "rental") {
+    const specialist = entry.specialistShare ?? 0;
+    const salon = (entry.salonShare ?? 0) + (entry.salonMaterialShare ?? 0);
+    const baseMat = entry.baseMaterialsCost ?? 0;
+    const calc = entry.calculationCost ?? 0;
+    const total = entry.amount;
+    const pctMaster = total > 0 ? Math.round((specialist / total) * 100) : 0;
+    const pctSalon = total > 0 ? Math.round((salon / total) * 100) : 0;
+    return (
+      <div className="space-y-1 pl-4">
+        <BreakdownRow label="Клієнт заплатив" value={fmt(total)} />
+        {entry.paymentType && <BreakdownRow label="Каса" value={paymentLabel(entry.paymentType)} muted />}
+        {specialist > 0 && (
+          <BreakdownRow label={`Майстру (${pctMaster}%)`} value={fmt(specialist)} accent="brand" />
+        )}
+        {salon > 0 && (
+          <BreakdownRow label={`Салону (${pctSalon}%)`} value={fmt(salon)} accent="emerald" />
+        )}
+        {baseMat > 0 && <BreakdownRow label="Матеріали (закупка)" value={fmt(baseMat)} muted />}
+        {calc > 0 && <BreakdownRow label="Калькуляція" value={fmt(calc)} muted />}
+        {entry.supplement !== undefined && entry.supplement !== 0 && (
+          <BreakdownRow
+            label="Доповнення"
+            value={fmt(entry.supplement, { signed: true })}
+            accent={entry.supplement > 0 ? "brand" : "red"}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // sale: список товарів + комісії
+  if (entry.type === "sale") {
+    const items = entry.saleItems ?? [];
+    const masterSales = entry.specialistSalesShare ?? 0;
+    const salonSales = (entry.salonSalesShare ?? 0) + (entry.salonMaterialShare ?? 0);
+    return (
+      <div className="space-y-1 pl-4">
+        {items.length > 0 && (
+          <div className="space-y-0.5 pb-1">
+            {items.map((item, i) => (
+              <div key={i} className="flex items-center justify-between text-[12px]">
+                <span className="text-gray-600">
+                  {item.productName}
+                  {item.quantity > 1 && <span className="text-gray-400"> ×{item.quantity}</span>}
+                </span>
+                <span className="text-gray-500 tabular-nums">{fmt(item.lineTotal)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <BreakdownRow label="Всього" value={fmt(entry.amount)} />
+        {entry.paymentType && <BreakdownRow label="Каса" value={paymentLabel(entry.paymentType)} muted />}
+        {masterSales > 0 && <BreakdownRow label="Майстру за продаж" value={fmt(masterSales)} accent="brand" />}
+        {salonSales > 0 && <BreakdownRow label="Салону" value={fmt(salonSales)} accent="emerald" />}
+      </div>
+    );
+  }
+
+  // expense: вид + каса
+  if (entry.type === "expense") {
+    return (
+      <div className="space-y-1 pl-4">
+        {entry.expenseType && <BreakdownRow label="Вид витрати" value={entry.expenseType} />}
+        {entry.paymentType && <BreakdownRow label="Каса" value={paymentLabel(entry.paymentType)} muted />}
+        <BreakdownRow label="Сума" value={fmt(entry.amount)} accent="red" />
+      </div>
+    );
+  }
+
+  // debt: тип руху (нарахування / виплата / довнесення) + каса (крім нарахування)
+  if (entry.type === "debt") {
+    const comment = (entry.comment ?? "").trim();
+    const isAccrual = /^нарахування/i.test(comment);
+    const isPayout = entry.amount < 0; // виплата майстру
+    const kind = isAccrual ? "Нарахування ЗП" : isPayout ? "Виплата майстру" : "Довнесення / корекція";
+    return (
+      <div className="space-y-1 pl-4">
+        <BreakdownRow label="Тип" value={kind} />
+        {!isAccrual && entry.paymentType && (
+          <BreakdownRow label="Каса" value={paymentLabel(entry.paymentType)} muted />
+        )}
+        <BreakdownRow
+          label="Сума"
+          value={fmt(entry.amount, { signed: true })}
+          accent={isPayout ? "red" : "brand"}
+        />
+        {isAccrual && (
+          <div className="text-[11px] text-gray-400 italic pt-0.5">
+            Бухгалтерський запис: рух коштів не виконується
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return null;
+}
+
 function EntryCard({ entry, onDelete, onEdit, onRestore, fmt }: { entry: JournalEntry; onDelete: (id: string) => void; onEdit?: (entry: JournalEntry) => void; onRestore?: (id: string) => void; fmt: Fmt }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -54,26 +177,48 @@ function EntryCard({ entry, onDelete, onEdit, onRestore, fmt }: { entry: Journal
   const hasMultiProducts = entry.saleItems && entry.saleItems.length > 1;
   const isCanceled = !!entry.isCanceled;
 
+  // Чи є що показати в accordion — щоб не відкривати порожню панель з «—».
+  const hasDetails = (() => {
+    if (hasMultiProducts) return true;
+    if (entry.type === "service") {
+      return (
+        (entry.specialistShare ?? 0) > 0 ||
+        (entry.salonShare ?? 0) > 0 ||
+        (entry.baseMaterialsCost ?? 0) > 0 ||
+        (entry.calculationCost ?? 0) > 0 ||
+        !!entry.paymentType ||
+        !!entry.supplement
+      );
+    }
+    if (entry.type === "sale") {
+      return (
+        (entry.specialistSalesShare ?? 0) > 0 ||
+        (entry.salonSalesShare ?? 0) > 0 ||
+        !!entry.paymentType ||
+        (entry.saleItems?.length ?? 0) > 0
+      );
+    }
+    if (entry.type === "expense") return !!entry.expenseType || !!entry.paymentType;
+    if (entry.type === "debt") return !!entry.paymentType || !!entry.comment;
+    if (entry.type === "rental") return !!hasMaterials || !!entry.paymentType;
+    return false;
+  })();
+
   return (
     <div
       className={`bg-white rounded-xl border px-4 py-3 transition-all group relative ${
         isCanceled
           ? "border-dashed border-black/[0.12] opacity-60"
           : "border-black/[0.06] hover:shadow-[0_2px_12px_rgba(0,0,0,0.06)]"
-      }`}
+      } ${hasDetails && !isCanceled ? "cursor-pointer" : ""}`}
       onClick={(e) => {
-        // Multi-product sale: toggle expand on tap
-        if (hasMultiProducts && !confirmDelete) {
+        if (confirmDelete) return;
+        if (isCanceled) return;
+        // Tap = toggle accordion. Delete тепер доступний через trash-button,
+        // видимий і на мобільному (раніше tap=delete був небезпечний дефолт).
+        if (hasDetails) {
           e.preventDefault();
           setExpanded(!expanded);
-          return;
-        }
-        // Скасований запис не відкриває confirmDelete — у нього інші дії (restore).
-        if (isCanceled) return;
-        // On mobile: tap card to show delete confirm (only if not already showing)
-        if (window.innerWidth < 640 && !confirmDelete) {
-          e.preventDefault();
-          setConfirmDelete(true);
         }
       }}
     >
@@ -90,6 +235,11 @@ function EntryCard({ entry, onDelete, onEdit, onRestore, fmt }: { entry: Journal
                     <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                   </svg>
                 </span>
+              )}
+              {!hasMultiProducts && hasDetails && !isCanceled && (
+                <svg className={`w-3 h-3 shrink-0 text-gray-300 transition-transform ${expanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                </svg>
               )}
             </div>
             <div className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1 flex-wrap">
@@ -159,11 +309,12 @@ function EntryCard({ entry, onDelete, onEdit, onRestore, fmt }: { entry: Journal
               </svg>
             </button>
           )}
-          {/* Desktop only: hover trash icon */}
+          {/* Trash: завжди видимий на мобільному (tap картки = expand, не delete);
+              на десктопі — hover-only, щоб не шуміти. */}
           {!isCanceled && (
             <button
               onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }}
-              className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 cursor-pointer hidden sm:block"
+              className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 cursor-pointer"
               title="Скасувати запис"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -174,18 +325,11 @@ function EntryCard({ entry, onDelete, onEdit, onRestore, fmt }: { entry: Journal
         </div>
       </div>
 
-      {/* Expanded sale items */}
-      {expanded && hasMultiProducts && (
-        <div className="mt-2 pt-2 border-t border-black/[0.04] space-y-1">
-          {entry.saleItems!.map((item, i) => (
-            <div key={i} className="flex items-center justify-between text-[12px] pl-4">
-              <span className="text-gray-600">
-                {item.productName}
-                {item.quantity > 1 && <span className="text-gray-400"> ×{item.quantity}</span>}
-              </span>
-              <span className="text-gray-500 tabular-nums">{fmt(item.lineTotal)}</span>
-            </div>
-          ))}
+      {/* Expanded breakdown — по типу запису. Показуємо лише ті поля, що мають
+          значення, щоб не засмічувати UI плейсхолдерами. */}
+      {expanded && hasDetails && (
+        <div className="mt-2 pt-2 border-t border-black/[0.04]" onClick={(e) => e.stopPropagation()}>
+          <EntryBreakdown entry={entry} fmt={fmt} />
         </div>
       )}
 
