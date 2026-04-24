@@ -41,6 +41,15 @@ interface Aggregates {
    * приріст «кошти в касі» за період.
    */
   cashByMethod: { cash: number; card: number; unknown: number };
+  /** Розбивка обороту (revenue) по касах за період. Сума = totalRevenue. */
+  revenueByMethod: { cash: number; card: number; unknown: number };
+  /** Розбивка витрат по касах за період. Сума = expensesTotal. */
+  expensesByMethod: { cash: number; card: number; unknown: number };
+  /**
+   * Кількість record-ів, які формують оборот (service + sale + combined).
+   * Потрібна для середнього чеку — agg.count включає витрати/борги.
+   */
+  countRevenue: number;
 }
 
 export interface ServiceRow {
@@ -151,6 +160,9 @@ function empty(): Aggregates {
     ownerWithdrawals: 0,
     ownerContributions: 0,
     cashByMethod: { cash: 0, card: 0, unknown: 0 },
+    revenueByMethod: { cash: 0, card: 0, unknown: 0 },
+    expensesByMethod: { cash: 0, card: 0, unknown: 0 },
+    countRevenue: 0,
   };
 }
 
@@ -178,6 +190,7 @@ function aggregate(records: Row[], ownerIds?: ReadonlySet<string>): Aggregates {
 
     if (type === "expense") {
       agg.expensesTotal += Math.abs(expense);
+      agg.expensesByMethod[mk] += Math.abs(expense);
       agg.cashByMethod[mk] -= Math.abs(expense);
     } else if (type === "debt") {
       // Борги з майстрами — внутрішні перекази, в оборот/дохід не йдуть.
@@ -224,7 +237,10 @@ function aggregate(records: Row[], ownerIds?: ReadonlySet<string>): Aggregates {
       agg.netMaterials += metrics.incomeMaterials;
       // Вся виручка запису (те, що клієнт фактично поклав у касу) —
       // повна вартість послуги + продажів у цьому ж записі.
-      agg.cashByMethod[mk] += metrics.totalServicePrice + metrics.totalSalePrice;
+      const entryRevenue = metrics.totalServicePrice + metrics.totalSalePrice;
+      agg.cashByMethod[mk] += entryRevenue;
+      agg.revenueByMethod[mk] += entryRevenue;
+      agg.countRevenue += 1;
     }
 
     // Чистий дохід салону — рахується через pricing.ts (єдина точка правди).

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { moneyFormatter } from "@/lib/format";
 import type { Settings } from "@/app/api/settings/route";
+import type { MasterOwed } from "@/app/api/owner/balances/route";
 
 interface Aggregates {
   revenueServices: number;
@@ -19,6 +20,16 @@ interface Aggregates {
   ownerWithdrawals: number;
   ownerContributions: number;
   cashByMethod: { cash: number; card: number; unknown: number };
+  revenueByMethod: { cash: number; card: number; unknown: number };
+  expensesByMethod: { cash: number; card: number; unknown: number };
+  countRevenue: number;
+}
+
+interface Balances {
+  cashByMethod: { cash: number; card: number; unknown: number };
+  cashTotal: number;
+  owedToMasters: MasterOwed[];
+  owedTotal: number;
 }
 
 interface Props {
@@ -27,6 +38,7 @@ interface Props {
   daily: { date: string; revenue: number; net: number }[];
   settings: Settings | null | undefined;
   loading: boolean;
+  balances: Balances | null;
 }
 
 function deltaPct(curr: number, prev: number): number | null {
@@ -169,7 +181,28 @@ function PnlRow({
   return content;
 }
 
-export default function FinancialBlock({ current, previous, daily, settings, loading }: Props) {
+function CashMeta({ cash, card, unknown, money }: {
+  cash: number; card: number; unknown: number;
+  money: (n: number) => string;
+}) {
+  const hasUnknown = Math.abs(unknown) > 0.5;
+  if (Math.abs(cash) + Math.abs(card) + Math.abs(unknown) < 1) return null;
+  return (
+    <div className="text-[10px] text-gray-400 tabular-nums pl-5 flex gap-2 flex-wrap -mt-0.5 mb-1">
+      <span>💵 {money(Math.round(cash))}</span>
+      <span className="text-gray-300">·</span>
+      <span>💳 {money(Math.round(card))}</span>
+      {hasUnknown && (
+        <>
+          <span className="text-gray-300">·</span>
+          <span title="Історичні записи без вказаної каси">? {money(Math.round(unknown))}</span>
+        </>
+      )}
+    </div>
+  );
+}
+
+export default function FinancialBlock({ current, previous, daily, settings, loading, balances }: Props) {
   const money = moneyFormatter(settings);
   const totalRevenue = current.revenueServices + current.revenueMaterials + current.revenueSales;
   const prevRevenue = previous.revenueServices + previous.revenueMaterials + previous.revenueSales;
@@ -181,11 +214,24 @@ export default function FinancialBlock({ current, previous, daily, settings, loa
   const undistributed = netProfit - current.ownerWithdrawals + current.ownerContributions;
 
   const [expandedRevenue, setExpandedRevenue] = useState(false);
+  const [expandedOwed, setExpandedOwed] = useState(false);
 
   const chartData = useMemo(
-    () => daily.map((d) => ({ ...d, label: formatDateShort(d.date) })),
+    () => daily.map((d) => ({
+      ...d,
+      label: formatDateShort(d.date),
+      margin: d.revenue > 0 ? (d.net / d.revenue) * 100 : 0,
+    })),
     [daily],
   );
+
+  // KPI — нові, без дублю P&L
+  const avgCheck = current.countRevenue > 0 ? totalRevenue / current.countRevenue : 0;
+  const avgCheckPrev = previous.countRevenue > 0 ? prevRevenue / previous.countRevenue : 0;
+  const netPerVisit = current.countRevenue > 0 ? current.netSalon / current.countRevenue : 0;
+  const netPerVisitPrev = previous.countRevenue > 0 ? previous.netSalon / previous.countRevenue : 0;
+  const expenseRatio = totalRevenue > 0 ? (current.expensesTotal / totalRevenue) * 100 : 0;
+  const expenseRatioPrev = prevRevenue > 0 ? (previous.expensesTotal / prevRevenue) * 100 : 0;
 
   return (
     <div className="bg-white rounded-xl border border-black/[0.06] p-4 md:p-5 lg:col-span-2">
@@ -199,49 +245,40 @@ export default function FinancialBlock({ current, previous, daily, settings, loa
         {loading && <span className="text-[10px] text-gray-400">завантаження…</span>}
       </div>
 
-      {/* Рух по касах за період — скільки реально пройшло через готівку / карту.
-          Сума buckets = приріст «кошти в касі» за період (виручка − витрати
-          − виплати + довнесення). Unknown — історичні записи без paymentType. */}
-      {(() => {
-        const { cash, card, unknown } = current.cashByMethod;
-        const total = cash + card + unknown;
-        return (
-          <div className="mb-3 bg-gray-50/50 rounded-xl border border-black/[0.04] px-4 py-3">
-            <div className="flex items-baseline justify-between mb-1.5">
-              <div className="text-[10px] text-gray-400 uppercase tracking-wider">Рух по касах</div>
-              <div className="text-[11px] text-gray-500 tabular-nums">{money(Math.round(total))}</div>
-            </div>
-            <div className="flex items-center gap-3 text-[12px] tabular-nums flex-wrap">
-              <span className="flex items-center gap-1.5">
-                <span>💵</span>
-                <span className="text-gray-500">Готівка</span>
-                <span className="text-gray-900 font-medium">{money(Math.round(cash))}</span>
-              </span>
-              <span className="text-gray-300">·</span>
-              <span className="flex items-center gap-1.5">
-                <span>💳</span>
-                <span className="text-gray-500">Карта</span>
-                <span className="text-gray-900 font-medium">{money(Math.round(card))}</span>
-              </span>
-              {Math.abs(unknown) > 0.5 && (
-                <>
-                  <span className="text-gray-300">·</span>
-                  <span
-                    className="flex items-center gap-1.5"
-                    title="Історичні записи без вказаної каси"
-                  >
-                    <span className="text-gray-400">?</span>
-                    <span className="text-gray-400">{money(Math.round(unknown))}</span>
-                  </span>
-                </>
-              )}
-            </div>
+      {/* Зараз у касах — lifetime, не залежить від обраного періоду. Показує
+          фактичний фізичний залишок у готівці/карті просто зараз. */}
+      {balances && (
+        <div className="mb-3 rounded-xl border border-brand-100 bg-gradient-to-br from-brand-50/60 to-white px-4 py-3">
+          <div className="flex items-baseline justify-between mb-2">
+            <div className="text-[10px] text-brand-600 uppercase tracking-wider font-semibold">Зараз у касах</div>
+            <div className="text-[16px] font-semibold text-gray-900 tabular-nums">{money(Math.round(balances.cashTotal))}</div>
           </div>
-        );
-      })()}
+          <div className="grid grid-cols-2 gap-2 text-[12px] tabular-nums">
+            <div className="flex items-center justify-between bg-white/60 rounded-lg px-2.5 py-1.5 border border-black/[0.03]">
+              <span className="text-gray-500">💵 Готівка</span>
+              <span className="text-gray-900 font-medium">{money(Math.round(balances.cashByMethod.cash))}</span>
+            </div>
+            <div className="flex items-center justify-between bg-white/60 rounded-lg px-2.5 py-1.5 border border-black/[0.03]">
+              <span className="text-gray-500">💳 Карта</span>
+              <span className="text-gray-900 font-medium">{money(Math.round(balances.cashByMethod.card))}</span>
+            </div>
+            {Math.abs(balances.cashByMethod.unknown) > 0.5 && (
+              <div
+                className="col-span-2 flex items-center justify-between bg-white/40 rounded-lg px-2.5 py-1.5 border border-black/[0.03] text-gray-400"
+                title="Історичні записи без вказаної каси"
+              >
+                <span>? Без каси (історичні)</span>
+                <span className="tabular-nums">{money(Math.round(balances.cashByMethod.unknown))}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* P&L-каскад — компактна «стрічка» від обороту до нерозподіленого.
-          Оборот розгортається в деталізацію (послуги/товари/матеріали). */}
+          Оборот розгортається в деталізацію (послуги/товари/матеріали).
+          Під «Оборот» і «Витрати» — розбивка по касах, рух коштів стає
+          прозорим: видно з якої каси скільки зайшло/пішло за період. */}
       <div className="mb-5 bg-gray-50/50 rounded-xl border border-black/[0.04] px-4 py-3">
         <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1.5">
           P&amp;L за період
@@ -256,6 +293,7 @@ export default function FinancialBlock({ current, previous, daily, settings, loa
           expanded={expandedRevenue}
           onToggle={() => setExpandedRevenue((v) => !v)}
         />
+        <CashMeta {...current.revenueByMethod} money={money} />
         {expandedRevenue && (
           <>
             <PnlRow label="послуги" value={current.revenueServices} money={money} indent={1} emphasis="muted" />
@@ -265,6 +303,7 @@ export default function FinancialBlock({ current, previous, daily, settings, loa
         )}
         <PnlRow label="Виплати майстрам" value={current.masterPay} money={money} sign="−" />
         <PnlRow label="Витрати" value={current.expensesTotal} money={money} sign="−" />
+        <CashMeta {...current.expensesByMethod} money={money} />
         <PnlRow
           label="Чистий прибуток"
           value={netProfit}
@@ -291,13 +330,34 @@ export default function FinancialBlock({ current, previous, daily, settings, loa
         )}
       </div>
 
-      {/* KPI — ТІЛЬКИ те, чого немає в P&L-каскаді зверху.
-          Чистий дохід / Оплата майстрам / Витрати → уже є в каскаді,
-          показувати їх двічі = сміття. */}
+      {/* KPI — «власницькі» числа: середній чек, ефективність візиту,
+          частка витрат, маржинальність. P&L уже показав валові обсяги,
+          тут — якість/ефективність. */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <KpiCard label="Оборот послуг" value={current.revenueServices} prev={previous.revenueServices} money={money} settings={settings} />
-        <KpiCard label="Оборот матеріалів" value={current.revenueMaterials} prev={previous.revenueMaterials} net={current.netMaterials} money={money} settings={settings} />
-        <KpiCard label="Оборот продажів" value={current.revenueSales} prev={previous.revenueSales} net={current.netSales} money={money} settings={settings} />
+        <KpiCard
+          label="Середній чек"
+          value={avgCheck}
+          prev={avgCheckPrev}
+          money={money}
+          settings={settings}
+          hint={`${current.countRevenue} візитів`}
+        />
+        <KpiCard
+          label="Чистий / візит"
+          value={netPerVisit}
+          prev={netPerVisitPrev}
+          money={money}
+          settings={settings}
+          hint="salon net ÷ к-ть"
+        />
+        <KpiCard
+          label="Частка витрат"
+          value={expenseRatio}
+          prev={expenseRatioPrev}
+          money={(n) => `${n.toFixed(1)}%`}
+          settings={settings}
+          hint={`${money(current.expensesTotal)} / ${money(totalRevenue)}`}
+        />
         <KpiCard
           label="Маржинальність"
           value={current.margin * 100}
@@ -307,6 +367,51 @@ export default function FinancialBlock({ current, previous, daily, settings, loa
           hint={`${money(current.netSalon)} / ${money(totalRevenue)}`}
         />
       </div>
+
+      {/* Винні майстрам — lifetime balance: нарахування − виплати по
+          кожному майстру. Показуємо тільки тих, у кого є відкритий
+          залишок (|owed| ≥ 1). Власники виключені — їхні кошти в
+          ownerWithdrawals/contributions. */}
+      {balances && balances.owedToMasters.length > 0 && (
+        <div className="mt-4 rounded-xl border border-amber-200/70 bg-amber-50/40 px-4 py-3">
+          <button
+            type="button"
+            onClick={() => setExpandedOwed((v) => !v)}
+            className="w-full flex items-baseline justify-between cursor-pointer"
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-amber-700 uppercase tracking-wider font-semibold">
+                Винні майстрам
+              </span>
+              <span className="text-[10px] text-amber-600/80">
+                {expandedOwed ? "▾" : "▸"}
+              </span>
+            </div>
+            <div className="text-[14px] font-semibold text-amber-900 tabular-nums">
+              {money(Math.round(balances.owedTotal))}
+            </div>
+          </button>
+          {expandedOwed && (
+            <div className="mt-2 space-y-1">
+              {balances.owedToMasters.map((m) => (
+                <div key={m.id} className="flex items-center justify-between text-[12px]">
+                  <span className="text-gray-700 truncate pr-2">{m.name}</span>
+                  <span
+                    className={`tabular-nums font-medium ${m.owed < 0 ? "text-emerald-600" : "text-gray-900"}`}
+                    title={`Нараховано ${money(Math.round(m.accrued))} − Виплачено ${money(Math.round(m.paid))}`}
+                  >
+                    {money(Math.round(m.owed))}
+                  </span>
+                </div>
+              ))}
+              <div className="text-[10px] text-gray-500 pt-1 border-t border-amber-200/60 mt-1.5 leading-relaxed">
+                За всю історію. Нараховано з виконаних послуг/продажів (і ручних «+ЗП»)
+                мінус фактичні виплати. Від'ємні числа — переплата майстру.
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mt-5 h-44 sm:h-56 -mx-2">
         {chartData.length > 0 ? (
@@ -325,13 +430,28 @@ export default function FinancialBlock({ current, previous, daily, settings, loa
                   return String(n);
                 }}
               />
+              <YAxis
+                yAxisId="pct"
+                orientation="right"
+                tick={{ fontSize: 10, fill: "#f59e0b" }}
+                tickLine={false}
+                axisLine={false}
+                width={32}
+                tickFormatter={(v) => `${Math.round(Number(v) || 0)}%`}
+                domain={[0, 100]}
+              />
               <Tooltip
-                formatter={(value, name) => [money(Number(value) || 0), name === "revenue" ? "Оборот" : "Чистий"]}
+                formatter={(value, name) => {
+                  const num = Number(value) || 0;
+                  if (name === "margin") return [`${num.toFixed(1)}%`, "Маржа"];
+                  return [money(num), name === "revenue" ? "Оборот" : "Чистий"];
+                }}
                 labelFormatter={(l) => `Дата: ${l}`}
                 contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid rgba(0,0,0,0.06)" }}
               />
               <Line type="monotone" dataKey="revenue" stroke="#9ca3af" strokeWidth={2} dot={false} />
               <Line type="monotone" dataKey="net" stroke="#8b5cf6" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="margin" yAxisId="pct" stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
             </LineChart>
           </ResponsiveContainer>
         ) : (
@@ -347,6 +467,9 @@ export default function FinancialBlock({ current, previous, daily, settings, loa
         </span>
         <span className="flex items-center gap-1.5">
           <span className="w-2.5 h-[2px] bg-[#8b5cf6]" /> Чистий дохід
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2.5 h-[2px] bg-[#f59e0b] border-dashed" style={{ borderTop: "1.5px dashed #f59e0b", background: "transparent" }} /> Маржа %
         </span>
         <span className="sm:ml-auto text-gray-400 whitespace-nowrap">
           {money(prevRevenue)} → {money(totalRevenue)}

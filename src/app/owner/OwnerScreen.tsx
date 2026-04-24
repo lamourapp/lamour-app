@@ -17,6 +17,7 @@ import type {
   ProductRow,
   RiskAlert,
 } from "@/app/api/owner/stats/route";
+import type { MasterOwed } from "@/app/api/owner/balances/route";
 import { useSettings } from "@/lib/hooks";
 
 const SESSION_KEY = "servico.owner.unlocked";
@@ -45,6 +46,16 @@ interface Aggregates {
   ownerWithdrawals: number;
   ownerContributions: number;
   cashByMethod: { cash: number; card: number; unknown: number };
+  revenueByMethod: { cash: number; card: number; unknown: number };
+  expensesByMethod: { cash: number; card: number; unknown: number };
+  countRevenue: number;
+}
+
+interface Balances {
+  cashByMethod: { cash: number; card: number; unknown: number };
+  cashTotal: number;
+  owedToMasters: MasterOwed[];
+  owedTotal: number;
 }
 
 interface StatsResponse {
@@ -176,6 +187,7 @@ export default function OwnerScreen() {
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
+  const [balances, setBalances] = useState<Balances | null>(null);
 
   const { settings } = useSettings();
 
@@ -188,6 +200,17 @@ export default function OwnerScreen() {
     if (period === "custom" && customRange) return customRange;
     return rangeForPeriod(period);
   }, [period, customRange]);
+
+  // Lifetime balances — fetch one раз після unlock, не залежать від періоду.
+  useEffect(() => {
+    if (!unlocked) return;
+    let cancelled = false;
+    fetch(`/api/owner/balances`)
+      .then((r) => r.json() as Promise<Balances>)
+      .then((d) => { if (!cancelled) setBalances(d); })
+      .catch(() => { /* не критично, блок просто не рендериться */ });
+    return () => { cancelled = true; };
+  }, [unlocked]);
 
   // Fetch stats whenever range changes (and we're unlocked)
   useEffect(() => {
@@ -353,6 +376,7 @@ export default function OwnerScreen() {
             daily={stats?.daily ?? []}
             settings={settings}
             loading={statsLoading}
+            balances={balances}
           />
           <ExpensesBlock
             data={stats?.expensesByCategory ?? []}
@@ -402,5 +426,8 @@ function emptyAgg(): Aggregates {
     ownerWithdrawals: 0,
     ownerContributions: 0,
     cashByMethod: { cash: 0, card: 0, unknown: 0 },
+    revenueByMethod: { cash: 0, card: 0, unknown: 0 },
+    expensesByMethod: { cash: 0, card: 0, unknown: 0 },
+    countRevenue: 0,
   };
 }
