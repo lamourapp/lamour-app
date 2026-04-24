@@ -223,7 +223,7 @@ export default function StaffScreen() {
                       де є salary/hourly та де немає. Кнопка всередині рендериться
                       умовно (тільки для salary/hourly). */}
                   <div className="w-[52px] shrink-0 flex justify-center">
-                    {(s.compensationType === "salary" || s.compensationType === "hourly") && (
+                    {s.compensationType === "salary" && (
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setAccruingSpecialist(s); }}

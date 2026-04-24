@@ -118,11 +118,16 @@ export default function CreateEntryModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [debtSign, setDebtSign] = useState<"+" | "-">(preset?.debtSign || "+");
-  // Каса — для всіх типів, крім боргу (облікова операція, не рух коштів).
+  // Каса — для приходів/витрат завжди. Для боргу розрізняємо:
+  //   • debt-«Нарахування…» — бухгалтерський рух (ставка/час), касу не
+  //     треба, це не фізична виплата.
+  //   • будь-який інший debt (виплата ЗП, аванс, довнесення) — реальний
+  //     рух з каси → picker показуємо.
   const [paymentType, setPaymentType] = useState<PaymentMethod>(
     () => initial?.paymentType || "готівка",
   );
-  const showsPayment = type !== "debt";
+  const isAccrual = type === "debt" && /^нарахування/i.test((comment || "").trim());
+  const showsPayment = type !== "debt" || !isAccrual;
 
   useEffect(() => {
     if (type === "sale") {

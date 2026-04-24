@@ -61,11 +61,13 @@ export default function QuickEditEntryModal({
   const [supplementSign, setSupplementSign] = useState<"+" | "-">(() =>
     (entry.supplement ?? 0) < 0 ? "-" : "+",
   );
-  // Для боргу каса не релевантна (це не рух коштів, а облік).
-  const showsPayment = entry.type !== "debt";
+  // Для боргу-«Нарахування…» каса не релевантна (бухгалтерський рух).
+  // Для виплати/авансу/довнесення (інші debt) — потрібна: реальний рух з каси.
   const [paymentType, setPaymentType] = useState<PaymentMethod | undefined>(
     entry.paymentType,
   );
+  const isAccrual = entry.type === "debt" && /^нарахування/i.test((entry.comment || "").trim());
+  const showsPayment = entry.type !== "debt" || !isAccrual;
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
