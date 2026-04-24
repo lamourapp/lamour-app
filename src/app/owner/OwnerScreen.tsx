@@ -390,8 +390,8 @@ export default function OwnerScreen() {
         {/* 12-колонковий dashboard grid. Зонований:
               Row 1: 8/4 — головний trend-chart + sidebar (каса + борги)
               Row 2: 6/6 — P&L + Витрати по категоріях
-              Row 3: 6/6 — Спеціалісти + Послуги
-              Row 4: 12  — Продукти (повна ширина, часто довгий список)
+              Row 3: 6/6 — Послуги + Продукти (парні top-10, однотипні)
+              Row 4: 12  — Майстри (таблиця хоче ширини)
             На мобільному все стакається (grid-cols-1). */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
           {/* Row 1 */}
@@ -431,14 +431,8 @@ export default function OwnerScreen() {
             />
           </div>
 
-          {/* Row 3 */}
-          <div className="lg:col-span-6">
-            <SpecialistsBlock
-              data={stats?.specialists ?? []}
-              settings={settings}
-              loading={statsLoading}
-            />
-          </div>
+          {/* Row 3 — парні top-10 блоки (послуги + товари, одна ментальна
+              модель: «що найбільше продається»). */}
           <div className="lg:col-span-6">
             <ServicesBlock
               top={stats?.topServices ?? []}
@@ -447,11 +441,18 @@ export default function OwnerScreen() {
               loading={statsLoading}
             />
           </div>
-
-          {/* Row 4 */}
-          <div className="lg:col-span-12">
+          <div className="lg:col-span-6">
             <ProductsBlock
               top={stats?.topProducts ?? []}
+              settings={settings}
+              loading={statsLoading}
+            />
+          </div>
+
+          {/* Row 4 — таблиця майстрів. Повна ширина, щоб колонки дихали. */}
+          <div className="lg:col-span-12">
+            <SpecialistsBlock
+              data={stats?.specialists ?? []}
               settings={settings}
               loading={statsLoading}
             />
