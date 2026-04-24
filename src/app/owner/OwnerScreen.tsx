@@ -10,6 +10,7 @@ import SpecialistsBlock from "@/components/owner/SpecialistsBlock";
 import ServicesBlock from "@/components/owner/ServicesBlock";
 import ProductsBlock from "@/components/owner/ProductsBlock";
 import AlertsBlock from "@/components/owner/AlertsBlock";
+import HeroMetrics from "@/components/owner/HeroMetrics";
 import type {
   SpecialistRow,
   ServiceRow,
@@ -369,6 +370,22 @@ export default function OwnerScreen() {
           </div>
         )}
 
+        {/* HERO: 5 KPI-карток в одну стрічку — «температура бізнесу» за 5 сек,
+            без скролу. Дельти vs попередній період одразу поруч з числом. */}
+        <HeroMetrics
+          current={current ?? emptyAgg()}
+          previous={previous ?? emptyAgg()}
+          balances={balances}
+          settings={settings}
+          loading={statsLoading}
+        />
+
+        {/* ALERTS: banner-стрічка одразу під hero. Якщо alerts немає — не
+            рендериться, не залишає порожнього блока. */}
+        <AlertsBlock alerts={stats?.alerts ?? []} loading={statsLoading} />
+
+        {/* Решта блоків — поки що в старому 2-col гріді. На наступному етапі
+            розіб'ю FinancialBlock і переграю в 12-col layout. */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <FinancialBlock
             current={current ?? emptyAgg()}
@@ -398,10 +415,6 @@ export default function OwnerScreen() {
           <ProductsBlock
             top={stats?.topProducts ?? []}
             settings={settings}
-            loading={statsLoading}
-          />
-          <AlertsBlock
-            alerts={stats?.alerts ?? []}
             loading={statsLoading}
           />
         </div>
