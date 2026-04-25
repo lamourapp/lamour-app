@@ -30,7 +30,7 @@ export default function OwedMasters({ owedToMasters, owedTotal, settings, classN
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-baseline justify-between cursor-pointer"
+        className="w-full flex items-baseline justify-between cursor-pointer active:scale-[0.97] transition-transform"
       >
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] text-amber-700 uppercase tracking-wider font-semibold">

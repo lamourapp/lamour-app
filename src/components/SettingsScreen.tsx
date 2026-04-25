@@ -196,7 +196,7 @@ function BusinessSettingsModal({ onClose }: { onClose: () => void }) {
                 key={key}
                 type="button"
                 onClick={() => selectPreset(key)}
-                className={`text-left p-2.5 rounded-xl border-2 cursor-pointer transition-all
+                className={`active:scale-[0.97] text-left p-2.5 rounded-xl border-2 cursor-pointer transition-all
                   ${
                     draft.businessType === key
                       ? "border-brand-500 bg-brand-50/50"
@@ -244,7 +244,7 @@ function BusinessSettingsModal({ onClose }: { onClose: () => void }) {
               type="button"
               title={c.title}
               onClick={() => patch({ brandColor: c.color })}
-              className="w-10 h-10 rounded-xl cursor-pointer transition-all hover:scale-105"
+              className="w-10 h-10 rounded-xl cursor-pointer transition-all"
               style={{
                 backgroundColor: c.color,
                 boxShadow:

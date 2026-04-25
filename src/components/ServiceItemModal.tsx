@@ -242,7 +242,7 @@ export default function ServiceItemModal({ item, categories, onClose, onSaved }:
             <button
               type="button"
               onClick={() => setShowNewCategory(true)}
-              className="px-3 rounded-xl border border-black/10 bg-white text-[12px] font-medium text-brand-600 hover:bg-brand-50 cursor-pointer transition-colors shrink-0"
+              className="px-3 rounded-xl border border-black/10 bg-white text-[12px] font-medium text-brand-600 hover:bg-brand-50 cursor-pointer transition-colors"
             >
               + Нова
             </button>
@@ -259,7 +259,7 @@ export default function ServiceItemModal({ item, categories, onClose, onSaved }:
           <button
             type="button"
             onClick={() => setPricingMode("fixed")}
-            className={`text-left p-2.5 rounded-xl border-2 cursor-pointer transition-all ${
+            className={`active:scale-[0.97] text-left p-2.5 rounded-xl border-2 cursor-pointer transition-all ${
               pricingMode === "fixed"
                 ? "border-brand-500 bg-brand-50/50"
                 : "border-transparent bg-gray-50 hover:border-gray-200"
@@ -271,7 +271,7 @@ export default function ServiceItemModal({ item, categories, onClose, onSaved }:
           <button
             type="button"
             onClick={() => setPricingMode("hourly")}
-            className={`text-left p-2.5 rounded-xl border-2 cursor-pointer transition-all ${
+            className={`active:scale-[0.97] text-left p-2.5 rounded-xl border-2 cursor-pointer transition-all ${
               pricingMode === "hourly"
                 ? "border-brand-500 bg-brand-50/50"
                 : "border-transparent bg-gray-50 hover:border-gray-200"
@@ -395,7 +395,7 @@ export default function ServiceItemModal({ item, categories, onClose, onSaved }:
                 <button
                   type="button"
                   onClick={addRow}
-                  className="w-full h-[36px] rounded-lg border border-dashed border-brand-300 text-[12px] font-medium text-brand-600 hover:bg-brand-50 cursor-pointer transition-colors flex items-center justify-center gap-1"
+                  className="w-full h-[36px] rounded-lg border border-dashed border-brand-300 text-[12px] font-medium text-brand-600 hover:bg-brand-50 cursor-pointer transition-colors"
                 >
                   <span className="text-[14px] leading-none">+</span> Додати матеріал
                 </button>

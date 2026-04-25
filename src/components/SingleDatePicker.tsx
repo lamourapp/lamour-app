@@ -184,12 +184,10 @@ export default function SingleDatePicker({
                   key={i}
                   type="button"
                   onClick={() => { onChange(d.date); setOpen(false); }}
-                  className={`
-                    h-8 flex items-center justify-center text-[12px] cursor-pointer transition-all rounded-lg
+                  className={`active:scale-[0.97] h-8 flex items-center justify-center text-[12px] cursor-pointer transition-all rounded-lg
                     ${bgClass} ${textClass}
                     ${!isSelected ? "hover:bg-[#f5f5f7]" : ""}
-                    ${isToday && !isSelected ? "font-bold" : ""}
-                  `}
+                    ${isToday && !isSelected ? "font-bold" : ""}`}
                 >
                   {d.day}
                 </button>

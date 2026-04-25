@@ -108,7 +108,7 @@ export default function MasterReportModal({ specialist, onClose }: Props) {
           <button
             type="button"
             onClick={onClose}
-            className="shrink-0 w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center cursor-pointer"
+            className="shrink-0 w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center cursor-pointer active:scale-[0.97] transition-transform"
             aria-label="Закрити"
           >
             <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -125,7 +125,7 @@ export default function MasterReportModal({ specialist, onClose }: Props) {
                 key={p.id}
                 type="button"
                 onClick={() => { setPreset(p.id); setCustomRange(null); setShowCalendar(false); }}
-                className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors cursor-pointer
+                className={`active:scale-[0.97] px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors cursor-pointer
                   ${preset === p.id && !customRange ? "bg-brand-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
               >
                 {p.label}
@@ -134,7 +134,7 @@ export default function MasterReportModal({ specialist, onClose }: Props) {
             <button
               type="button"
               onClick={() => { setPreset("custom"); setShowCalendar((v) => !v); }}
-              className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors cursor-pointer inline-flex items-center gap-1.5
+              className={`active:scale-[0.97] px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors cursor-pointer inline-flex items-center gap-1.5
                 ${preset === "custom" ? "bg-brand-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

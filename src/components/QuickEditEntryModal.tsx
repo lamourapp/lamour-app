@@ -194,7 +194,7 @@ export default function QuickEditEntryModal({
                 <button
                   type="button"
                   onClick={() => setDebtSign("+")}
-                  className={`flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
+                  className={`active:scale-[0.97] flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
                     debtSign === "+" ? "bg-red-50 text-red-600 border border-red-200" : "bg-gray-50 text-gray-500 border border-black/5"
                   }`}
                 >
@@ -203,7 +203,7 @@ export default function QuickEditEntryModal({
                 <button
                   type="button"
                   onClick={() => setDebtSign("-")}
-                  className={`flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
+                  className={`active:scale-[0.97] flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
                     debtSign === "-" ? "bg-emerald-50 text-emerald-600 border border-emerald-200" : "bg-gray-50 text-gray-500 border border-black/5"
                   }`}
                 >
@@ -228,7 +228,7 @@ export default function QuickEditEntryModal({
               <button
                 type="button"
                 onClick={() => setSupplementSign("+")}
-                className={`flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
+                className={`active:scale-[0.97] flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
                   supplementSign === "+" ? "bg-brand-50 text-brand-600 border border-brand-200" : "bg-gray-50 text-gray-500 border border-black/5"
                 }`}
               >
@@ -237,7 +237,7 @@ export default function QuickEditEntryModal({
               <button
                 type="button"
                 onClick={() => setSupplementSign("-")}
-                className={`flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
+                className={`active:scale-[0.97] flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
                   supplementSign === "-" ? "bg-gray-200 text-gray-700 border border-gray-300" : "bg-gray-50 text-gray-500 border border-black/5"
                 }`}
               >

@@ -225,7 +225,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
                     type="button"
                     onClick={() => toggleSpec(s.id)}
                     title={archived ? "Архівна — залишена на майстрі для історії" : undefined}
-                    className={`px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors cursor-pointer border ${
+                    className={`active:scale-[0.97] px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors cursor-pointer border ${
                       on
                         ? archived
                           ? "bg-gray-400 text-white border-gray-400"
@@ -244,7 +244,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
             <button
               type="button"
               onClick={() => setShowNewSpec(true)}
-              className="text-[12px] text-brand-600 hover:text-brand-700 cursor-pointer pt-1"
+              className="text-[12px] text-brand-600 hover:text-brand-700 cursor-pointer pt-1 active:scale-[0.97] transition-transform"
             >
               + Нова спеціалізація
             </button>
@@ -270,7 +270,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
                           key={cat.id}
                           type="button"
                           onClick={() => toggleNewSpecCategory(cat.id)}
-                          className={`px-2.5 py-1 rounded-full text-[12px] transition-colors cursor-pointer border ${
+                          className={`active:scale-[0.97] px-2.5 py-1 rounded-full text-[12px] transition-colors cursor-pointer border ${
                             on
                               ? "bg-brand-600 text-white border-brand-600"
                               : "bg-white text-gray-600 border-black/10 hover:border-brand-500"
@@ -449,7 +449,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
             <button
               type="button"
               onClick={() => setMasterMode((v) => !v)}
-              className="w-full flex items-center justify-between gap-3 px-3.5 py-3 bg-gray-50/60 hover:bg-gray-100/60 cursor-pointer transition-colors text-left"
+              className="w-full flex items-center justify-between gap-3 px-3.5 py-3 bg-gray-50/60 hover:bg-gray-100/60 cursor-pointer transition-colors"
             >
               <div className="flex-1 min-w-0">
                 <div className="text-[13px] font-semibold text-gray-900">

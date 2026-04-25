@@ -130,7 +130,10 @@ export default function Modal({
           </button>
         </div>
         <div className="px-5 py-4 space-y-4">{children}</div>
-        <div className="h-6" />
+        {/* Safe-area: на iPhone з home-bar (X+) додаємо знизу відступ
+            щоб остання кнопка не перекривалась рискою. Android/desktop:
+            env(safe-area-inset-bottom) = 0 → no-op. */}
+        <div className="h-6" style={{ paddingBottom: "env(safe-area-inset-bottom)" }} />
       </div>
     </div>
   );

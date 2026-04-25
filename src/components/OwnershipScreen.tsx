@@ -165,7 +165,7 @@ export default function OwnershipScreen({ onBack }: { onBack: () => void }) {
                       <button
                         type="button"
                         onClick={() => setWithdrawingOwner(o as Specialist)}
-                        className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-brand-600 text-white hover:bg-brand-700 cursor-pointer transition-colors whitespace-nowrap"
+                        className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-brand-600 text-white hover:bg-brand-700 cursor-pointer transition-colors"
                         title="Зафіксувати вилучення прибутку"
                       >
                         Вилучити
@@ -475,7 +475,7 @@ function RevisionModal({
               onClick={distributeEvenly}
               disabled={rows.length < 2}
               title={rows.length < 2 ? "Спочатку додайте ще одного власника" : "Проставити рівні частки"}
-              className="text-[11px] font-medium transition-colors text-brand-600 hover:text-brand-700 cursor-pointer disabled:text-gray-300 disabled:cursor-not-allowed disabled:hover:text-gray-300"
+              className="text-[11px] font-medium transition-colors"
             >
               Розділити порівну
             </button>
@@ -525,7 +525,7 @@ function RevisionModal({
                   <button
                     type="button"
                     onClick={() => removeRow(i)}
-                    className="w-8 h-8 rounded-full bg-black/5 hover:bg-red-100 text-gray-400 hover:text-red-500 text-[12px] cursor-pointer transition-colors flex-shrink-0"
+                    className="w-8 h-8 rounded-full bg-black/5 hover:bg-red-100 text-gray-400 hover:text-red-500 text-[12px] cursor-pointer transition-colors"
                   >
                     ✕
                   </button>
@@ -538,7 +538,7 @@ function RevisionModal({
           <button
             type="button"
             onClick={addRow}
-            className="mt-3 w-full h-[40px] rounded-xl border border-dashed border-brand-300 text-[13px] font-medium text-brand-600 hover:bg-brand-50 cursor-pointer transition-colors flex items-center justify-center gap-1"
+            className="mt-3 w-full h-[40px] rounded-xl border border-dashed border-brand-300 text-[13px] font-medium text-brand-600 hover:bg-brand-50 cursor-pointer transition-colors"
           >
             <span className="text-[16px] leading-none">+</span> Додати власника
           </button>

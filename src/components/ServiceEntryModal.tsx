@@ -165,7 +165,7 @@ function CalcMaterialsSection({
       <button
         type="button"
         onClick={addMaterial}
-        className="w-full h-[40px] rounded-xl border border-dashed border-brand-300 text-[13px] font-medium text-brand-600 hover:bg-brand-50 cursor-pointer transition-colors flex items-center justify-center gap-1"
+        className="w-full h-[40px] rounded-xl border border-dashed border-brand-300 text-[13px] font-medium text-brand-600 hover:bg-brand-50 cursor-pointer transition-colors"
       >
         <span className="text-[16px] leading-none">+</span> Додати матеріал
       </button>
@@ -551,7 +551,7 @@ export default function ServiceEntryModal({
                     <button
                       type="button"
                       onClick={() => setShowAllServices(!showAllServices)}
-                      className="text-[11px] text-brand-500 hover:text-brand-700 cursor-pointer font-medium"
+                      className="text-[11px] text-brand-500 hover:text-brand-700 cursor-pointer font-medium active:scale-[0.97] transition-transform"
                     >
                       {showAllServices ? "Тільки мої" : "Показати всі"}
                     </button>
@@ -597,7 +597,7 @@ export default function ServiceEntryModal({
                     <button
                       type="button"
                       onClick={() => setSupplementSign("+")}
-                      className={`flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
+                      className={`active:scale-[0.97] flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
                         supplementSign === "+" ? "bg-green-50 text-green-600 border border-green-200" : "bg-gray-50 text-gray-500 border border-black/5"
                       }`}
                     >
@@ -606,7 +606,7 @@ export default function ServiceEntryModal({
                     <button
                       type="button"
                       onClick={() => setSupplementSign("-")}
-                      className={`flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
+                      className={`active:scale-[0.97] flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
                         supplementSign === "-" ? "bg-red-50 text-red-600 border border-red-200" : "bg-gray-50 text-gray-500 border border-black/5"
                       }`}
                     >
@@ -726,7 +726,7 @@ export default function ServiceEntryModal({
             <button
               onClick={handleSubmit}
               disabled={saving}
-              className="w-full h-[48px] bg-brand-600 text-white rounded-xl font-semibold text-[16px] cursor-pointer hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-[48px] bg-brand-600 text-white rounded-xl font-semibold text-[16px] cursor-pointer hover:bg-brand-700 transition-colors"
             >
               {saving ? "Зберігаю…" : "Зберегти"}
             </button>

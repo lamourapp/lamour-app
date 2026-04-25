@@ -189,7 +189,7 @@ export default function CatalogScreen({
       {inactiveCount > 0 && (
         <button
           onClick={() => setShowInactive((v) => !v)}
-          className="mb-3 text-[12px] text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+          className="mb-3 text-[12px] text-gray-400 hover:text-gray-600 transition-colors"
         >
           {showInactive ? "Сховати неактивні" : `Показати неактивні (${inactiveCount})`}
         </button>
@@ -216,7 +216,7 @@ export default function CatalogScreen({
             <button
               key={item.id}
               onClick={() => handleEdit(item)}
-              className={`w-full text-left px-3.5 py-2.5 hover:bg-brand-50/50 cursor-pointer transition-colors flex items-center justify-between gap-2 ${!item.isActive ? "opacity-50" : ""}`}
+              className={`active:scale-[0.97] w-full text-left px-3.5 py-2.5 hover:bg-brand-50/50 cursor-pointer transition-colors flex items-center justify-between gap-2 ${!item.isActive ? "opacity-50" : ""}`}
             >
               <div className="min-w-0 flex-1">
                 <div className="text-[14px] text-gray-900 truncate">

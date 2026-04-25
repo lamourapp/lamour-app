@@ -292,7 +292,7 @@ function EntryCard({ entry, onDelete, onEdit, onRestore, fmt }: { entry: Journal
           {isCanceled && onRestore && (
             <button
               onClick={(e) => { e.stopPropagation(); onRestore(entry.id); }}
-              className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-brand-50 text-brand-600 hover:bg-brand-100 border border-brand-200 cursor-pointer transition-colors whitespace-nowrap"
+              className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-brand-50 text-brand-600 hover:bg-brand-100 border border-brand-200 cursor-pointer transition-colors"
               title="Відновити скасований запис"
             >
               Відновити
@@ -304,7 +304,7 @@ function EntryCard({ entry, onDelete, onEdit, onRestore, fmt }: { entry: Journal
           {!isCanceled && onEdit && (
             <button
               onClick={(e) => { e.stopPropagation(); onEdit(entry); }}
-              className="p-1.5 rounded-lg hover:bg-brand-50 text-gray-300 hover:text-brand-500 cursor-pointer transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+              className="p-1.5 rounded-lg hover:bg-brand-50 text-gray-300 hover:text-brand-500 cursor-pointer transition-opacity"
               title="Редагувати запис"
               aria-label="Редагувати запис"
             >
@@ -318,7 +318,7 @@ function EntryCard({ entry, onDelete, onEdit, onRestore, fmt }: { entry: Journal
           {!isCanceled && (
             <button
               onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }}
-              className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 cursor-pointer"
+              className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
               title="Скасувати запис"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -548,7 +548,7 @@ export default function JournalScreen() {
                 <button
                   key={p.id}
                   onClick={() => selectPeriod(p.id)}
-                  className={`flex-1 px-1 sm:px-3 py-2 rounded-[10px] text-[13px] font-medium cursor-pointer transition-all truncate
+                  className={`active:scale-[0.97] flex-1 px-1 sm:px-3 py-2 rounded-[10px] text-[13px] font-medium cursor-pointer transition-all truncate
                     ${period === p.id && !customRange ? "bg-brand-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
                 >
                   {p.label}
@@ -557,7 +557,7 @@ export default function JournalScreen() {
               <button
                 type="button"
                 onClick={() => setShowCalendar((v) => !v)}
-                className={`px-2.5 py-2 rounded-[10px] text-[13px] cursor-pointer transition-all shrink-0 inline-flex items-center justify-center
+                className={`active:scale-[0.97] px-2.5 py-2 rounded-[10px] text-[13px] cursor-pointer transition-all shrink-0 inline-flex items-center justify-center
                   ${customRange || showCalendar ? "bg-brand-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
                 aria-label="Обрати діапазон"
                 title="Обрати діапазон"
@@ -616,7 +616,7 @@ export default function JournalScreen() {
           <button
             type="button"
             onClick={() => setShowCanceled((v) => !v)}
-            className={`shrink-0 px-2.5 py-2 rounded-xl text-[11px] font-medium cursor-pointer transition-colors border inline-flex items-center gap-1
+            className={`active:scale-[0.97] shrink-0 px-2.5 py-2 rounded-xl text-[11px] font-medium cursor-pointer transition-colors border inline-flex items-center gap-1
               ${showCanceled
                 ? "bg-brand-50 text-brand-600 border-brand-200"
                 : "bg-white text-gray-500 border-black/[0.08] hover:border-brand-300"}`}
@@ -700,25 +700,25 @@ export default function JournalScreen() {
       >
         <button
           onClick={() => setCreateType("service")}
-          className="bg-brand-600 text-white rounded-[10px] font-medium text-[11px] sm:text-[13px] px-2.5 sm:px-4 py-2 sm:py-2.5 cursor-pointer hover:bg-brand-700 transition-colors whitespace-nowrap"
+          className="bg-brand-600 text-white rounded-[10px] font-medium text-[11px] sm:text-[13px] px-2.5 sm:px-4 py-2 sm:py-2.5 cursor-pointer hover:bg-brand-700 transition-colors"
         >
           + Послуга
         </button>
         <button
           onClick={() => setCreateType("sale")}
-          className="bg-[#f5f5f7] text-[#3f3f46] rounded-[10px] font-medium text-[11px] sm:text-[13px] px-2.5 sm:px-4 py-2 sm:py-2.5 border border-black/[0.1] cursor-pointer hover:bg-[#e5e5ea] transition-colors whitespace-nowrap"
+          className="bg-[#f5f5f7] text-[#3f3f46] rounded-[10px] font-medium text-[11px] sm:text-[13px] px-2.5 sm:px-4 py-2 sm:py-2.5 border border-black/[0.1] cursor-pointer hover:bg-[#e5e5ea] transition-colors"
         >
           + Продаж
         </button>
         <button
           onClick={() => setCreateType("expense")}
-          className="bg-[#f5f5f7] text-[#3f3f46] rounded-[10px] font-medium text-[11px] sm:text-[13px] px-2.5 sm:px-4 py-2 sm:py-2.5 border border-black/[0.1] cursor-pointer hover:bg-[#e5e5ea] transition-colors whitespace-nowrap"
+          className="bg-[#f5f5f7] text-[#3f3f46] rounded-[10px] font-medium text-[11px] sm:text-[13px] px-2.5 sm:px-4 py-2 sm:py-2.5 border border-black/[0.1] cursor-pointer hover:bg-[#e5e5ea] transition-colors"
         >
           + Витрата
         </button>
         <button
           onClick={() => setCreateType("debt")}
-          className="bg-[#f5f5f7] text-[#3f3f46] rounded-[10px] font-medium text-[11px] sm:text-[13px] px-2.5 sm:px-4 py-2 sm:py-2.5 border border-black/[0.1] cursor-pointer hover:bg-[#e5e5ea] transition-colors whitespace-nowrap"
+          className="bg-[#f5f5f7] text-[#3f3f46] rounded-[10px] font-medium text-[11px] sm:text-[13px] px-2.5 sm:px-4 py-2 sm:py-2.5 border border-black/[0.1] cursor-pointer hover:bg-[#e5e5ea] transition-colors"
           title="Рух коштів з майстром: аванси, борги, виплата ЗП"
         >
           + Розрахунок

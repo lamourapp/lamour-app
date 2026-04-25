@@ -32,7 +32,7 @@ export default function PaymentMethodPicker({
       <button
         type="button"
         onClick={() => onChange("готівка")}
-        className={`${base} ${value === "готівка" ? active : inactive}`}
+        className={`active:scale-[0.97] transition-transform ${base} ${value === "готівка" ? active : inactive}`}
         aria-pressed={value === "готівка"}
       >
         <span aria-hidden>💵</span> Готівка
@@ -40,7 +40,7 @@ export default function PaymentMethodPicker({
       <button
         type="button"
         onClick={() => onChange("карта")}
-        className={`${base} ${value === "карта" ? active : inactive}`}
+        className={`active:scale-[0.97] transition-transform ${base} ${value === "карта" ? active : inactive}`}
         aria-pressed={value === "карта"}
       >
         <span aria-hidden>💳</span> Карта

@@ -213,7 +213,7 @@ export default function StaffScreen() {
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); setReportingSpecialist(s); }}
-                    className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-white text-gray-600 hover:bg-gray-50 border border-black/[0.08] cursor-pointer transition-colors whitespace-nowrap hidden sm:inline-flex"
+                    className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-white text-gray-600 hover:bg-gray-50 border border-black/[0.08] cursor-pointer transition-colors"
                     title="Звіт ЗП за період — публічне посилання"
                   >
                     Звіт
@@ -227,7 +227,7 @@ export default function StaffScreen() {
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setAccruingSpecialist(s); }}
-                        className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 cursor-pointer transition-colors whitespace-nowrap"
+                        className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 cursor-pointer transition-colors"
                         title="Нарахувати ЗП за день/період — створює запис у журналі"
                       >
                         + ЗП
@@ -237,7 +237,7 @@ export default function StaffScreen() {
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); setSettlingSpecialist(s); }}
-                    className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-brand-50 text-brand-600 hover:bg-brand-100 border border-brand-200 cursor-pointer transition-colors whitespace-nowrap"
+                    className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-brand-50 text-brand-600 hover:bg-brand-100 border border-brand-200 cursor-pointer transition-colors"
                     title="Розрахунок: виплата ЗП, аванс, борг"
                   >
                     Розрахунок

@@ -70,7 +70,7 @@ export default function SearchableSelect<T extends { id: string }>({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className={`${inputCls} pl-10 relative flex items-center text-left text-gray-400 cursor-pointer`}
+          className={`active:scale-[0.97] transition-transform ${inputCls} pl-10 relative flex items-center text-left text-gray-400 cursor-pointer`}
         >
           <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />

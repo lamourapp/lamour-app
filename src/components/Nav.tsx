@@ -88,7 +88,7 @@ export default function Nav({ active, onNavigate, locationName }: NavProps) {
                 <button
                   key={tab.id}
                   onClick={() => onNavigate(tab.id)}
-                  className={`relative px-3 py-3.5 text-[13px] font-medium cursor-pointer transition-colors
+                  className={`active:scale-[0.97] relative px-3 py-3.5 text-[13px] font-medium cursor-pointer transition-colors
                     ${active === tab.id ? "text-brand-600" : "text-gray-500 hover:text-brand-700"}`}
                 >
                   {tab.label}
@@ -123,7 +123,7 @@ export default function Nav({ active, onNavigate, locationName }: NavProps) {
                 type="button"
                 onClick={() => onNavigate(tab.id)}
                 aria-current={isActive ? "page" : undefined}
-                className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 cursor-pointer transition-colors ${
+                className={`active:scale-[0.97] flex-1 flex flex-col items-center justify-center gap-0.5 py-2 cursor-pointer transition-colors ${
                   isActive ? "text-brand-600" : "text-gray-400 hover:text-gray-700"
                 }`}
               >

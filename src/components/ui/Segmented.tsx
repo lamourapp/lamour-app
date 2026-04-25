@@ -26,7 +26,7 @@ export default function Segmented<T extends string>({
           key={o.id}
           type="button"
           onClick={() => onChange(o.id)}
-          className={`${segmentedItem} ${value === o.id ? segmentedItemActive : segmentedItemIdle}`}
+          className={`active:scale-[0.97] transition-transform ${segmentedItem} ${value === o.id ? segmentedItemActive : segmentedItemIdle}`}
         >
           {o.label}
         </button>

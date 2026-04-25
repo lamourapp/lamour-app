@@ -247,16 +247,14 @@ export default function CalendarPicker({ onApply, onClose, initialFrom, initialT
             <button
               key={i}
               onClick={() => handleDayClick(d.date)}
-              className={`
-                h-8 flex items-center justify-center text-[12px] cursor-pointer transition-all
+              className={`active:scale-[0.97] h-8 flex items-center justify-center text-[12px] cursor-pointer transition-all
                 ${bgClass}
                 ${textClass}
                 ${isFrom ? "rounded-l-lg" : ""}
                 ${isTo ? "rounded-r-lg" : ""}
                 ${isFrom && !rangeTo ? "rounded-lg" : ""}
                 ${!isFrom && !isTo && !inRange ? "hover:bg-[#f5f5f7] rounded-lg" : ""}
-                ${isToday && !isFrom && !isTo ? "font-bold" : ""}
-              `}
+                ${isToday && !isFrom && !isTo ? "font-bold" : ""}`}
             >
               {d.day}
             </button>

@@ -373,7 +373,7 @@ function CategoryChips({
             type="button"
             onClick={() => onToggle(opt.id)}
             title={isDead ? "Категорія архівована в довіднику" : undefined}
-            className={`px-2.5 py-1 rounded-full text-[12px] transition-colors cursor-pointer border ${
+            className={`active:scale-[0.97] px-2.5 py-1 rounded-full text-[12px] transition-colors cursor-pointer border ${
               on
                 ? isDead
                   ? "bg-amber-100 text-amber-800 border-amber-300"

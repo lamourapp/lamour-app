@@ -400,7 +400,7 @@ export default function CreateEntryModal({
               <button
                 type="button"
                 onClick={() => setDebtSign("+")}
-                className={`flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
+                className={`active:scale-[0.97] flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
                   debtSign === "+" ? "bg-red-50 text-red-600 border border-red-200" : "bg-gray-50 text-gray-500 border border-black/5"
                 }`}
               >
@@ -409,7 +409,7 @@ export default function CreateEntryModal({
               <button
                 type="button"
                 onClick={() => setDebtSign("-")}
-                className={`flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
+                className={`active:scale-[0.97] flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
                   debtSign === "-" ? "bg-green-50 text-green-600 border border-green-200" : "bg-gray-50 text-gray-500 border border-black/5"
                 }`}
               >
@@ -506,7 +506,7 @@ export default function CreateEntryModal({
           <button
             type="button"
             onClick={() => setSaleItems([...saleItems, { productId: "", quantity: 1 }])}
-            className="mt-2 w-full h-[38px] rounded-xl border border-dashed border-brand-300 text-[13px] font-medium text-brand-600 hover:bg-brand-50 cursor-pointer transition-colors flex items-center justify-center gap-1"
+            className="mt-2 w-full h-[38px] rounded-xl border border-dashed border-brand-300 text-[13px] font-medium text-brand-600 hover:bg-brand-50 cursor-pointer transition-colors"
           >
             <span className="text-[16px] leading-none">+</span> Ще товар
           </button>
@@ -519,7 +519,7 @@ export default function CreateEntryModal({
             <button
               type="button"
               onClick={() => setSupplementSign("+")}
-              className={`flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
+              className={`active:scale-[0.97] flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
                 supplementSign === "+" ? "bg-green-50 text-green-600 border border-green-200" : "bg-gray-50 text-gray-500 border border-black/5"
               }`}
             >
@@ -528,7 +528,7 @@ export default function CreateEntryModal({
             <button
               type="button"
               onClick={() => setSupplementSign("-")}
-              className={`flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
+              className={`active:scale-[0.97] flex-1 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${
                 supplementSign === "-" ? "bg-red-50 text-red-600 border border-red-200" : "bg-gray-50 text-gray-500 border border-black/5"
               }`}
             >

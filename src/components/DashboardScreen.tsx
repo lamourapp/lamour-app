@@ -364,7 +364,7 @@ export default function DashboardScreen() {
                 <button
                   key={p.id}
                   onClick={() => selectPeriod(p.id)}
-                  className={`flex-1 px-1 sm:px-3 py-2 rounded-[10px] text-[13px] font-medium cursor-pointer transition-all truncate
+                  className={`active:scale-[0.97] flex-1 px-1 sm:px-3 py-2 rounded-[10px] text-[13px] font-medium cursor-pointer transition-all truncate
                     ${period === p.id && !customRange ? "bg-brand-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
                 >
                   {p.label}
@@ -373,7 +373,7 @@ export default function DashboardScreen() {
               <button
                 type="button"
                 onClick={() => setShowCalendar((v) => !v)}
-                className={`px-2.5 py-2 rounded-[10px] text-[13px] cursor-pointer transition-all shrink-0 inline-flex items-center justify-center
+                className={`active:scale-[0.97] px-2.5 py-2 rounded-[10px] text-[13px] cursor-pointer transition-all shrink-0 inline-flex items-center justify-center
                   ${customRange || showCalendar ? "bg-brand-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
                 aria-label="Обрати діапазон"
                 title="Обрати діапазон"
@@ -430,7 +430,7 @@ export default function DashboardScreen() {
                 key={f.id}
                 type="button"
                 onClick={() => setCashFilter(f.id)}
-                className={`px-2.5 py-1.5 rounded-[9px] text-[12px] font-medium cursor-pointer transition-all
+                className={`active:scale-[0.97] px-2.5 py-1.5 rounded-[9px] text-[12px] font-medium cursor-pointer transition-all
                   ${cashFilter === f.id ? "bg-white text-gray-800 shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
                 title={f.id === "all" ? "Всі каси" : `Лише ${f.id}`}
               >
@@ -606,7 +606,7 @@ export default function DashboardScreen() {
                       <button
                         type="button"
                         onClick={() => setPayoutTarget({ id: s.id, name: s.name, amount: Math.round(s.balance || 0) })}
-                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-brand-600 text-white hover:bg-brand-700 cursor-pointer transition-colors whitespace-nowrap"
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-brand-600 text-white hover:bg-brand-700 cursor-pointer transition-colors"
                       >
                         Виплатити
                       </button>
