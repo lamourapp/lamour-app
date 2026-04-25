@@ -33,9 +33,11 @@ interface ReportData {
     services: number;
     materials: number;
     sales: number;
+    salary: number;
     total: number;
     countServices: number;
     countSales: number;
+    countSalary: number;
   };
   paid: { total: number; count: number };
   contributed: { total: number };
@@ -43,7 +45,7 @@ interface ReportData {
   entries: {
     id: string;
     date: string;
-    type: "service" | "sale" | "rental" | "debt" | "expense" | "";
+    type: "service" | "sale" | "rental" | "debt" | "accrual" | "expense" | "";
     title: string;
     amount: number;
     comment: string;
@@ -74,6 +76,8 @@ function entryTypeLabel(type: string): string {
       return "Продаж";
     case "rental":
       return "Оренда";
+    case "accrual":
+      return "Нарахування ЗП";
     case "debt":
       return "Розрахунок";
     default:
@@ -89,6 +93,8 @@ function entryTypeDot(type: string): string {
       return "bg-emerald-500";
     case "rental":
       return "bg-amber-500";
+    case "accrual":
+      return "bg-amber-400";
     case "debt":
       return "bg-gray-400";
     default:
@@ -275,6 +281,12 @@ export default function MasterReportPage({
               <div className="flex justify-between text-[12px] text-brand-100">
                 <span>Продаж товарів ({data.accrued.countSales} шт)</span>
                 <span className="tabular-nums">{fmt(data.accrued.sales)}</span>
+              </div>
+            )}
+            {data.accrued.salary > 0 && (
+              <div className="flex justify-between text-[12px] text-brand-100">
+                <span>Нарахування ЗП ({data.accrued.countSalary})</span>
+                <span className="tabular-nums">{fmt(data.accrued.salary)}</span>
               </div>
             )}
             {data.accrued.total === 0 && (

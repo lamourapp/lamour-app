@@ -168,7 +168,7 @@ export async function GET(request: NextRequest) {
     type Entry = {
       id: string;
       date: string;
-      type: "service" | "sale" | "rental" | "debt" | "expense" | "";
+      type: "service" | "sale" | "rental" | "debt" | "accrual" | "expense" | "";
       title: string;
       amount: number;
       comment: string;
@@ -178,10 +178,12 @@ export async function GET(request: NextRequest) {
     let accruedMaterials = 0; // окремо матеріал-частина (для деталізації)
     let accruedServicesOnly = 0; // окремо частка за роботу
     let accruedSales = 0; // нараховано з продажів товарів
+    let accruedSalary = 0; // нарахування ЗП (для salary/hourly — окрема стаття)
     let paidOutAbs = 0; // виплачено майстру (|negative debts|)
-    let contributed = 0; // довнесення (positive debts)
+    let contributed = 0; // справжні довнесення майстра у касу (positive debts, не accrual)
     let countServices = 0;
     let countSales = 0;
+    let countSalary = 0;
     let countPaid = 0;
     const entries: Entry[] = [];
 
@@ -200,20 +202,34 @@ export async function GET(request: NextRequest) {
         | string[]
         | undefined;
 
-      // Розрахунок (debt). Буває +/-: + = довнесення, - = виплата майстру.
+      // Розрахунок (debt). Буває +/-:
+      //   - = виплата майстру (paidOut)
+      //   + з коментом "Нарахування…" = нарахування ЗП (для salary/hourly).
+      //     Це по суті окрема стаття "нараховано" — створюється кнопкою «+ЗП»
+      //     на StaffScreen. Має йти в accrued, а не в contributed, інакше
+      //     юзер бачить ЗП під лейблом "Довнесено" і це збиває з пантелику.
+      //   + інше = справжнє довнесення (майстер повернув гроші в касу).
       if (debt !== 0) {
+        const isAccrual = debt > 0 && /^нарахування/i.test(comment.trim());
         if (debt < 0) {
           paidOutAbs += Math.abs(debt);
           countPaid += 1;
+        } else if (isAccrual) {
+          accruedSalary += debt;
+          countSalary += 1;
         } else {
           contributed += debt;
         }
         entries.push({
           id: r.id,
           date,
-          type: "debt",
-          title: debt < 0 ? "Виплата" : "Довнесення",
-          amount: debt, // signed: - виплата, + довнесення
+          type: isAccrual ? "accrual" : "debt",
+          title: debt < 0
+            ? "Виплата"
+            : isAccrual
+              ? "Нарахування ЗП"
+              : "Довнесення",
+          amount: debt, // signed: - виплата, + довнесення/нарахування
           comment,
         });
         continue;
@@ -276,7 +292,7 @@ export async function GET(request: NextRequest) {
       // else — невідомий тип запису. Ігноруємо тихо (може бути broken row).
     }
 
-    const accruedTotal = accruedServices + accruedSales;
+    const accruedTotal = accruedServices + accruedSales + accruedSalary;
     // Залишок за період: нарахували − виплатили + довнесли (рідко).
     // Якщо payout відбулись за попередній період, це тут не врахується —
     // і так має бути, звіт показує рух грошей саме за обраний діапазон.
@@ -307,9 +323,11 @@ export async function GET(request: NextRequest) {
         services: accruedServicesOnly,
         materials: accruedMaterials,
         sales: accruedSales,
+        salary: accruedSalary,
         total: accruedTotal,
         countServices,
         countSales,
+        countSalary,
       },
       paid: {
         total: paidOutAbs,
