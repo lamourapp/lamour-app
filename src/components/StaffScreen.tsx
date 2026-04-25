@@ -179,27 +179,38 @@ export default function StaffScreen() {
               onClick={() => openEdit(s)}
               className="bg-white rounded-xl border border-black/[0.06] px-4 py-3.5 cursor-pointer transition-all hover:shadow-[0_2px_12px_rgba(0,0,0,0.06)] active:scale-[0.99]"
             >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className={`w-9 h-9 ${avatarBg(s.avatarColor)} rounded-full flex items-center justify-center shrink-0`}>
-                    <span className={`${avatarText(s.avatarColor)} font-semibold text-[13px]`}>
-                      {s.name[0]}
-                    </span>
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[13px] font-semibold text-gray-900 truncate">{s.name}</div>
-                    <div className="text-[11px] text-gray-400 truncate">
-                      {roleLabel(s)} ·{" "}
-                      {highlight ? (
-                        <span className={highlight}>{label}</span>
-                      ) : (
-                        label
-                      )}
-                    </div>
+              {/* Row 1: avatar + name/role.
+                  Mobile: + compact balance + chevron справа.
+                  Desktop (sm+): + повна права частина (Д.Н., Баланс, чипи, chevron) — 1-рядковий layout як було. */}
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 ${avatarBg(s.avatarColor)} rounded-full flex items-center justify-center shrink-0`}>
+                  <span className={`${avatarText(s.avatarColor)} font-semibold text-[13px]`}>
+                    {s.name[0]}
+                  </span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-semibold text-gray-900 truncate">{s.name}</div>
+                  <div className="text-[11px] text-gray-400 truncate">
+                    {roleLabel(s)} ·{" "}
+                    {highlight ? (
+                      <span className={highlight}>{label}</span>
+                    ) : (
+                      label
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-4 shrink-0">
-                  <div className="text-right hidden sm:block">
+
+                {/* Mobile-only: компактний баланс + chevron */}
+                <div className="flex sm:hidden items-center gap-2 shrink-0">
+                  <BalanceDisplay balance={s.balance} fmt={fmt} />
+                  <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+
+                {/* Desktop-only: повна права частина (як було) */}
+                <div className="hidden sm:flex items-center gap-4 shrink-0">
+                  <div className="text-right">
                     <div className="text-[10px] text-gray-400 uppercase tracking-wider">Д.Н.</div>
                     <div className="text-[12px] text-gray-500">{s.birthday || "—"}</div>
                   </div>
@@ -207,27 +218,20 @@ export default function StaffScreen() {
                     <div className="text-[10px] text-gray-400 uppercase tracking-wider">Баланс</div>
                     <BalanceDisplay balance={s.balance} fmt={fmt} />
                   </div>
-                  {/* Кнопка «Розрахунок» — відкриває debt-модал з пресетом,
-                      щоб закрити поточний баланс одним натиском. stopPropagation,
-                      бо картка сама по собі = openEdit. */}
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); setReportingSpecialist(s); }}
-                    className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-white text-gray-600 hover:bg-gray-50 border border-black/[0.08] cursor-pointer transition-colors"
+                    className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-white text-gray-600 hover:bg-gray-50 border border-black/[0.08] cursor-pointer transition-colors active:scale-[0.97]"
                     title="Звіт ЗП за період — публічне посилання"
                   >
                     Звіт
                   </button>
-                  {/* Слот під «+ ЗП» — завжди рендеримо контейнер фіксованої
-                      ширини, щоб права частина рядка не «плавала» між рядками
-                      де є salary/hourly та де немає. Кнопка всередині рендериться
-                      умовно (тільки для salary/hourly). */}
                   <div className="w-[52px] shrink-0 flex justify-center">
                     {s.compensationType === "salary" && (
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setAccruingSpecialist(s); }}
-                        className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 cursor-pointer transition-colors"
+                        className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 cursor-pointer transition-colors active:scale-[0.97]"
                         title="Нарахувати ЗП за день/період — створює запис у журналі"
                       >
                         + ЗП
@@ -237,7 +241,7 @@ export default function StaffScreen() {
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); setSettlingSpecialist(s); }}
-                    className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-brand-50 text-brand-600 hover:bg-brand-100 border border-brand-200 cursor-pointer transition-colors"
+                    className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-brand-50 text-brand-600 hover:bg-brand-100 border border-brand-200 cursor-pointer transition-colors active:scale-[0.97]"
                     title="Розрахунок: виплата ЗП, аванс, борг"
                   >
                     Розрахунок
@@ -246,6 +250,39 @@ export default function StaffScreen() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 5l7 7-7 7" />
                   </svg>
                 </div>
+              </div>
+
+              {/* Row 2 (mobile only): action chips одним рядом — рівномірно
+                  займають доступну ширину. «+ ЗП» рендериться тільки для
+                  salary/hourly (нарахування ЗП — окрема операція від виплати,
+                  тому окрема кнопка, а не пункт в Розрахунку). */}
+              <div
+                className="flex sm:hidden gap-2 mt-3"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setReportingSpecialist(s); }}
+                  className="flex-1 h-9 rounded-lg text-[12px] font-medium bg-white text-gray-600 hover:bg-gray-50 border border-black/[0.08] cursor-pointer transition-colors active:scale-[0.97]"
+                >
+                  Звіт
+                </button>
+                {s.compensationType === "salary" && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setAccruingSpecialist(s); }}
+                    className="flex-1 h-9 rounded-lg text-[12px] font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 cursor-pointer transition-colors active:scale-[0.97]"
+                  >
+                    + ЗП
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setSettlingSpecialist(s); }}
+                  className="flex-1 h-9 rounded-lg text-[12px] font-medium bg-brand-50 text-brand-600 hover:bg-brand-100 border border-brand-200 cursor-pointer transition-colors active:scale-[0.97]"
+                >
+                  Розрахунок
+                </button>
               </div>
             </div>
           );
