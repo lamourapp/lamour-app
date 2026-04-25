@@ -23,8 +23,11 @@ export const labelCls =
   "block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5";
 
 /* ─── Buttons ─── */
+// active:scale-95 — iOS-feel tactile feedback на тапі. На UIKit-кнопках
+// є невелика «прес-анімація»; це її аналог. Не заважає клік-у на
+// desktop (active спрацьовує на mousedown і миттєво відпускається).
 export const btnBase =
-  "inline-flex items-center justify-center rounded-xl font-medium cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
+  "inline-flex items-center justify-center rounded-xl font-medium cursor-pointer transition-all active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100";
 
 export const btnSizes = {
   sm: "h-[36px] px-3 text-[13px]",
