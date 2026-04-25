@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Button, Field, Input, Modal, Select } from "./ui";
 import type { CatalogProduct, CatalogMaterial } from "@/lib/hooks";
+import BarcodeScanner from "./BarcodeScanner";
+import { toast } from "./Toast";
 
 type CatalogType = "products" | "materials";
 
@@ -34,6 +36,16 @@ export default function CatalogItemModal({ type, item, onClose, onSaved }: Props
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [scannerOpen, setScannerOpen] = useState(false);
+
+  // Single-scan для форми створення товару: перший успішний код заповнює
+  // поле «штрих-код» і закриває сканер. Multi-scan тут немає сенсу — у нас
+  // одне поле для одного коду.
+  const handleScan = useCallback((code: string) => {
+    setBarcode(code);
+    setScannerOpen(false);
+    toast.success(`Код: ${code}`);
+  }, []);
 
   async function handleSave() {
     if (!name.trim()) { setError("Вкажіть назву"); return; }
@@ -109,7 +121,23 @@ export default function CatalogItemModal({ type, item, onClose, onSaved }: Props
           <Input type="text" value={article} onChange={(e) => setArticle(e.target.value)} placeholder="Код постачальника" />
         </Field>
         <Field label="Штрих-код">
-          <Input type="text" value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="EAN / UPC" />
+          <div className="flex gap-2">
+            <Input
+              type="text"
+              value={barcode}
+              onChange={(e) => setBarcode(e.target.value)}
+              placeholder="EAN / UPC"
+              className="flex-1"
+            />
+            <button
+              type="button"
+              onClick={() => setScannerOpen(true)}
+              aria-label="Сканувати штрих-код"
+              className="shrink-0 w-11 h-11 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center text-[18px] active:scale-95 active:bg-brand-100 transition-all cursor-pointer"
+            >
+              📷
+            </button>
+          </div>
         </Field>
       </div>
 
@@ -152,6 +180,13 @@ export default function CatalogItemModal({ type, item, onClose, onSaved }: Props
       <Button onClick={handleSave} disabled={saving} fullWidth size="lg">
         {saving ? "Зберігаю…" : isEdit ? "Зберегти зміни" : "Додати"}
       </Button>
+
+      {scannerOpen && (
+        <BarcodeScanner
+          onScan={handleScan}
+          onClose={() => setScannerOpen(false)}
+        />
+      )}
     </Modal>
   );
 }
