@@ -6,6 +6,7 @@ import { useSettings, useExpenseTypes } from "@/lib/hooks";
 import SingleDatePicker from "./SingleDatePicker";
 import SearchableSelect from "./SearchableSelect";
 import PaymentMethodPicker from "./PaymentMethodPicker";
+import QuantityStepper from "./QuantityStepper";
 import { moneyFormatter, todayISO } from "@/lib/format";
 import type { PaymentMethod } from "@/lib/types";
 
@@ -385,7 +386,7 @@ export default function CreateEntryModal({
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder="0"
-            className="tabular-nums"
+            className="tabular-nums no-spin"
           />
         </Field>
       )}
@@ -433,22 +434,18 @@ export default function CreateEntryModal({
                     )}
                   />
                   {product && (
-                    <div className="mt-2 flex items-center gap-3">
-                      <div className="flex items-center gap-2">
-                        <label className="text-[11px] text-gray-400">К-сть:</label>
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          min={1}
-                          value={si.quantity}
-                          onChange={(e) => {
-                            const updated = [...saleItems];
-                            updated[idx] = { ...updated[idx], quantity: Math.max(1, parseInt(e.target.value) || 1) };
-                            setSaleItems(updated);
-                          }}
-                          className="w-16 px-2 py-1 border border-black/10 rounded-lg text-[13px] text-center tabular-nums"
-                        />
-                      </div>
+                    <div className="mt-2 flex items-center gap-3 flex-wrap">
+                      <QuantityStepper
+                        value={si.quantity}
+                        onChange={(q) => {
+                          const updated = [...saleItems];
+                          updated[idx] = { ...updated[idx], quantity: Math.max(1, q) };
+                          setSaleItems(updated);
+                        }}
+                        min={1}
+                        step={1}
+                        ariaLabel="Кількість товару"
+                      />
                       <div className="text-[12px] text-gray-500 tabular-nums">
                         {si.quantity > 1 ? `${fmt(product.price)} × ${si.quantity} = ` : ""}
                         <span className="font-medium text-gray-700">{fmt(product.price * si.quantity)}</span>
@@ -497,7 +494,7 @@ export default function CreateEntryModal({
             value={supplement}
             onChange={(e) => setSupplement(e.target.value)}
             placeholder="0"
-            className="tabular-nums"
+            className="tabular-nums no-spin"
           />
         </Field>
       )}

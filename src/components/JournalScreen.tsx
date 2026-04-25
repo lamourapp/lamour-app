@@ -13,6 +13,7 @@ import ServiceEntryModal from "./ServiceEntryModal";
 import QuickEditEntryModal from "./QuickEditEntryModal";
 import ScrollToTop from "./ScrollToTop";
 import SearchableSelect from "./SearchableSelect";
+import { toast } from "./Toast";
 
 function TypeDot({ type }: { type: JournalEntry["type"] }) {
   const colors: Record<string, string> = {
@@ -424,7 +425,7 @@ export default function JournalScreen() {
       reload();
     } catch (err) {
       console.error(err);
-      alert("Не вдалося видалити запис");
+      toast.error("Не вдалося видалити запис");
     } finally {
       setDeleting(null);
     }
@@ -444,7 +445,7 @@ export default function JournalScreen() {
       reload();
     } catch (err) {
       console.error(err);
-      alert("Не вдалося відновити запис");
+      toast.error("Не вдалося відновити запис");
     } finally {
       setDeleting(null);
     }
@@ -469,7 +470,7 @@ export default function JournalScreen() {
       reload();
     } catch (err) {
       console.error(err);
-      alert("Не всі записи вдалося відновити");
+      toast.error("Не всі записи вдалося відновити");
     } finally {
       setBulkRestoring(false);
     }

@@ -145,7 +145,7 @@ function CalcMaterialsSection({
                         onChange(updated);
                       }}
                       placeholder="Кількість (мл/шт)"
-                      className={inputCls}
+                      className={`${inputCls} no-spin`}
                     />
                   </div>
                   <div className="w-[70px] text-right flex-shrink-0">
@@ -623,7 +623,7 @@ export default function ServiceEntryModal({
                       value={supplement}
                       onChange={(e) => setSupplement(e.target.value)}
                       placeholder="0"
-                      className={`${inputCls} tabular-nums`}
+                      className={`${inputCls} tabular-nums no-spin`}
                     />
                   </div>
                   {!isRental && (
@@ -635,7 +635,7 @@ export default function ServiceEntryModal({
                         value={extraHours}
                         onChange={(e) => setExtraHours(e.target.value)}
                         placeholder="0"
-                        className={`${inputCls} tabular-nums`}
+                        className={`${inputCls} tabular-nums no-spin`}
                       />
                     </div>
                   )}

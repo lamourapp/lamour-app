@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { ToastContainer } from "@/components/Toast";
 
 export const metadata: Metadata = {
   title: "Servico — Від калькуляції послуги до виплати майстру",
@@ -43,7 +44,10 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
       </head>
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        {children}
+        <ToastContainer />
+      </body>
     </html>
   );
 }

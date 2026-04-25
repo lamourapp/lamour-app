@@ -217,6 +217,7 @@ export default function QuickEditEntryModal({
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0"
+              className="no-spin"
             />
           </Field>
         )}
@@ -249,6 +250,7 @@ export default function QuickEditEntryModal({
               value={supplement}
               onChange={(e) => setSupplement(e.target.value)}
               placeholder="0"
+              className="no-spin"
             />
           </Field>
         )}
