@@ -508,7 +508,7 @@ function AlertsModal({ onClose }: { onClose: () => void }) {
             max={99}
             value={String(draft.alertNetDropWarn)}
             onChange={(e) => set("alertNetDropWarn", num(e.target.value))}
-          />
+           className="no-spin"/>
           <p className="mt-1 text-[11px] text-gray-400">Жовтий сигнал, якщо чистий дохід впав на цей % у порівнянні з минулим періодом.</p>
         </Field>
 
@@ -519,7 +519,7 @@ function AlertsModal({ onClose }: { onClose: () => void }) {
             max={100}
             value={String(draft.alertNetDropCrit)}
             onChange={(e) => set("alertNetDropCrit", num(e.target.value))}
-          />
+           className="no-spin"/>
           <p className="mt-1 text-[11px] text-gray-400">Червоний сигнал. Має бути більшим за попередження.</p>
         </Field>
 
@@ -530,7 +530,7 @@ function AlertsModal({ onClose }: { onClose: () => void }) {
             max={100}
             value={String(draft.alertExpensesHigh)}
             onChange={(e) => set("alertExpensesHigh", num(e.target.value))}
-          />
+           className="no-spin"/>
           <p className="mt-1 text-[11px] text-gray-400">Сигнал, коли витрати перевищують цей % від обороту.</p>
         </Field>
 
@@ -541,7 +541,7 @@ function AlertsModal({ onClose }: { onClose: () => void }) {
             max={100}
             value={String(draft.alertLowMargin)}
             onChange={(e) => set("alertLowMargin", num(e.target.value))}
-          />
+           className="no-spin"/>
           <p className="mt-1 text-[11px] text-gray-400">Інфо-сигнал, якщо маржа нижча за цей рівень.</p>
         </Field>
       </div>

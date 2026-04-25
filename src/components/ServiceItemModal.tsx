@@ -287,15 +287,15 @@ export default function ServiceItemModal({ item, categories, onClose, onSaved }:
           йде окремою секцією нижче (з калькулятором або ручним полем). */}
       {pricingMode === "fixed" ? (
         <Field label="Ціна роботи">
-          <Input type="number" inputMode="decimal" value={workPrice} onChange={(e) => setWorkPrice(e.target.value)} placeholder="0" className="tabular-nums" />
+          <Input type="number" inputMode="decimal" value={workPrice} onChange={(e) => setWorkPrice(e.target.value)} placeholder="0" className="tabular-nums no-spin" />
         </Field>
       ) : (
         <div className="grid grid-cols-2 gap-3">
           <Field label="Ставка / год">
-            <Input type="number" inputMode="decimal" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} placeholder="0" className="tabular-nums" />
+            <Input type="number" inputMode="decimal" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} placeholder="0" className="tabular-nums no-spin" />
           </Field>
           <Field label="К-сть годин">
-            <Input type="number" inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} placeholder="0" className="tabular-nums" />
+            <Input type="number" inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} placeholder="0" className="tabular-nums no-spin" />
           </Field>
         </div>
       )}
@@ -376,7 +376,7 @@ export default function ServiceItemModal({ item, categories, onClose, onSaved }:
                                 value={row.qty || ""}
                                 onChange={(e) => updateRow(idx, { qty: parseFloat(e.target.value) || 0 })}
                                 placeholder={`Кількість (${unit})`}
-                                className="tabular-nums"
+                                className="tabular-nums no-spin"
                               />
                             </div>
                             <div className="w-[80px] text-right text-[13px] tabular-nums">
@@ -426,14 +426,14 @@ export default function ServiceItemModal({ item, categories, onClose, onSaved }:
               value={materialsCost}
               onChange={(e) => setMaterialsCost(e.target.value)}
               placeholder="0"
-              className="tabular-nums"
+              className="tabular-nums no-spin"
             />
           </Field>
         )}
       </div>
 
       <Field label="Тривалість (хвилин)">
-        <Input type="number" inputMode="numeric" value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="напр. 60" className="tabular-nums" />
+        <Input type="number" inputMode="numeric" value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="напр. 60" className="tabular-nums no-spin" />
       </Field>
 
       {/* Price preview */}

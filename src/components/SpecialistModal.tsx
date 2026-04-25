@@ -338,7 +338,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
                 onChange={(e) => setServiceCommission(Number(e.target.value))}
                 min={0}
                 max={100}
-              />
+               className="no-spin"/>
             </Field>
             <Field label="% майстру з матеріалів">
               <Input
@@ -347,7 +347,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
                 onChange={(e) => setSalesCommission(Number(e.target.value))}
                 min={0}
                 max={100}
-              />
+               className="no-spin"/>
             </Field>
           </div>
           <Field label="% майстру за продаж товарів">
@@ -357,7 +357,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
               onChange={(e) => setProductSalesCommission(Number(e.target.value))}
               min={0}
               max={100}
-            />
+             className="no-spin"/>
           </Field>
         </>
       )}
@@ -371,7 +371,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
                 value={conditions}
                 onChange={(e) => setConditions(Number(e.target.value))}
                 min={0}
-              />
+               className="no-spin"/>
             </Field>
             <Field label="% майстру з матеріалів">
               <Input
@@ -380,7 +380,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
                 onChange={(e) => setSalesCommission(Number(e.target.value))}
                 min={0}
                 max={100}
-              />
+               className="no-spin"/>
             </Field>
           </div>
           <Field label="% майстру за продаж товарів">
@@ -390,7 +390,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
               onChange={(e) => setProductSalesCommission(Number(e.target.value))}
               min={0}
               max={100}
-            />
+             className="no-spin"/>
           </Field>
           <Field
             label="% салону за послугу"
@@ -402,7 +402,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
               onChange={(e) => setServiceCommission(Number(e.target.value))}
               min={0}
               max={100}
-            />
+             className="no-spin"/>
           </Field>
         </>
       )}
@@ -417,7 +417,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
               value={conditions}
               onChange={(e) => setConditions(Number(e.target.value))}
               min={0}
-            />
+             className="no-spin"/>
           </Field>
           <div
             className={`text-[11px] text-gray-500 leading-relaxed rounded-lg px-3 py-2 ${
@@ -488,7 +488,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
                     onChange={(e) => setServiceCommission(Number(e.target.value))}
                     min={0}
                     max={100}
-                  />
+                   className="no-spin"/>
                 </Field>
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="% майстру з матеріалів">
@@ -498,7 +498,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
                       onChange={(e) => setSalesCommission(Number(e.target.value))}
                       min={0}
                       max={100}
-                    />
+                     className="no-spin"/>
                   </Field>
                   <Field label="% майстру за продаж товарів">
                     <Input
@@ -507,7 +507,7 @@ export default function SpecialistModal({ specialist, onClose, onSaved }: Specia
                       onChange={(e) => setProductSalesCommission(Number(e.target.value))}
                       min={0}
                       max={100}
-                    />
+                     className="no-spin"/>
                   </Field>
                 </div>
               </div>

@@ -14,6 +14,7 @@ import QuickEditEntryModal from "./QuickEditEntryModal";
 import ScrollToTop from "./ScrollToTop";
 import SearchableSelect from "./SearchableSelect";
 import { toast } from "./Toast";
+import { confirmDialog } from "./ConfirmDialog";
 
 function TypeDot({ type }: { type: JournalEntry["type"] }) {
   const colors: Record<string, string> = {
@@ -457,7 +458,12 @@ export default function JournalScreen() {
   const [bulkRestoring, setBulkRestoring] = useState(false);
   async function handleBulkRestore(ids: string[]) {
     if (ids.length === 0) return;
-    if (!confirm(`Відновити ${ids.length} ${ids.length === 1 ? "запис" : "записів"}?`)) return;
+    const ok = await confirmDialog({
+      title: `Відновити ${ids.length} ${ids.length === 1 ? "запис" : "записів"}?`,
+      message: "Скасовані записи знов з'являться у журналі.",
+      confirmText: "Відновити",
+    });
+    if (!ok) return;
     setBulkRestoring(true);
     try {
       for (const id of ids) {

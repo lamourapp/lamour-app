@@ -93,17 +93,17 @@ export default function CatalogItemModal({ type, item, onClose, onSaved }: Props
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="Ціна закупки">
-          <Input type="number" inputMode="decimal" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} placeholder="0" className="tabular-nums" />
+          <Input type="number" inputMode="decimal" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} placeholder="0" className="tabular-nums no-spin" />
         </Field>
         <Field label="Ціна продажу">
-          <Input type="number" inputMode="decimal" value={salePrice} onChange={(e) => setSalePrice(e.target.value)} placeholder="0" className="tabular-nums" />
+          <Input type="number" inputMode="decimal" value={salePrice} onChange={(e) => setSalePrice(e.target.value)} placeholder="0" className="tabular-nums no-spin" />
         </Field>
       </div>
 
       {isMaterial && (
         <div className="grid grid-cols-2 gap-3">
           <Field label="Фасування">
-            <Input type="number" inputMode="decimal" value={totalVolume} onChange={(e) => setTotalVolume(e.target.value)} placeholder="напр. 1000" className="tabular-nums" />
+            <Input type="number" inputMode="decimal" value={totalVolume} onChange={(e) => setTotalVolume(e.target.value)} placeholder="напр. 1000" className="tabular-nums no-spin" />
           </Field>
           <Field label="Одиниця">
             <Select value={unit} onChange={(e) => setUnit(e.target.value)}>
