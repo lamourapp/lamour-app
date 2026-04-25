@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Button, Field, Input, Label, Modal } from "./ui";
 import { useSettings, useExpenseTypes } from "@/lib/hooks";
 import SingleDatePicker from "./SingleDatePicker";
 import SearchableSelect from "./SearchableSelect";
 import PaymentMethodPicker from "./PaymentMethodPicker";
 import QuantityStepper from "./QuantityStepper";
+import BarcodeScanner, { findProductByCode } from "./BarcodeScanner";
+import { toast } from "./Toast";
 import { moneyFormatter, todayISO } from "@/lib/format";
 import type { PaymentMethod } from "@/lib/types";
 
@@ -21,6 +23,9 @@ interface Product {
   price: number;
   costPrice: number;
   group: string;
+  barcode?: string;
+  article?: string;
+  sku?: string;
 }
 
 type EntryType = "expense" | "debt" | "sale";
@@ -113,6 +118,7 @@ export default function CreateEntryModal({
     return [{ productId: "", quantity: 1 }];
   });
   const [products, setProducts] = useState<Product[]>([]);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [supplement, setSupplement] = useState(() =>
     initial?.supplement ? String(Math.abs(initial.supplement)) : ""
   );
@@ -142,6 +148,37 @@ export default function CreateEntryModal({
   const [supplementSign, setSupplementSign] = useState<"+" | "-">(
     initial?.supplement && initial.supplement < 0 ? "-" : "+"
   );
+
+  // Multi-scan handler. Викликається з BarcodeScanner на кожен decode.
+  // useCallback бо BarcodeScanner тримає це в effect-deps — без мемо
+  // ефект ребіндив би колбек на кожному рендері і скидав сканер.
+  const handleScan = useCallback((code: string) => {
+    const product = findProductByCode(products, code);
+    if (!product) {
+      toast.error(`Не знайдено: ${code}`);
+      return;
+    }
+    setSaleItems((prev) => {
+      // Якщо товар вже в списку — інкремент quantity (типовий чек:
+      // продав 2 шампуні підряд — два скани → quantity=2).
+      const existingIdx = prev.findIndex((si) => si.productId === product.id);
+      if (existingIdx !== -1) {
+        const updated = [...prev];
+        updated[existingIdx] = {
+          ...updated[existingIdx],
+          quantity: updated[existingIdx].quantity + 1,
+        };
+        return updated;
+      }
+      // Якщо перший рядок порожній (default після відкриття модалу) —
+      // заповнити його замість додавання нового.
+      if (prev.length === 1 && !prev[0].productId) {
+        return [{ productId: product.id, quantity: 1 }];
+      }
+      return [...prev, { productId: product.id, quantity: 1 }];
+    });
+    toast.success(product.name);
+  }, [products]);
 
   // Sale preview with multi-product support
   const salePreview = useMemo(() => {
@@ -393,7 +430,17 @@ export default function CreateEntryModal({
 
       {type === "sale" && (
         <div className="block">
-          <Label>Товари <span className="text-red-500">*</span></Label>
+          <div className="flex items-center justify-between mb-1">
+            <Label>Товари <span className="text-red-500">*</span></Label>
+            <button
+              type="button"
+              onClick={() => setScannerOpen(true)}
+              className="flex items-center gap-1.5 px-3 h-8 rounded-full bg-brand-50 text-brand-600 text-[12px] font-medium active:scale-95 active:bg-brand-100 transition-all cursor-pointer"
+            >
+              <span aria-hidden>📷</span>
+              <span>Сканувати</span>
+            </button>
+          </div>
           <div className="space-y-2">
             {saleItems.map((si, idx) => {
               const product = products.find((p) => p.id === si.productId);
@@ -550,6 +597,13 @@ export default function CreateEntryModal({
       <Button onClick={handleSubmit} disabled={saving} fullWidth size="lg">
         {saving ? "Зберігаю…" : isEdit ? "Оновити" : "Зберегти"}
       </Button>
+
+      {scannerOpen && (
+        <BarcodeScanner
+          onScan={handleScan}
+          onClose={() => setScannerOpen(false)}
+        />
+      )}
     </Modal>
   );
 }
