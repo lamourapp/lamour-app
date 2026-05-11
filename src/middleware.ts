@@ -1,38 +1,66 @@
-// App-level PIN gate. Запускається на КОЖЕН запит, що не виключений матчером.
+// App-level PIN gate. Запускається на кожен запит що не виключений.
 //
 // Логіка:
 //   1. Якщо нема env SALON_PIN → пропускаємо все (для dev/онбордингу: апка
-//      працює як раніше). Сигнал — у Vercel env vars не заповнено → нема gate-а.
-//   2. Якщо є SALON_PIN → перевіряємо cookie `salon_session`.
-//      - Невалідна або відсутня → редірект на /login (з ?next=… для return-after-login).
-//      - Валідна → пропускаємо.
-//
-// Винятки (матчер у `config.matcher` нижче):
-//   - /login                — сама сторінка логіну
-//   - /api/auth/*           — login/logout API
-//   - /report/master/*      — публічні звіти ЗП для майстрів (вони в Telegram)
-//   - /api/report/*         — API публічних звітів (звіт сам дані тягне)
-//   - /preview/*            — preview-сторінки (Airtable embeds, теж публічні)
-//   - /api/health           — healthcheck для Vercel
-//   - /_next/*, /favicon... — асети, оминаємо через matcher
+//      працює як раніше, без gate-а).
+//   2. Bypass-шляхи (у коді нижче) — теж пропускаємо без перевірки.
+//   3. Інакше — перевіряємо cookie `salon_session`:
+//      - валідна → пропускаємо
+//      - невалідна, шлях під /api/* → 401 JSON (не редірект, інакше POST
+//        ішов би у GET /login → 405 і фронт ламався з cryptic JSON-parse)
+//      - невалідна, сторінка → редірект на /login з ?next= для повернення.
 
 import { NextResponse, type NextRequest } from "next/server";
 import { verifySessionToken, SESSION_COOKIE } from "@/lib/auth-session";
 
+const BYPASS_PREFIXES = [
+  "/login",
+  "/api/auth", // login/logout
+  "/api/health", // healthcheck
+  "/api/report", // публічні звіти ЗП
+  "/report/master", // публічні сторінки звітів
+  "/preview", // Airtable embed-preview
+  "/_next/", // Next.js assets (на додачу до matcher-фільтра)
+];
+
+const BYPASS_EXACT = new Set([
+  "/favicon.ico",
+  "/robots.txt",
+  "/sitemap.xml",
+  "/manifest.json",
+  "/manifest.webmanifest",
+  "/apple-touch-icon.png",
+  "/apple-touch-icon-precomposed.png",
+]);
+
+function isBypassed(pathname: string): boolean {
+  if (BYPASS_EXACT.has(pathname)) return true;
+  return BYPASS_PREFIXES.some((p) => pathname.startsWith(p));
+}
+
 export async function middleware(request: NextRequest) {
-  // PIN не налаштований → апка відкрита (як було до додавання gate-а).
-  // Це дозволяє локальному dev-у і свіжому Vercel-проекту працювати без зайвих
-  // кроків — gate активується одночасно з SALON_PIN.
+  const { pathname, search } = request.nextUrl;
+
+  if (isBypassed(pathname)) return NextResponse.next();
+
   const expectedPin = process.env.SALON_PIN;
   if (!expectedPin) return NextResponse.next();
 
   const token = request.cookies.get(SESSION_COOKIE)?.value;
-  const valid = await verifySessionToken(token);
+  let valid = false;
+  try {
+    valid = await verifySessionToken(token);
+  } catch {
+    valid = false;
+  }
   if (valid) return NextResponse.next();
 
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const loginUrl = new URL("/login", request.url);
-  // Зберігаємо звідки користувач прийшов щоб після логіну повернути назад.
-  const returnTo = request.nextUrl.pathname + request.nextUrl.search;
+  const returnTo = pathname + search;
   if (returnTo && returnTo !== "/") {
     loginUrl.searchParams.set("next", returnTo);
   }
@@ -40,9 +68,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Все під захист, крім перерахованого. Asset-и (`_next/static`,
-  // `_next/image`, favicon тощо) виключаємо через negative-lookahead.
-  matcher: [
-    "/((?!login|api/auth|api/health|report/master|api/report|preview|_next/static|_next/image|favicon.ico|icon|apple-icon|manifest|robots.txt|sitemap.xml).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image).*)"],
 };
