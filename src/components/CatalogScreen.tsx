@@ -6,6 +6,7 @@ import { useCatalog, type CatalogProduct, type CatalogMaterial } from "@/lib/hoo
 import { useSettings } from "@/lib/hooks";
 import { moneyFormatter } from "@/lib/format";
 import CatalogItemModal from "./CatalogItemModal";
+import ScrollToTop from "./ScrollToTop";
 
 type CatalogType = "products" | "materials";
 
@@ -266,6 +267,8 @@ export default function CatalogScreen({
       {skuMsg && (
         <div className="mt-2 text-center text-[12px] text-brand-600">{skuMsg}</div>
       )}
+
+      <ScrollToTop />
 
       {/* Modal */}
       {showModal && (
