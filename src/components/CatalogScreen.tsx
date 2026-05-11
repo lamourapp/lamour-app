@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { Button, Segmented, type SegmentedOption } from "./ui";
 import { useCatalog, type CatalogProduct, type CatalogMaterial } from "@/lib/hooks";
 import { useSettings } from "@/lib/hooks";
 import { moneyFormatter } from "@/lib/format";
 import CatalogItemModal from "./CatalogItemModal";
+import ScrollToTop from "./ScrollToTop";
 
 type CatalogType = "products" | "materials";
 
@@ -33,14 +34,6 @@ export default function CatalogScreen({
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [showScrollTop, setShowScrollTop] = useState(false);
-
-  useEffect(() => {
-    const onScroll = () => setShowScrollTop(window.scrollY > 300);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
 
   const products = useCatalog("products");
   const materials = useCatalog("materials");
@@ -275,16 +268,7 @@ export default function CatalogScreen({
         <div className="mt-2 text-center text-[12px] text-brand-600">{skuMsg}</div>
       )}
 
-      {/* Scroll to top */}
-      {showScrollTop && (
-        <button
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          aria-label="Вгору"
-          className="fixed bottom-24 right-4 w-11 h-11 rounded-full bg-brand-500 text-white shadow-lg hover:bg-brand-600 active:scale-95 transition-all flex items-center justify-center text-[18px] z-40"
-        >
-          ↑
-        </button>
-      )}
+      <ScrollToTop />
 
       {/* Modal */}
       {showModal && (
