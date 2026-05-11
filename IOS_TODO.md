@@ -102,9 +102,37 @@
 ## 📋 Phase 4 (поки не починали)
 
 Це вже не з UI-аудиту — це з MEMORY:
-- **Auth система** (`lamour_auth_todo.md`) — сервіс відкритий; ролі (власник/адмін/майстер), провайдер, multi-tenant.
+- **Auth система** (`lamour_auth_todo.md`) — сервіс відкритий; ролі (власник/адмін/майстер), провайдер, multi-tenant. **PIN-gate (env SALON_PIN) додано як MVP на одного юзера** — наступний крок: ролі.
 - **Розподіл прибутку** (`lamour_ownership_distribution_spec.md`) — N власників, частки, ревізії; майстер-власник з двома балансами.
 - **Migration на Postgres** (`lamour_migration_notes.md`) — soft-delete/edit-as-recreate як технічний борг, legacy single-product sale ETL, Airtable checkbox quirk.
+
+---
+
+## 🟢 Tenant onboarding (з реального досвіду підключення `salon Lamour`)
+
+### A. Auto-create Settings row у новій базі
+**Стан:** треба руками створювати рядок `key=current` у Settings після дублювання бази.
+**Як:** у `GET /api/settings` — якщо рядок не знайдено, створити з дефолтами і повернути. Те саме у PATCH. Усуне крок "створи руками рядок" з онбордингу.
+
+### B. Tenant onboarding wizard
+**Стан:** новий tenant отримує апку з пустою базою без підказок.
+**Як:** при першому вході (isOnboarded=false) — wizard з 3-4 кроками: назва салону → валюта/часовий пояс → перший спеціаліст → перша послуга. Далі — нормальний інтерфейс.
+
+### C. PIN-gate ролі (від MVP до повноцінного)
+**Стан:** є MVP — один PIN з env `SALON_PIN`, 30-денна сесія, кнопка "Вийти".
+**Наступний крок:**
+- 3 типи доступу: власник / адмін / майстер
+- PIN-и зберігати в Airtable Settings (не env) щоб мінятись з UI
+- На login екрані визначати роль по введеному PIN-у
+- Маршрути обмежуються відповідно до ролі
+
+### D. Backup автоматичний
+**Стан:** немає, користувач переживає за Airtable.
+**Як:** Vercel Cron Job раз на тиждень → дамп таблиць у JSON → пуш у GitHub `backups/` гілку. ~3 год роботи.
+
+### E. Документація self-hosting
+**Стан:** немає.
+**Як:** README з кроками: Duplicate Airtable base → Add token access → Create Vercel project → Set env vars → Done. Зараз ці кроки в чаті, треба зафіксувати.
 
 ---
 
