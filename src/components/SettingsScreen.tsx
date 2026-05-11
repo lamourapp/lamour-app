@@ -686,6 +686,26 @@ export default function SettingsScreen() {
         ))}
       </div>
 
+      {/* Вихід з апки. Кикає сесійну куку — наступний запит middleware
+          редіректне на /login. Тримаємо внизу, окремо від карток налаштувань,
+          щоб не клацнути випадково. */}
+      <div className="mt-8 flex justify-center">
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              await fetch("/api/auth/logout", { method: "POST" });
+            } catch {
+              // ігноруємо помилки — все одно ведемо на /login
+            }
+            window.location.href = "/login";
+          }}
+          className="text-[12px] text-gray-400 hover:text-rose-500 cursor-pointer transition-colors active:scale-[0.97]"
+        >
+          Вийти
+        </button>
+      </div>
+
       {showBusiness && <BusinessSettingsModal onClose={() => setShowBusiness(false)} />}
       {showAlerts && <AlertsModal onClose={() => setShowAlerts(false)} />}
       {showSecurity && <SecurityModal onClose={() => setShowSecurity(false)} />}
