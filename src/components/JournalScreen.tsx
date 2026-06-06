@@ -389,7 +389,7 @@ const typeFilters = [
 ];
 
 export default function JournalScreen() {
-  const [period, setPeriod] = useState("month");
+  const [period, setPeriod] = useState("today");
   const [selectedSpecialist, setSelectedSpecialist] = useState("");
   const [selectedType, setSelectedType] = useState("");
   const [showCalendar, setShowCalendar] = useState(false);
