@@ -222,6 +222,21 @@ export default function OwnerScreen() {
     return () => { cancelled = true; };
   }, [unlocked]);
 
+  // Re-fetch stats + lifetime balances. Викликається після виплати
+  // постачальнику: змінює і Фонд матеріалів (stats), і касу (balances).
+  function refreshAll() {
+    if (range?.from && range?.to) {
+      fetch(`/api/owner/stats?from=${range.from}&to=${range.to}`)
+        .then((r) => r.json())
+        .then((data) => setStats(data))
+        .catch(() => {});
+    }
+    fetch(`/api/owner/balances`)
+      .then((r) => r.json() as Promise<Balances>)
+      .then((d) => setBalances(d))
+      .catch(() => {});
+  }
+
   // Fetch stats whenever range changes (and we're unlocked)
   useEffect(() => {
     if (!unlocked || !range) return;
@@ -455,15 +470,7 @@ export default function OwnerScreen() {
               balanceCumulative={stats?.materialsFundBalance ?? 0}
               settings={settings}
               loading={statsLoading}
-              onChanged={() => {
-                // Re-fetch stats after a purchase is recorded.
-                if (range?.from && range?.to) {
-                  fetch(`/api/owner/stats?from=${range.from}&to=${range.to}`)
-                    .then((r) => r.json())
-                    .then((data) => setStats(data))
-                    .catch(() => {});
-                }
-              }}
+              onChanged={refreshAll}
             />
           </div>
 

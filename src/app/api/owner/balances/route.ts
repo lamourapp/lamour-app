@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchAllRecords, TABLES } from "@/lib/airtable";
-import { SERVICE_FIELDS, SPECIALIST_FIELDS } from "@/lib/airtable-fields";
+import { SERVICE_FIELDS, SPECIALIST_FIELDS, PURCHASE_FIELDS } from "@/lib/airtable-fields";
 import { ROW_METRICS_SOURCE_FIELDS, computeRowMetrics } from "@/lib/service-row";
 
 export const runtime = "nodejs";
@@ -57,13 +57,16 @@ const FIELDS = [
 
 export async function GET() {
   try {
-    const [records, specRecs] = await Promise.all([
+    const [records, specRecs, purchaseRecs] = await Promise.all([
       fetchAllRecords(TABLES.services, {
         filterByFormula: `NOT({${SERVICE_FIELDS.isCanceled}})`,
         fields: FIELDS,
       }),
       fetchAllRecords(TABLES.specialists, {
         fields: [SPECIALIST_FIELDS.name, SPECIALIST_FIELDS.isOwner],
+      }),
+      fetchAllRecords(TABLES.purchases, {
+        fields: [PURCHASE_FIELDS.amount, PURCHASE_FIELDS.paymentType],
       }),
     ]);
 
@@ -120,6 +123,18 @@ export async function GET() {
           // debt>0 non-accrual на майстра — "довнесення/корекція", в owed не йде
         }
       }
+    }
+
+    // Виплати постачальникам — реальний відтік з каси. Зменшують відповідну
+    // касу (готівка/карта). Це НЕ "витрата" у P&L (собівартість уже відняли
+    // через pricing.ts), але кошти фізично пішли — тому каса має просісти.
+    for (const p of purchaseRecs) {
+      const amount = (p.fields[PURCHASE_FIELDS.amount] as number) || 0;
+      if (amount <= 0) continue;
+      const payment = p.fields[PURCHASE_FIELDS.paymentType] as string | undefined;
+      const mk: keyof CashBreakdown =
+        payment === "готівка" ? "cash" : payment === "карта" ? "card" : "unknown";
+      cash[mk] -= amount;
     }
 
     const owedToMasters: MasterOwed[] = [...masterAgg.entries()]

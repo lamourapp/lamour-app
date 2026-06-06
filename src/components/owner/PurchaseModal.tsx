@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { Button, Field, Input, Modal } from "@/components/ui";
 import SingleDatePicker from "@/components/SingleDatePicker";
+import PaymentMethodPicker from "@/components/PaymentMethodPicker";
 import { todayISO } from "@/lib/format";
 import { toast } from "@/components/Toast";
+import type { PaymentMethod } from "@/lib/types";
 
 /**
  * Запис виплати постачальнику за товари/матеріали.
@@ -24,6 +26,7 @@ export default function PurchaseModal({ onClose, onSaved }: Props) {
   const [amount, setAmount] = useState("");
   const [supplier, setSupplier] = useState("");
   const [comment, setComment] = useState("");
+  const [paymentType, setPaymentType] = useState<PaymentMethod>("готівка");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -44,6 +47,7 @@ export default function PurchaseModal({ onClose, onSaved }: Props) {
           amount: amt,
           supplier: supplier.trim() || undefined,
           comment: comment.trim() || undefined,
+          paymentType,
         }),
       });
       if (!res.ok) {
@@ -75,6 +79,10 @@ export default function PurchaseModal({ onClose, onSaved }: Props) {
           className="tabular-nums no-spin"
           autoFocus
         />
+      </Field>
+
+      <Field label="Каса" hint="з якої видано постачальнику">
+        <PaymentMethodPicker value={paymentType} onChange={setPaymentType} />
       </Field>
 
       <Field label="Постачальник (опц.)">

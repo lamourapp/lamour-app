@@ -30,6 +30,7 @@ export interface Purchase {
   amount: number;
   supplier: string;
   comment: string;
+  paymentType: string; // "готівка" | "карта" | ""
 }
 
 function parseDate(raw: unknown): string {
@@ -44,6 +45,7 @@ function toPurchase(r: { id: string; fields: Record<string, unknown> }): Purchas
     amount: (r.fields[PURCHASE_FIELDS.amount] as number) || 0,
     supplier: (r.fields[PURCHASE_FIELDS.supplier] as string) || "",
     comment: (r.fields[PURCHASE_FIELDS.comment] as string) || "",
+    paymentType: (r.fields[PURCHASE_FIELDS.paymentType] as string) || "",
   };
 }
 
@@ -55,6 +57,7 @@ export async function GET() {
         PURCHASE_FIELDS.amount,
         PURCHASE_FIELDS.supplier,
         PURCHASE_FIELDS.comment,
+        PURCHASE_FIELDS.paymentType,
       ],
       sort: [{ field: PURCHASE_FIELDS.date, direction: "desc" }],
     });
@@ -69,7 +72,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { date, amount, supplier = "", comment = "" } = body || {};
+    const { date, amount, supplier = "", comment = "", paymentType = "" } = body || {};
 
     if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return NextResponse.json(
@@ -93,6 +96,9 @@ export async function POST(request: NextRequest) {
     }
     if (typeof comment === "string" && comment.trim()) {
       fields[PURCHASE_FIELDS.comment] = comment.trim();
+    }
+    if (paymentType === "готівка" || paymentType === "карта") {
+      fields[PURCHASE_FIELDS.paymentType] = paymentType;
     }
 
     const created = await createRecord(TABLES.purchases, fields);

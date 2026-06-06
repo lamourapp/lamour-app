@@ -230,4 +230,5 @@ export const PURCHASE_FIELDS = {
   amount: "Сума",
   supplier: "Постачальник",
   comment: "Коментар",
+  paymentType: "вид оплати",
 } as const;
