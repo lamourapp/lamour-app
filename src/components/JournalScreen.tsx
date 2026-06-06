@@ -264,6 +264,12 @@ function EntryCard({ entry, onDelete, onEdit, onRestore, fmt }: { entry: Journal
                 <span className="text-gray-400">· {entry.supplement}</span>
               )}
             </div>
+            {hasMaterials && (
+              <div className="text-[11px] text-gray-400 mt-0.5 tabular-nums">
+                <span className="text-amber-500">оренда {fmt(entry.amount - entry.materialsCost!)}</span>
+                <span> + матер. {fmt(entry.materialsCost!)}</span>
+              </div>
+            )}
             {entry.comment && (
               <div className="text-[11px] text-gray-400 mt-0.5 italic truncate">💬 {entry.comment}</div>
             )}
@@ -277,15 +283,7 @@ function EntryCard({ entry, onDelete, onEdit, onRestore, fmt }: { entry: Journal
               {isRental && "+"}
               {fmt(entry.amount)}
             </div>
-            {hasMaterials ? (
-              <div className="text-[10px] text-gray-400 tabular-nums leading-tight">
-                <span className="text-amber-500">оренда {fmt(entry.amount - entry.materialsCost!)}</span>
-                {" + "}
-                <span>матер. {fmt(entry.materialsCost!)}</span>
-              </div>
-            ) : (
-              <TypeLabel type={entry.type} />
-            )}
+            <TypeLabel type={entry.type} />
           </div>
           {/* Canceled-entry: кнопка «Відновити». Замінює edit/delete — з архіву
               немає сенсу редагувати, спершу відновлюєш. */}
