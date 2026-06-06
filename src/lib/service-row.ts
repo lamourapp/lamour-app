@@ -131,6 +131,13 @@ export interface RowMetrics {
   masterPayForMaterials: number;
   salonShareForMaterials: number;
   incomeMaterials: number;
+  /**
+   * Собівартість матеріалів цього рядка — що салон фактично заплатив
+   * постачальнику за використані матеріали (з послуги + з продажів).
+   * Це сума, яку треба буде віддати постачальнику пізніше; накопичується
+   * у "Фонд матеріалів". Не плутати з incomeMaterials — там margin.
+   */
+  materialsCogs: number;
   totalSalePrice: number;
   incomeSales: number;
   totalSalonIncome: number;
@@ -151,6 +158,10 @@ export function computeRowMetrics(f: FieldsMap): RowMetrics {
     masterPayForMaterials: masterPayForMaterials(row, master),
     salonShareForMaterials: salonShareForMaterials(row, master),
     incomeMaterials: incomeMaterials(row, master),
+    // matCost з послуги (rollup + snapshot) + costPrice з продажів. Це сума,
+    // яку треба буде сплатити постачальнику; накопичується у Фонд матеріалів.
+    materialsCogs:
+      row.materialsPurchaseCost + row.fixedMaterialsCostPrice + row.fixedCostPrice,
     totalSalePrice: totalSalePrice(row),
     incomeSales: incomeSales(row),
     totalSalonIncome: totalSalonIncome(row, master),

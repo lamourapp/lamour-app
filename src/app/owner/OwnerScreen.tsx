@@ -14,6 +14,8 @@ import HeroMetrics from "@/components/owner/HeroMetrics";
 import CashStatus from "@/components/owner/CashStatus";
 import OwedMasters from "@/components/owner/OwedMasters";
 import PnlBlock from "@/components/owner/PnlBlock";
+import MaterialsMarginBlock from "@/components/owner/MaterialsMarginBlock";
+import MaterialsFundBlock from "@/components/owner/MaterialsFundBlock";
 import TrendChart from "@/components/owner/TrendChart";
 import type {
   SpecialistRow,
@@ -54,6 +56,8 @@ interface Aggregates {
   revenueByMethod: { cash: number; card: number; unknown: number };
   expensesByMethod: { cash: number; card: number; unknown: number };
   countRevenue: number;
+  materialsCogs: number;
+  materialsPaid: number;
 }
 
 interface Balances {
@@ -74,6 +78,7 @@ interface StatsResponse {
   topProducts: ProductRow[];
   alerts: RiskAlert[];
   range: { from: string; to: string };
+  materialsFundBalance: number;
 }
 
 function formatDMY(iso: string): string {
@@ -432,6 +437,36 @@ export default function OwnerScreen() {
             />
           </div>
 
+          {/* Row 2.5 — матеріали: маржа + фонд для постачальників. Логіка
+              окрема від P&L послуг, тому йде новим рядом перед top-10. */}
+          <div className="lg:col-span-6">
+            <MaterialsMarginBlock
+              revenueMaterials={current?.revenueMaterials ?? 0}
+              revenueSales={current?.revenueSales ?? 0}
+              materialsCogs={current?.materialsCogs ?? 0}
+              settings={settings}
+              loading={statsLoading}
+            />
+          </div>
+          <div className="lg:col-span-6">
+            <MaterialsFundBlock
+              materialsCogsPeriod={current?.materialsCogs ?? 0}
+              materialsPaidPeriod={current?.materialsPaid ?? 0}
+              balanceCumulative={stats?.materialsFundBalance ?? 0}
+              settings={settings}
+              loading={statsLoading}
+              onChanged={() => {
+                // Re-fetch stats after a purchase is recorded.
+                if (range?.from && range?.to) {
+                  fetch(`/api/owner/stats?from=${range.from}&to=${range.to}`)
+                    .then((r) => r.json())
+                    .then((data) => setStats(data))
+                    .catch(() => {});
+                }
+              }}
+            />
+          </div>
+
           {/* Row 3 — парні top-10 блоки (послуги + товари, одна ментальна
               модель: «що найбільше продається»). */}
           <div className="lg:col-span-6">
@@ -491,5 +526,7 @@ function emptyAgg(): Aggregates {
     revenueByMethod: { cash: 0, card: 0, unknown: 0 },
     expensesByMethod: { cash: 0, card: 0, unknown: 0 },
     countRevenue: 0,
+    materialsCogs: 0,
+    materialsPaid: 0,
   };
 }

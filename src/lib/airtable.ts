@@ -34,6 +34,7 @@ export const TABLES = {
   categories: "tblwzWzFfPsJqep6v",      // Категорії послуг (FK source of truth)
   expenseTypes: "tbljEgUp3xOEi8ajX",    // Види витрат (довідник, керується з Налаштувань)
   ownership: "tblGLXPBSeOy4b35b",       // Розподіл прибутку (append-only ревізії)
+  purchases: "tbliV1Qh8ls5Ak579",       // Закупки матеріалів (виплати постачальникам)
 } as const;
 
 interface AirtableRecord {

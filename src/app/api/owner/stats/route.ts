@@ -8,6 +8,7 @@ import {
   SALE_DETAIL_FIELDS,
   CATEGORY_FIELDS,
   SETTINGS_FIELDS,
+  PURCHASE_FIELDS,
 } from "@/lib/airtable-fields";
 import { ROW_METRICS_SOURCE_FIELDS, computeRowMetrics } from "@/lib/service-row";
 
@@ -50,6 +51,18 @@ interface Aggregates {
    * Потрібна для середнього чеку — agg.count включає витрати/борги.
    */
   countRevenue: number;
+  /**
+   * Накопичена собівартість матеріалів за період: matCost (з послуг) +
+   * costPrice (з продажів товарів). Це гроші у касі, які насправді належать
+   * постачальникам — їх треба буде витратити на закупку. НЕ повторно
+   * віднімається з netSalon — pricing.ts уже врахував у incomeMaterials.
+   */
+  materialsCogs: number;
+  /**
+   * Виплати постачальникам за період (з таблиці Закупки матеріалів).
+   * Окремий грошовий потік від звичайних "Витрат".
+   */
+  materialsPaid: number;
 }
 
 export interface ServiceRow {
@@ -108,6 +121,12 @@ interface StatsResponse {
   topProducts: ProductRow[];
   alerts: RiskAlert[];
   range: { from: string; to: string };
+  /**
+   * Кумулятивний баланс Фонду матеріалів за весь час: накопичена COGS
+   * мінус усі виплати постачальникам. Показує "скільки треба тримати
+   * для постачальників" незалежно від обраного періоду.
+   */
+  materialsFundBalance: number;
 }
 
 // Сирі поля — метрики (netSalon, incomeSales, ...) рахуємо через computeRowMetrics.
@@ -168,6 +187,8 @@ function empty(): Aggregates {
     revenueByMethod: { cash: 0, card: 0, unknown: 0 },
     expensesByMethod: { cash: 0, card: 0, unknown: 0 },
     countRevenue: 0,
+    materialsCogs: 0,
+    materialsPaid: 0,
   };
 }
 
@@ -240,6 +261,9 @@ function aggregate(records: Row[], ownerIds?: ReadonlySet<string>): Aggregates {
       }
       agg.netSales += metrics.incomeSales;
       agg.netMaterials += metrics.incomeMaterials;
+      // Собівартість матеріалів цього запису → у Фонд матеріалів.
+      // Накопичена сума "чужих" грошей, що лежать у касі для постачальників.
+      agg.materialsCogs += metrics.materialsCogs;
       // Вся виручка запису (те, що клієнт фактично поклав у касу) —
       // повна вартість послуги + продажів у цьому ж записі.
       const entryRevenue = metrics.totalServicePrice + metrics.totalSalePrice;
@@ -588,7 +612,7 @@ export async function GET(request: NextRequest) {
 
     const prev = prevRange(from, to);
 
-    const [currentRecs, prevRecs, specRecs, svcCatalog, categoryRecs, saleDetails, priceList, settingsRecs] = await Promise.all([
+    const [currentRecs, prevRecs, specRecs, svcCatalog, categoryRecs, saleDetails, priceList, settingsRecs, purchaseRecs, allServicesForFund] = await Promise.all([
       fetchAllRecords(TABLES.services, {
         filterByFormula: dateFilter(from, to),
         fields: FIELDS,
@@ -607,6 +631,21 @@ export async function GET(request: NextRequest) {
       fetchAllRecords(TABLES.settings, {
         filterByFormula: `{key} = "current"`,
         fields: [SETTINGS_FIELDS.alertNetDropWarn, SETTINGS_FIELDS.alertNetDropCrit, SETTINGS_FIELDS.alertExpensesHigh, SETTINGS_FIELDS.alertLowMargin],
+      }),
+      // Закупки матеріалів: ВСІ для кумулятивного балансу + period-фільтр уже
+      // фільтруємо в коді нижче (запитуємо без формули, бо ALL потрібно для balance).
+      fetchAllRecords(TABLES.purchases, {
+        fields: [PURCHASE_FIELDS.date, PURCHASE_FIELDS.amount],
+      }),
+      // Усі послуги назавжди — для кумулятивної matCogs у Фонді. Беремо лише
+      // поля собівартості, без важких lookup-ів, щоб мінімізувати payload.
+      fetchAllRecords(TABLES.services, {
+        fields: [
+          SERVICE_FIELDS.materialsPurchaseCostFromService,
+          SERVICE_FIELDS.fixedMaterialsCostPrice,
+          SERVICE_FIELDS.fixedCostPrice,
+          SERVICE_FIELDS.isCanceled,
+        ],
       }),
     ]);
 
@@ -683,6 +722,35 @@ export async function GET(request: NextRequest) {
     const current = aggregate(currentRecs, ownerIds);
     const previous = aggregate(prevRecs, ownerIds);
 
+    // Period-фільтр для виплат постачальникам (Закупки матеріалів):
+    // ту ж саму дату-перевірку, що для services, але в коді (Airtable не індексує
+    // нашу таблицю окремо, простіше відфільтрувати тут).
+    const inRange = (d: string, lo: string, hi: string) => d >= lo && d <= hi;
+    let materialsPaidCurrent = 0;
+    let materialsPaidPrev = 0;
+    let materialsPaidCumulative = 0;
+    for (const p of purchaseRecs) {
+      const date = (p.fields[PURCHASE_FIELDS.date] as string | undefined)?.slice(0, 10) || "";
+      const amount = (p.fields[PURCHASE_FIELDS.amount] as number) || 0;
+      if (!date || amount <= 0) continue;
+      materialsPaidCumulative += amount;
+      if (inRange(date, from, to)) materialsPaidCurrent += amount;
+      if (inRange(date, prev.from, prev.to)) materialsPaidPrev += amount;
+    }
+    current.materialsPaid = materialsPaidCurrent;
+    previous.materialsPaid = materialsPaidPrev;
+
+    // Кумулятивна COGS за весь час: проходимо ВСІ послуги (легкий fetch).
+    let materialsCogsCumulative = 0;
+    for (const r of allServicesForFund) {
+      if (r.fields[SERVICE_FIELDS.isCanceled] === true) continue;
+      const matRollup = (r.fields[SERVICE_FIELDS.materialsPurchaseCostFromService] as number) || 0;
+      const matSnapshot = (r.fields[SERVICE_FIELDS.fixedMaterialsCostPrice] as number) || 0;
+      const saleCost = (r.fields[SERVICE_FIELDS.fixedCostPrice] as number) || 0;
+      materialsCogsCumulative += matRollup + matSnapshot + saleCost;
+    }
+    const materialsFundBalance = materialsCogsCumulative - materialsPaidCumulative;
+
     const expensesMap = groupExpenses(currentRecs);
     const expensesByCategory = [...expensesMap.entries()]
       .map(([name, value]) => ({ name, value }))
@@ -706,6 +774,7 @@ export async function GET(request: NextRequest) {
         thresholds,
       ),
       range: { from, to },
+      materialsFundBalance,
     };
 
     return NextResponse.json(response);
