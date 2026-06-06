@@ -27,7 +27,7 @@ const COLUMNS: { key: SortKey; label: string; numeric: boolean; tooltip?: string
     key: "revenueTotal",
     label: "Оборот",
     numeric: true,
-    tooltip: "Послуги (робота, без матеріалів) + товари (gross). Повний потік грошей через майстра.",
+    tooltip: "Робота + матеріали + товари (gross). Повний потік грошей через майстра.",
   },
   { key: "masterPay", label: "Майстру", numeric: true },
   { key: "netSalon", label: "Чистий салону", numeric: true },
@@ -47,12 +47,15 @@ export default function SpecialistsBlock({ data, settings, loading }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("netSalon");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
-  // Збагачуємо рядки повним оборотом = робота-без-матеріалів + товари-gross.
-  // Це дає очікуваний інваріант: revenueTotal ≥ masterPay ≥ netSalon (усе
-  // що пройшло ≥ виплачено майстру ≥ лишилося салону), без візуальних
-  // парадоксів, які виникали коли «Оборот» = тільки revenueServices.
+  // Оборот = повний потік грошей через майстра: робота + матеріали + товари.
+  // Без revenueMaterials оренда виглядала парадоксально (Оборот 6300 < Чистий
+  // салону 14519), бо орендний майстер «продає» салонні матеріали з націнкою,
+  // і ця сума має бути частиною обороту, а не невидимим бонусом до netSalon.
   const enriched: EnrichedRow[] = useMemo(
-    () => data.map((d) => ({ ...d, revenueTotal: d.revenueServices + d.revenueSales })),
+    () => data.map((d) => ({
+      ...d,
+      revenueTotal: d.revenueServices + d.revenueMaterials + d.revenueSales,
+    })),
     [data],
   );
 
