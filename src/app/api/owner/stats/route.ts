@@ -87,6 +87,8 @@ export interface SpecialistRow {
   count: number;
   /** Робота-без-матеріалів (legacy semantic, лишаю на випадок інших читачів). */
   revenueServices: number;
+  /** Retail-вартість матеріалів проданих/витрачених у послугах цього майстра. */
+  revenueMaterials: number;
   /** Повний оборот товарів цього майстра (gross sale price). */
   revenueSales: number;
   netMaterials: number;
@@ -319,6 +321,7 @@ function bySpecialist(records: Row[], nameMap: Map<string, string>): SpecialistR
         name: nameMap.get(id) || "—",
         count: 0,
         revenueServices: 0,
+        revenueMaterials: 0,
         revenueSales: 0,
         netMaterials: 0,
         netSales: 0,
@@ -337,6 +340,7 @@ function bySpecialist(records: Row[], nameMap: Map<string, string>): SpecialistR
     const metrics = computeRowMetrics(f);
     if (!isSaleOnly) {
       row.revenueServices += Math.max(metrics.totalServicePrice - metrics.totalMaterialsCost, 0);
+      row.revenueMaterials += metrics.totalMaterialsCost;
     }
     // Gross-оборот товарів (повна сума, яку клієнт заплатив за товари в цьому
     // рядку). Може бути і в sale-only, і в комбінованому service+продаж.
