@@ -79,6 +79,9 @@ export default function QuickEditEntryModal({
       sale: "Редагувати продаж",
       service: "Редагувати послугу",
       rental: "Редагувати оренду",
+      // purchase редагується окремою PurchaseModal — сюди не доходить, але
+      // ключ потрібен для повноти Record<type>.
+      purchase: "Редагувати виплату",
     };
     return labels[entry.type];
   }, [entry.type]);

@@ -16,17 +16,30 @@ import type { PaymentMethod } from "@/lib/types";
  * робимо — постачальники зазвичай приймають змішані замовлення.
  */
 
+/** Існуюча закупка для редагування (підмножина полів Purchase). */
+export interface PurchaseEdit {
+  id: string;
+  date: string;
+  amount: number;
+  supplier?: string;
+  comment?: string;
+  paymentType?: PaymentMethod;
+}
+
 interface Props {
   onClose: () => void;
   onSaved: () => void;
+  /** Якщо передано — режим редагування існуючої виплати. */
+  edit?: PurchaseEdit;
 }
 
-export default function PurchaseModal({ onClose, onSaved }: Props) {
-  const [date, setDate] = useState(todayISO());
-  const [amount, setAmount] = useState("");
-  const [supplier, setSupplier] = useState("");
-  const [comment, setComment] = useState("");
-  const [paymentType, setPaymentType] = useState<PaymentMethod>("готівка");
+export default function PurchaseModal({ onClose, onSaved, edit }: Props) {
+  const isEdit = !!edit;
+  const [date, setDate] = useState(edit?.date || todayISO());
+  const [amount, setAmount] = useState(edit ? String(edit.amount) : "");
+  const [supplier, setSupplier] = useState(edit?.supplier || "");
+  const [comment, setComment] = useState(edit?.comment || "");
+  const [paymentType, setPaymentType] = useState<PaymentMethod>(edit?.paymentType || "готівка");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -40,13 +53,15 @@ export default function PurchaseModal({ onClose, onSaved }: Props) {
     setError("");
     try {
       const res = await fetch("/api/purchases", {
-        method: "POST",
+        method: isEdit ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          ...(isEdit ? { id: edit!.id } : {}),
           date,
           amount: amt,
-          supplier: supplier.trim() || undefined,
-          comment: comment.trim() || undefined,
+          // У PATCH передаємо рядки завжди (щоб дозволити очистку); у POST — undefined.
+          supplier: isEdit ? supplier.trim() : (supplier.trim() || undefined),
+          comment: isEdit ? comment.trim() : (comment.trim() || undefined),
           paymentType,
         }),
       });
@@ -54,7 +69,11 @@ export default function PurchaseModal({ onClose, onSaved }: Props) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Не вдалося зберегти");
       }
-      toast.success(`Зафіксовано виплату ${amt.toLocaleString("uk-UA")} ₴`);
+      toast.success(
+        isEdit
+          ? `Виплату оновлено: ${amt.toLocaleString("uk-UA")} ₴`
+          : `Зафіксовано виплату ${amt.toLocaleString("uk-UA")} ₴`,
+      );
       onSaved();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Помилка збереження");
@@ -64,7 +83,7 @@ export default function PurchaseModal({ onClose, onSaved }: Props) {
   }
 
   return (
-    <Modal title="Оплата постачальнику" onClose={onClose}>
+    <Modal title={isEdit ? "Редагувати виплату" : "Оплата постачальнику"} onClose={onClose}>
       <Field label="Дата">
         <SingleDatePicker value={date} onChange={setDate} />
       </Field>

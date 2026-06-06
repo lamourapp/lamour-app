@@ -63,7 +63,7 @@ export interface Specialist {
 export interface JournalEntry {
   id: string;
   date: string;
-  type: "service" | "sale" | "expense" | "rental" | "debt";
+  type: "service" | "sale" | "expense" | "rental" | "debt" | "purchase";
   title: string;
   specialistId?: string;
   specialistName?: string;
@@ -105,4 +105,9 @@ export interface JournalEntry {
    * Для історичних записів до введення цього поля — `undefined`.
    */
   paymentType?: PaymentMethod;
+  /**
+   * Постачальник — тільки для type === "purchase" (виплата за товари/
+   * матеріали). Вільний текст, може бути порожнім.
+   */
+  supplier?: string;
 }

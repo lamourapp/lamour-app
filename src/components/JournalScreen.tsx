@@ -11,6 +11,7 @@ import CalendarPicker from "./CalendarPicker";
 import CreateEntryModal from "./CreateEntryModal";
 import ServiceEntryModal from "./ServiceEntryModal";
 import QuickEditEntryModal from "./QuickEditEntryModal";
+import PurchaseModal from "./owner/PurchaseModal";
 import ScrollToTop from "./ScrollToTop";
 import SearchableSelect from "./SearchableSelect";
 import { toast } from "./Toast";
@@ -23,6 +24,7 @@ function TypeDot({ type }: { type: JournalEntry["type"] }) {
     expense: "bg-gray-300",
     rental: "bg-amber-400",
     debt: "bg-red-400",
+    purchase: "bg-indigo-400",
   };
   return <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${colors[type] || "bg-gray-300"}`} />;
 }
@@ -34,6 +36,7 @@ function TypeLabel({ type }: { type: JournalEntry["type"] }) {
     expense: "витрата",
     rental: "оренда",
     debt: "розрахунок",
+    purchase: "закупка",
   };
   const colors: Record<string, string> = {
     service: "text-gray-400",
@@ -41,6 +44,7 @@ function TypeLabel({ type }: { type: JournalEntry["type"] }) {
     expense: "text-gray-400",
     rental: "text-amber-500",
     debt: "text-red-500",
+    purchase: "text-indigo-500",
   };
   return (
     <span className={`text-[10px] uppercase tracking-wider ${colors[type] || "text-gray-400"}`}>
@@ -144,6 +148,20 @@ function EntryBreakdown({ entry, fmt }: { entry: JournalEntry; fmt: Fmt }) {
     );
   }
 
+  // purchase: виплата постачальнику (з якої каси, кому, за що)
+  if (entry.type === "purchase") {
+    return (
+      <div className="space-y-1 pl-4">
+        {entry.supplier && <BreakdownRow label="Постачальник" value={entry.supplier} />}
+        {entry.paymentType && <BreakdownRow label="Каса" value={paymentLabel(entry.paymentType)} muted />}
+        <BreakdownRow label="Сума" value={fmt(entry.amount)} accent="red" />
+        <div className="text-[11px] text-gray-400 italic pt-0.5">
+          Зменшує касу і Фонд матеріалів. Не входить у витрати.
+        </div>
+      </div>
+    );
+  }
+
   // debt: тип руху (нарахування / виплата / довнесення) + каса (крім нарахування)
   if (entry.type === "debt") {
     const comment = (entry.comment ?? "").trim();
@@ -205,6 +223,7 @@ function EntryCard({ entry, onDelete, onEdit, onRestore, fmt }: { entry: Journal
     if (entry.type === "expense") return !!entry.expenseType || !!entry.paymentType;
     if (entry.type === "debt") return !!entry.paymentType || !!entry.comment;
     if (entry.type === "rental") return !!hasMaterials || !!entry.paymentType;
+    if (entry.type === "purchase") return true;
     return false;
   })();
 
@@ -384,6 +403,7 @@ const typeFilters = [
   { id: "expense", name: "Витрати" },
   { id: "debt", name: "Борги" },
   { id: "rental", name: "Оренда" },
+  { id: "purchase", name: "Закупки" },
 ];
 
 export default function JournalScreen() {
@@ -415,6 +435,15 @@ export default function JournalScreen() {
   async function handleDelete(id: string) {
     setDeleting(id);
     try {
+      // Закупки живуть в окремій таблиці — їх видаляє /api/purchases (hard
+      // delete, бо у них немає soft-delete/isCanceled на відміну від журналу).
+      const entry = entries.find((e) => e.id === id);
+      if (entry?.type === "purchase") {
+        const res = await fetch(`/api/purchases?id=${id}`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Failed to delete purchase");
+        reload();
+        return;
+      }
       const res = await fetch("/api/journal", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
@@ -784,12 +813,28 @@ export default function JournalScreen() {
           }}
         />
       )}
-      {editingEntry && editingEntry.type !== "service" && editingEntry.type !== "rental" && editingEntry.type !== "sale" && (
+      {editingEntry && editingEntry.type !== "service" && editingEntry.type !== "rental" && editingEntry.type !== "sale" && editingEntry.type !== "purchase" && (
         <QuickEditEntryModal
           entry={editingEntry}
           specialists={specialists}
           onClose={() => setEditingEntry(null)}
           onSaved={reload}
+        />
+      )}
+      {/* Purchase — окрема модалка (інша таблиця Airtable). Редагуємо суму/
+          дату/постачальника/касу; видалення — через handleDelete нижче. */}
+      {editingEntry && editingEntry.type === "purchase" && (
+        <PurchaseModal
+          edit={{
+            id: editingEntry.id,
+            date: editingEntry.date,
+            amount: Math.abs(editingEntry.amount),
+            supplier: editingEntry.supplier,
+            comment: editingEntry.comment,
+            paymentType: editingEntry.paymentType,
+          }}
+          onClose={() => setEditingEntry(null)}
+          onSaved={() => { setEditingEntry(null); reload(); }}
         />
       )}
     </div>

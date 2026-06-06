@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   fetchAllRecords,
   createRecord,
+  updateRecord,
   deleteRecord,
   TABLES,
 } from "@/lib/airtable";
@@ -106,6 +107,47 @@ export async function POST(request: NextRequest) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
     console.error("POST /api/purchases failed:", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id, date, amount, supplier, comment, paymentType } = body || {};
+
+    if (typeof id !== "string" || !id.startsWith("rec")) {
+      return NextResponse.json({ error: "id required" }, { status: 400 });
+    }
+
+    const fields: Record<string, unknown> = {};
+    if (typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      fields[PURCHASE_FIELDS.date] = date;
+    }
+    if (typeof amount === "number" && Number.isFinite(amount) && amount > 0) {
+      fields[PURCHASE_FIELDS.amount] = amount;
+    }
+    // Текстові поля: дозволяємо очистку (порожній рядок → null), щоб
+    // користувач міг прибрати помилкового постачальника/коментар.
+    if (typeof supplier === "string") {
+      fields[PURCHASE_FIELDS.supplier] = supplier.trim() || null;
+    }
+    if (typeof comment === "string") {
+      fields[PURCHASE_FIELDS.comment] = comment.trim() || null;
+    }
+    if (paymentType === "готівка" || paymentType === "карта") {
+      fields[PURCHASE_FIELDS.paymentType] = paymentType;
+    }
+
+    if (Object.keys(fields).length === 0) {
+      return NextResponse.json({ error: "Нічого оновлювати" }, { status: 400 });
+    }
+
+    const updated = await updateRecord(TABLES.purchases, id, fields);
+    return NextResponse.json(toPurchase(updated));
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Unknown error";
+    console.error("PATCH /api/purchases failed:", msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

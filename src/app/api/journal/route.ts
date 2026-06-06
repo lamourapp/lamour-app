@@ -8,6 +8,7 @@ import {
   SALE_DETAIL_FIELDS,
   CATEGORY_FIELDS,
   ORDER_FIELDS,
+  PURCHASE_FIELDS,
 } from "@/lib/airtable-fields";
 import { ROW_METRICS_SOURCE_FIELDS, computeRowMetrics } from "@/lib/service-row";
 import { isPaymentMethod } from "@/lib/types";
@@ -103,7 +104,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch journal, specialists, services, price list, and sale details in parallel
-    const [records, specialistRecords, serviceCatalog, priceList, saleDetailRecords, categoryRecords, orderRecords] = await Promise.all([
+    const [records, specialistRecords, serviceCatalog, priceList, saleDetailRecords, categoryRecords, orderRecords, purchaseRecords] = await Promise.all([
       fetchAllRecords(TABLES.services, {
         filterByFormula: dateFilter,
         sort: [{ field: SERVICE_FIELDS.date, direction: "desc" }],
@@ -135,6 +136,21 @@ export async function GET(request: NextRequest) {
       // Замовлення = додаткові матеріали (калькуляція) для послуг. Потрібні
       // в edit-mode, щоб префілити ServiceEntryModal існуючими usages.
       fetchAllRecords(TABLES.orders, { fields: [ORDER_FIELDS.quantity, ORDER_FIELDS.material] }),
+      // Закупки матеріалів (виплати постачальникам) — показуємо в журналі як
+      // окремий тип, щоб власник міг побачити/виправити/видалити. Фільтр по
+      // даті — в коді (окрема таблиця, не індексується нашим dateFilter).
+      // В архіві (includeCanceled) не показуємо — у закупок немає soft-delete.
+      includeCanceled
+        ? Promise.resolve([])
+        : fetchAllRecords(TABLES.purchases, {
+            fields: [
+              PURCHASE_FIELDS.date,
+              PURCHASE_FIELDS.amount,
+              PURCHASE_FIELDS.supplier,
+              PURCHASE_FIELDS.comment,
+              PURCHASE_FIELDS.paymentType,
+            ],
+          }),
     ]);
 
     // Build lookup maps
@@ -374,6 +390,69 @@ export async function GET(request: NextRequest) {
         isCanceled: f[SERVICE_FIELDS.isCanceled] === true ? true : undefined,
       };
     });
+
+    // ── Закупки матеріалів → journal entries (type "purchase") ──────────────
+    // Фільтр по даті в коді. Обчислюємо [lo, hi] вікно, дзеркалячи логіку
+    // dateFilter вище. Виплата постачальнику — відтік грошей, тому amount<0.
+    if (purchaseRecords.length > 0) {
+      const addDays = (iso: string, n: number): string => {
+        const d = new Date(`${iso}T00:00:00`);
+        d.setDate(d.getDate() + n);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      };
+      const todayBase = localToday || (() => {
+        const n = new Date();
+        return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+      })();
+      let lo = "0000-01-01";
+      let hi = "9999-12-31";
+      if (dateFrom && dateTo) {
+        lo = dateFrom;
+        hi = dateTo;
+      } else {
+        switch (period) {
+          case "today": lo = todayBase; hi = todayBase; break;
+          case "yesterday": lo = addDays(todayBase, -1); hi = addDays(todayBase, -1); break;
+          case "week": lo = addDays(todayBase, -6); hi = todayBase; break;
+          case "month": lo = `${todayBase.slice(0, 7)}-01`; hi = todayBase; break;
+          default: lo = addDays(todayBase, -29); hi = todayBase;
+        }
+      }
+
+      const purchaseEntries = purchaseRecords
+        .map((r) => {
+          const f = r.fields;
+          const date = ((f[PURCHASE_FIELDS.date] as string) || "").slice(0, 10);
+          if (!date || date < lo || date > hi) return null;
+          const amount = (f[PURCHASE_FIELDS.amount] as number) || 0;
+          const supplier = (f[PURCHASE_FIELDS.supplier] as string) || "";
+          const comment = (f[PURCHASE_FIELDS.comment] as string) || "";
+          const created = r.createdTime;
+          const time = created ? timeFormatter.format(new Date(created)) : "";
+          const pt = f[PURCHASE_FIELDS.paymentType];
+          return {
+            id: r.id,
+            date,
+            type: "purchase" as const,
+            title: supplier || "Закупка матеріалів",
+            amount: -Math.abs(amount),
+            supplier: supplier || undefined,
+            comment: comment || undefined,
+            source: "admin" as const,
+            time,
+            paymentType: isPaymentMethod(pt) ? pt : undefined,
+          };
+        })
+        .filter((e): e is NonNullable<typeof e> => e !== null);
+
+      if (purchaseEntries.length > 0) {
+        // @ts-expect-error — purchase entries мають підмножину полів JournalEntry
+        entries = entries.concat(purchaseEntries).sort((a, b) => {
+          if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+          return 0;
+        });
+      }
+    }
 
     // Client-side specialist filter (Airtable formula doesn't work with record IDs in linked fields)
     if (specialistId) {
