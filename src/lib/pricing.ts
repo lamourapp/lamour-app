@@ -189,11 +189,18 @@ export function totalSalePrice(row: SaleInputs): number {
 /**
  * Дохід Продажі (салону, товари).
  *
- * addonSalePrice (Доповнення продажі) — дискреційна надбавка до продажу —
- * іде повністю салону. Без неї надбавка зависала б у касі: вона входить у
- * totalSalePrice (що клієнт заплатив), але не діставалась би ні майстру
- * (fixedMasterPctForSale — фіксована грн), ні салону → «безхазяйні» кошти.
- * Тепер totalSalePrice повністю розкладається: master + incomeSales + cost.
+ * Доповнення продажі (addonSalePrice) ВХОДИТЬ у базу розрахунку %: при
+ * створенні запису /api/journal рахує частку майстра від суми З доповненням
+ * (saleTotal = ціна + доповнення), пише її у fixedMasterPctForSale, а решту
+ * (salonAmount = saleTotal − майстру) у fixedSalonPctForSale. Тобто майстер
+ * і салон ділять (ціна + доповнення), а не саму ціну.
+ *
+ * incomeSales = чистий салону = (ціна + доповнення) − собівартість − майстру
+ *             = salonAmount − собівартість.
+ *
+ * Раніше формула не додавала addonSalePrice → доповнення зависало в касі як
+ * «безхазяйні» кошти (входило у totalSalePrice, але не в жодну частку).
+ * Тепер totalSalePrice повністю розкладається: майстру + incomeSales + cost.
  */
 export function incomeSales(row: SaleInputs): number {
   return row.addonSalePrice + row.fixedSalePrice - row.fixedCostPrice - row.fixedMasterPctForSale;
