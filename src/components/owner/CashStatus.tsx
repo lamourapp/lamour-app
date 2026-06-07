@@ -57,22 +57,22 @@ export default function CashStatus({ balances, settings, className = "" }: Props
           Залишок у касах
         </div>
         <div className="text-[18px] font-semibold text-gray-900 tabular-nums">
-          {money(Math.round(balances.cashTotal))}
+          {money(balances.cashTotal)}
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] tabular-nums">
         <span className="inline-flex items-baseline gap-1.5">
           <span className="text-gray-500">💵 Готівка:</span>
-          <span className="text-gray-900 font-medium">{money(Math.round(balances.cashByMethod.cash))}</span>
+          <span className="text-gray-900 font-medium">{money(balances.cashByMethod.cash)}</span>
         </span>
         <span className="inline-flex items-baseline gap-1.5">
           <span className="text-gray-500">💳 Карта:</span>
-          <span className="text-gray-900 font-medium">{money(Math.round(balances.cashByMethod.card))}</span>
+          <span className="text-gray-900 font-medium">{money(balances.cashByMethod.card)}</span>
         </span>
-        {Math.abs(balances.cashByMethod.unknown) > 0.5 && (
+        {Math.abs(balances.cashByMethod.unknown) > 0.005 && (
           <span className="inline-flex items-baseline gap-1.5 text-gray-400" title="Історичні записи без вказаної каси">
             <span>? Без каси:</span>
-            <span className="font-medium">{money(Math.round(balances.cashByMethod.unknown))}</span>
+            <span className="font-medium">{money(balances.cashByMethod.unknown)}</span>
           </span>
         )}
       </div>
