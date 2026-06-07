@@ -180,6 +180,14 @@ describe("totalSalePrice + incomeSales", () => {
       incomeSales({ addonSalePrice: 0, fixedSalePrice: 200, fixedCostPrice: 120, fixedMasterPctForSale: 20 }),
     ).toBe(60);
   });
+  it("incomeSales включає доповнення продажу (іде салону, не зависає в касі)", () => {
+    // addon 180 + fixed 655 − cost 0 − master 167 = 668 (салону), а
+    // totalSalePrice = 835 = master 167 + incomeSales 668 + cost 0 → без леку.
+    const sale = { addonSalePrice: 180, fixedSalePrice: 655, fixedCostPrice: 0, fixedMasterPctForSale: 167 };
+    expect(incomeSales(sale)).toBe(668);
+    expect(totalSalePrice(sale)).toBe(835);
+    expect(sale.fixedMasterPctForSale + incomeSales(sale) + sale.fixedCostPrice).toBe(totalSalePrice(sale));
+  });
 });
 
 describe("totalSalonIncome + netSalonForRow", () => {

@@ -186,9 +186,17 @@ export function totalSalePrice(row: SaleInputs): number {
   return row.addonSalePrice + row.fixedSalePrice;
 }
 
-/** Дохід Продажі (салону, товари). */
+/**
+ * Дохід Продажі (салону, товари).
+ *
+ * addonSalePrice (Доповнення продажі) — дискреційна надбавка до продажу —
+ * іде повністю салону. Без неї надбавка зависала б у касі: вона входить у
+ * totalSalePrice (що клієнт заплатив), але не діставалась би ні майстру
+ * (fixedMasterPctForSale — фіксована грн), ні салону → «безхазяйні» кошти.
+ * Тепер totalSalePrice повністю розкладається: master + incomeSales + cost.
+ */
 export function incomeSales(row: SaleInputs): number {
-  return row.fixedSalePrice - row.fixedCostPrice - row.fixedMasterPctForSale;
+  return row.addonSalePrice + row.fixedSalePrice - row.fixedCostPrice - row.fixedMasterPctForSale;
 }
 
 /** Всього дохід салону на одному рядку. */
