@@ -131,7 +131,7 @@ export default function PnlBlock({ current, settings, loading, className = "" }:
         <div>
           <h3 className="text-[14px] font-semibold text-gray-900">P&amp;L за період</h3>
           <p className="text-[12px] text-gray-400 mt-0.5">
-            Від обороту до нерозподіленого залишку
+            Від обороту до залишку періоду
           </p>
         </div>
         {loading && <span className="text-[10px] text-gray-400">завантаження…</span>}
@@ -175,12 +175,18 @@ export default function PnlBlock({ current, settings, loading, className = "" }:
               <PnlRow label="Довнесено власником" value={current.ownerContributions} money={money} sign="+" indent={1} emphasis="muted" />
             )}
             <PnlRow
-              label="Нерозподілений залишок"
+              label="Залишок періоду"
               value={undistributed}
               money={money}
               sign="="
               emphasis="total"
             />
+            {undistributed < -0.005 && (
+              <p className="text-[10px] text-gray-400 leading-snug mt-1.5 pl-1">
+                Власник вивів більше, ніж зароблено за період — різницю покрито
+                з накопиченого прибутку / каси, а не зі збитку.
+              </p>
+            )}
           </>
         )}
       </div>

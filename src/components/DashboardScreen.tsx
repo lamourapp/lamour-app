@@ -271,7 +271,9 @@ export default function DashboardScreen() {
   const payoutQueue = useMemo(
     () =>
       specialists
-        .filter((s) => s.compensationType !== "owner" && (s.balance || 0) > 0)
+        // Поріг 0,005 (півкопійки), а не > 0 — інакше майстер з float-залишком
+        // типу 0.0000001 (показується як 0,00) висить у черзі виплат як «зайвий».
+        .filter((s) => s.compensationType !== "owner" && (s.balance || 0) >= 0.005)
         .sort((a, b) => (b.balance || 0) - (a.balance || 0)),
     [specialists],
   );
