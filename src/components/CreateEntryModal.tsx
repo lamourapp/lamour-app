@@ -54,8 +54,9 @@ export interface EntryEditInitial {
   expenseType?: string;
   specialistId?: string;
   comment?: string;
-  /** Для sale edit — початковий склад і надбавка/знижка. */
-  saleItems?: { productId?: string; quantity: number }[];
+  /** Для sale edit — початковий склад і надбавка/знижка. salePrice/costPrice —
+   *  оригінальні ціни-снепшот, щоб редагування не переписало історичну ціну. */
+  saleItems?: { productId?: string; quantity: number; salePrice?: number; costPrice?: number }[];
   supplement?: number;
   paymentType?: PaymentMethod;
 }
@@ -108,11 +109,14 @@ export default function CreateEntryModal({
   const [specialistId, setSpecialistId] = useState(() => initial?.specialistId || preset?.specialistId || "");
   const [expenseType, setExpenseType] = useState(() => initial?.expenseType || "");
   const [comment, setComment] = useState(() => initial?.comment || preset?.comment || "");
-  const [saleItems, setSaleItems] = useState<{ productId: string; quantity: number }[]>(() => {
+  const [saleItems, setSaleItems] = useState<{ productId: string; quantity: number; origSalePrice?: number; origCostPrice?: number }[]>(() => {
     if (initial?.saleItems && initial.saleItems.length > 0) {
       return initial.saleItems.map((si) => ({
         productId: si.productId || "",
         quantity: si.quantity || 1,
+        // Зберігаємо оригінальні ціни-снепшот для edit-режиму (історична ціна).
+        origSalePrice: si.salePrice,
+        origCostPrice: si.costPrice,
       }));
     }
     return [{ productId: "", quantity: 1 }];
@@ -188,7 +192,11 @@ export default function CreateEntryModal({
       .map((si) => {
         const p = products.find((pr) => pr.id === si.productId);
         if (!p) return null;
-        return { name: p.name, price: p.price, costPrice: p.costPrice, quantity: si.quantity, lineTotal: p.price * si.quantity };
+        // Edit-режим: якщо є оригінальна ціна-снепшот — беремо її, не поточний
+        // прайс (інакше зміна кількості переписала б історичну ціну).
+        const price = si.origSalePrice ?? p.price;
+        const costPrice = si.origCostPrice ?? p.costPrice;
+        return { name: p.name, price, costPrice, quantity: si.quantity, lineTotal: price * si.quantity };
       })
       .filter(Boolean) as { name: string; price: number; costPrice: number; quantity: number; lineTotal: number }[];
 
@@ -277,7 +285,15 @@ export default function CreateEntryModal({
           .filter((si) => si.productId && si.quantity > 0)
           .map((si) => {
             const p = products.find((pr) => pr.id === si.productId);
-            return p ? { productId: si.productId, quantity: si.quantity, salePrice: p.price, costPrice: p.costPrice } : null;
+            if (!p) return null;
+            // Edit: зберігаємо оригінальну ціну-снепшот (історична), нові позиції
+            // беруть поточний прайс.
+            return {
+              productId: si.productId,
+              quantity: si.quantity,
+              salePrice: si.origSalePrice ?? p.price,
+              costPrice: si.origCostPrice ?? p.costPrice,
+            };
           })
           .filter(Boolean);
         body.saleItems = validItems;
@@ -294,17 +310,24 @@ export default function CreateEntryModal({
         throw new Error(data.error || "Failed");
       }
 
-      // Sale edit: старий запис soft-скасовуємо. Якщо впаде — лишиться
-      // дубль, користувач зможе прибрати вручну; не відкочуємо створення.
+      // Sale edit: старий запис soft-скасовуємо. Якщо впаде — лишиться ДУБЛЬ
+      // (новий + старий), що подвоїть дохід/ЗП. Раніше помилка лише
+      // console.warn-илась мовчки — користувач не знав і бачив подвоєні числа.
+      // Тепер перевіряємо res.ok і голосно попереджаємо тостом.
       if (isEdit && initial?.replaceEntryId) {
+        let cancelOk = false;
         try {
-          await fetch("/api/journal", {
+          const delRes = await fetch("/api/journal", {
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id: initial.replaceEntryId }),
           });
+          cancelOk = delRes.ok;
         } catch (err) {
           console.warn("Cancel of old sale entry failed:", err);
+        }
+        if (!cancelOk) {
+          toast.error("Старий запис не скасовано — перевірте журнал, можливий дубль");
         }
       }
 
@@ -460,7 +483,9 @@ export default function CreateEntryModal({
                     selectedId={si.productId}
                     onSelect={(id) => {
                       const updated = [...saleItems];
-                      updated[idx] = { ...updated[idx], productId: id };
+                      // Зміна товару → скидаємо оригінальну ціну-снепшот: тепер це
+                      // інший товар, треба брати його поточний прайс.
+                      updated[idx] = { ...updated[idx], productId: id, origSalePrice: undefined, origCostPrice: undefined };
                       setSaleItems(updated);
                     }}
                     placeholder="Пошук товару…"

@@ -7,6 +7,7 @@ import { moneyFormatter, todayISO } from "@/lib/format";
 import SingleDatePicker from "./SingleDatePicker";
 import SearchableSelect from "./SearchableSelect";
 import PaymentMethodPicker from "./PaymentMethodPicker";
+import { toast } from "./Toast";
 import type { PaymentMethod } from "@/lib/types";
 
 interface Specialist {
@@ -445,17 +446,22 @@ export default function ServiceEntryModal({
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Failed"); }
 
       // Edit-mode: новий запис створено → скасуємо старий. Якщо cancel впаде —
-      // це не критично, користувач побачить обидва записи й зможе скасувати
-      // вручну; показуємо попередження, але не відкочуємо створення.
+      // лишиться ДУБЛЬ (подвоєний дохід/ЗП). Перевіряємо res.ok і голосно
+      // попереджаємо тостом (раніше було тихе console.warn → користувач не знав).
       if (initial?.replaceEntryId) {
+        let cancelOk = false;
         try {
-          await fetch("/api/journal", {
+          const delRes = await fetch("/api/journal", {
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id: initial.replaceEntryId }),
           });
+          cancelOk = delRes.ok;
         } catch (err) {
           console.warn("Cancel of old service entry failed:", err);
+        }
+        if (!cancelOk) {
+          toast.error("Старий запис не скасовано — перевірте журнал, можливий дубль");
         }
       }
 

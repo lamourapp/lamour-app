@@ -67,8 +67,13 @@ function firstString(value: unknown): string {
  * одразу при створенні (без 400-800мс затримки на Airtable lookup), а старі
  * записи без снепшоту й далі читаються через lookup.
  */
-function preferFixed(fixed: unknown, lookup: unknown): number {
-  if (typeof fixed === "number" && fixed !== 0) return fixed;
+function preferFixed(fixed: unknown, lookup: unknown, hasSnapshot = false): number {
+  // Якщо запис має снепшот контексту майстра (hasSnapshot), довіряємо fixed-
+  // значенню НАВІТЬ якщо воно 0 — бо 0% за матеріали цілком легітимний снепшот.
+  // Без цього зміна % на картці майстра ретроактивно перераховувала б старі
+  // записи через lookup, ламаючи immutable-історію балансів.
+  // Для записів без снепшоту (старі/legacy) лишаємо стару поведінку: 0 → lookup.
+  if (typeof fixed === "number" && (fixed !== 0 || hasSnapshot)) return fixed;
   return firstNumber(lookup);
 }
 
@@ -101,7 +106,10 @@ export function masterContextFromRow(f: FieldsMap): MasterContext {
   // commission — стандартний розрахунок частки салону, без вилучення).
   // Тип беремо з fixed-снепшоту якщо є, інакше — з lookup.
   const fixedTypeRaw = f[SERVICE_FIELDS.fixedMasterCompensationType];
-  const typeLabel = typeof fixedTypeRaw === "string" && fixedTypeRaw
+  // Наявність fixedMasterCompensationType = маркер, що запис створено в епоху
+  // снепшотів (POST пише тип + обидва % разом). Тоді fixed-0 — справжній 0.
+  const hasSnapshot = typeof fixedTypeRaw === "string" && fixedTypeRaw !== "";
+  const typeLabel = hasSnapshot
     ? fixedTypeRaw
     : firstString(f[SERVICE_FIELDS.masterCompensationTypeLookup]);
   const type = compensationTypeFromLabel(typeLabel);
@@ -110,10 +118,12 @@ export function masterContextFromRow(f: FieldsMap): MasterContext {
     salonPctForService: preferFixed(
       f[SERVICE_FIELDS.fixedSalonPctForService],
       f[SERVICE_FIELDS.salonPctForServiceLookup],
+      hasSnapshot,
     ),
     masterPctForMaterials: preferFixed(
       f[SERVICE_FIELDS.fixedMasterPctForMaterials],
       f[SERVICE_FIELDS.masterPctForMaterialsLookup],
+      hasSnapshot,
     ),
   };
 }

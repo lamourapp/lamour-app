@@ -162,12 +162,24 @@ function EntryBreakdown({ entry, fmt }: { entry: JournalEntry; fmt: Fmt }) {
     );
   }
 
-  // debt: тип руху (нарахування / виплата / довнесення) + каса (крім нарахування)
+  // debt: тип руху (нарахування / виплата / довнесення / рух власника) + каса
   if (entry.type === "debt") {
     const comment = (entry.comment ?? "").trim();
     const isAccrual = /^нарахування/i.test(comment);
-    const isPayout = entry.amount < 0; // виплата майстру
-    const kind = isAccrual ? "Нарахування ЗП" : isPayout ? "Виплата майстру" : "Довнесення / корекція";
+    const isPayout = entry.amount < 0;
+    // Рух власника визначаємо за коментарем (його ставлять OwnershipScreen).
+    // Раніше вилучення прибутку підписувалось як «Виплата майстру» — невірно.
+    const isOwnerDraw = /вилучен/i.test(comment);
+    const isOwnerContribution = /внесок власника/i.test(comment);
+    const kind = isAccrual
+      ? "Нарахування ЗП"
+      : isOwnerDraw
+        ? "Вилучення прибутку (власник)"
+        : isOwnerContribution
+          ? "Внесок власника"
+          : isPayout
+            ? "Виплата майстру"
+            : "Довнесення / корекція";
     return (
       <div className="space-y-1 pl-4">
         <BreakdownRow label="Тип" value={kind} />
@@ -823,6 +835,10 @@ export default function JournalScreen() {
             saleItems: editingEntry.saleItems?.map((si) => ({
               productId: si.productId,
               quantity: si.quantity,
+              // Оригінальні ціни (снепшот продажу) — щоб редагування кількості
+              // не переписало історичну ціну поточним прайсом.
+              salePrice: si.salePrice,
+              costPrice: si.costPrice,
             })),
             supplement: editingEntry.supplement,
             paymentType: editingEntry.paymentType,

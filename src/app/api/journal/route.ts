@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
       fetchAllRecords(TABLES.specialists, { fields: [SPECIALIST_FIELDS.name] }),
       fetchAllRecords(TABLES.servicesCatalog, { fields: [SERVICE_CATALOG_FIELDS.name, SERVICE_CATALOG_FIELDS.category] }),
       fetchAllRecords(TABLES.priceList, { fields: [PRICE_LIST_FIELDS.name] }),
-      fetchAllRecords(TABLES.saleDetails, { fields: [SALE_DETAIL_FIELDS.quantity, SALE_DETAIL_FIELDS.priceListItem, SALE_DETAIL_FIELDS.fixedSalePrice, SALE_DETAIL_FIELDS.totalDue] }),
+      fetchAllRecords(TABLES.saleDetails, { fields: [SALE_DETAIL_FIELDS.quantity, SALE_DETAIL_FIELDS.priceListItem, SALE_DETAIL_FIELDS.fixedSalePrice, SALE_DETAIL_FIELDS.fixedCostPrice, SALE_DETAIL_FIELDS.totalDue] }),
       fetchAllRecords(TABLES.categories, { fields: [CATEGORY_FIELDS.isRental] }),
       // Замовлення = додаткові матеріали (калькуляція) для послуг. Потрібні
       // в edit-mode, щоб префілити ServiceEntryModal існуючими usages.
@@ -188,9 +188,11 @@ export async function GET(request: NextRequest) {
     const priceMap = new Map<string, string>();
     priceList.forEach((r) => priceMap.set(r.id, (r.fields[PRICE_LIST_FIELDS.name] as string) || ""));
 
-    // Build sale details map: detailId → { productId, productName, quantity, lineTotal }
-    // productId потрібен edit-mode (prefill ProductPicker у CreateEntryModal).
-    const saleDetailMap = new Map<string, { productId: string; productName: string; quantity: number; lineTotal: number }>();
+    // Build sale details map: detailId → { productId, productName, quantity,
+    // lineTotal, salePrice, costPrice }. salePrice/costPrice — снепшот ЦІНИ за
+    // одиницю на момент продажу; потрібні edit-mode, щоб редагування кількості
+    // НЕ переписувало історичну ціну поточним прайсом.
+    const saleDetailMap = new Map<string, { productId: string; productName: string; quantity: number; lineTotal: number; salePrice: number; costPrice: number }>();
     saleDetailRecords.forEach((r) => {
       const priceLinks = r.fields[SALE_DETAIL_FIELDS.priceListItem] as string[] | undefined;
       const productId = priceLinks && priceLinks.length > 0 ? priceLinks[0] : "";
@@ -200,6 +202,8 @@ export async function GET(request: NextRequest) {
         productName,
         quantity: (r.fields[SALE_DETAIL_FIELDS.quantity] as number) || 1,
         lineTotal: (r.fields[SALE_DETAIL_FIELDS.totalDue] as number) || (r.fields[SALE_DETAIL_FIELDS.fixedSalePrice] as number) || 0,
+        salePrice: (r.fields[SALE_DETAIL_FIELDS.fixedSalePrice] as number) || 0,
+        costPrice: (r.fields[SALE_DETAIL_FIELDS.fixedCostPrice] as number) || 0,
       });
     });
 
@@ -241,7 +245,7 @@ export async function GET(request: NextRequest) {
 
       // Get product name for sales + build saleItems from detail records
       const detailLinks = f[SERVICE_FIELDS.saleDetails] as string[] | undefined;
-      let saleItems: { productId?: string; productName: string; quantity: number; lineTotal: number }[] | undefined;
+      let saleItems: { productId?: string; productName: string; quantity: number; lineTotal: number; salePrice?: number; costPrice?: number }[] | undefined;
 
       if (type === "sale") {
         if (detailLinks && detailLinks.length > 0) {
@@ -267,6 +271,8 @@ export async function GET(request: NextRequest) {
             productName: title,
             quantity: 1,
             lineTotal: metrics.totalSalePrice,
+            salePrice: (f[SERVICE_FIELDS.fixedSalePrice] as number) || metrics.totalSalePrice,
+            costPrice: (f[SERVICE_FIELDS.fixedCostPrice] as number) || 0,
           }];
         }
       }
@@ -619,7 +625,10 @@ export async function POST(request: NextRequest) {
           const specRate = specResult.records.length > 0
             ? (specResult.records[0].fields[SPECIALIST_FIELDS.masterPctForSale] as number) || 0
             : 0;
-          const specialistAmount = Math.round(saleTotal * specRate / 100);
+          // Округлюємо до КОПІЙОК (не до цілих грн): зберігання округленої до
+          // гривні комісії давало ±0.5₴ розходження у netSalon/owner-пулі після
+          // того як з дашбордів прибрали округлення «до копійки».
+          const specialistAmount = Math.round(saleTotal * specRate) / 100;
           const salonAmount = saleTotal - specialistAmount;
           fields[SERVICE_FIELDS.fixedMasterPctForSale] = specialistAmount;
           fields[SERVICE_FIELDS.fixedSalonPctForSale] = salonAmount;
