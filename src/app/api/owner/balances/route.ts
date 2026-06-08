@@ -120,7 +120,12 @@ export async function GET() {
         } else if (debt !== 0) {
           if (isAccrual && debt > 0) m.accrued += debt;           // +ЗП salary
           else if (debt < 0) m.paid += Math.abs(debt);            // виплата/аванс
-          // debt>0 non-accrual на майстра — "довнесення/корекція", в owed не йде
+          // debt>0 non-accrual = повернення переплати / корекція (майстер
+          // повертає кошти). Зменшує «виплачено» → owed = accrued − paid стає
+          // консистентним з computeBalances (/api/specialists), де
+          // masterBalance = Σ masterPayTotal + Σ усі борги. Без цього додатне
+          // повернення «зависало» і дашборд показував привид «винні майстрам».
+          else if (debt > 0) m.paid -= debt;
         }
       }
     }
