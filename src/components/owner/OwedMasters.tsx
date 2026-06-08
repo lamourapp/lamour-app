@@ -39,7 +39,7 @@ export default function OwedMasters({ owedToMasters, owedTotal, settings, classN
           <span className="text-[10px] text-amber-600/80">{expanded ? "▾" : "▸"}</span>
         </div>
         <div className="text-[14px] font-semibold text-amber-900 tabular-nums">
-          {money(Math.round(owedTotal))}
+          {money(owedTotal)}
         </div>
       </button>
       {expanded && (
@@ -49,9 +49,9 @@ export default function OwedMasters({ owedToMasters, owedTotal, settings, classN
               <span className="text-gray-700 truncate pr-2">{m.name}</span>
               <span
                 className={`tabular-nums font-medium ${m.owed < 0 ? "text-emerald-600" : "text-gray-900"}`}
-                title={`Нараховано ${money(Math.round(m.accrued))} − Виплачено ${money(Math.round(m.paid))}`}
+                title={`Нараховано ${money(m.accrued)} − Виплачено ${money(m.paid)}`}
               >
-                {money(Math.round(m.owed))}
+                {money(m.owed)}
               </span>
             </div>
           ))}

@@ -468,7 +468,7 @@ export default function DashboardScreen() {
                   Залишок у касах
                 </div>
                 <div className="text-[18px] font-semibold text-gray-900 tabular-nums">
-                  {fmt(Math.round(cashBalance.cashTotal))}
+                  {fmt(cashBalance.cashTotal)}
                 </div>
               </div>
               {/* Inline-рядок з breakdown: 💵 / 💳 / ? — компактніше ніж grid 2×1,
@@ -476,16 +476,16 @@ export default function DashboardScreen() {
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] tabular-nums">
                 <span className="inline-flex items-baseline gap-1.5">
                   <span className="text-gray-500">💵 Готівка:</span>
-                  <span className="text-gray-900 font-medium">{fmt(Math.round(cashBalance.cashByMethod.cash))}</span>
+                  <span className="text-gray-900 font-medium">{fmt(cashBalance.cashByMethod.cash)}</span>
                 </span>
                 <span className="inline-flex items-baseline gap-1.5">
                   <span className="text-gray-500">💳 Карта:</span>
-                  <span className="text-gray-900 font-medium">{fmt(Math.round(cashBalance.cashByMethod.card))}</span>
+                  <span className="text-gray-900 font-medium">{fmt(cashBalance.cashByMethod.card)}</span>
                 </span>
                 {Math.abs(cashBalance.cashByMethod.unknown) > 0.5 && (
                   <span className="inline-flex items-baseline gap-1.5 text-gray-400" title="Історичні записи без вказаної каси">
                     <span>? Без каси:</span>
-                    <span className="font-medium">{fmt(Math.round(cashBalance.cashByMethod.unknown))}</span>
+                    <span className="font-medium">{fmt(cashBalance.cashByMethod.unknown)}</span>
                   </span>
                 )}
               </div>
@@ -509,16 +509,16 @@ export default function DashboardScreen() {
                 <div className="space-y-0.5 text-[12px] tabular-nums">
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-gray-500">Прихід:</span>
-                    <span className="text-emerald-600 font-medium">+{fmt(Math.round(m.totalRevenue + m.contributed))}</span>
+                    <span className="text-emerald-600 font-medium">+{fmt(m.totalRevenue + m.contributed)}</span>
                   </div>
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-gray-500">Витрати:</span>
-                    <span className="text-red-500 font-medium">−{fmt(Math.round(m.expenses + m.paidOut))}</span>
+                    <span className="text-red-500 font-medium">−{fmt(m.expenses + m.paidOut)}</span>
                   </div>
                   <div className="flex items-baseline gap-1.5 pt-0.5">
                     <span className="text-gray-600 font-medium">Різниця:</span>
                     <span className={`font-semibold ${m.cashInRegister >= 0 ? "text-emerald-700" : "text-red-600"}`}>
-                      {m.cashInRegister >= 0 ? "+" : ""}{fmt(Math.round(m.cashInRegister))}
+                      {m.cashInRegister >= 0 ? "+" : ""}{fmt(m.cashInRegister)}
                     </span>
                   </div>
                 </div>
@@ -552,7 +552,7 @@ export default function DashboardScreen() {
                     />
                     <YAxis hide domain={[0, "auto"]} />
                     <Tooltip
-                      formatter={(v) => [fmt(Math.round(Number(v) || 0)), "виручка"]}
+                      formatter={(v) => [fmt(Number(v) || 0), "виручка"]}
                       labelFormatter={(d) => String(d).split("-").reverse().join(".")}
                       contentStyle={{
                         fontSize: 11,
@@ -588,7 +588,7 @@ export default function DashboardScreen() {
                 <div className="text-[11px] text-gray-500 tabular-nums">
                   {payoutQueue.length} {payoutQueue.length === 1 ? "майстер" : "майстрів"} ·{" "}
                   <span className="font-medium text-gray-700">
-                    {fmt(Math.round(payoutQueue.reduce((s, m) => s + (m.balance || 0), 0)))}
+                    {fmt(payoutQueue.reduce((s, m) => s + (m.balance || 0), 0))}
                   </span>
                 </div>
               </div>
@@ -601,11 +601,11 @@ export default function DashboardScreen() {
                     <div className="text-[13px] text-gray-800 truncate">{s.name}</div>
                     <div className="flex items-center gap-2 shrink-0">
                       <div className="text-[13px] font-semibold tabular-nums text-red-600">
-                        {fmt(Math.round(s.balance || 0))}
+                        {fmt(s.balance || 0)}
                       </div>
                       <button
                         type="button"
-                        onClick={() => setPayoutTarget({ id: s.id, name: s.name, amount: Math.round(s.balance || 0) })}
+                        onClick={() => setPayoutTarget({ id: s.id, name: s.name, amount: Math.round((s.balance || 0) * 100) / 100 })}
                         className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-brand-600 text-white hover:bg-brand-700 cursor-pointer transition-colors"
                       >
                         Виплатити
@@ -638,18 +638,18 @@ export default function DashboardScreen() {
 
             {/* Row 1: salon share — matches original layout */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
-              <MetricCard label="% салону за послуги" value={Math.round(m.salonServiceShare)} fmt={fmt} />
-              <MetricCard label="% салону за матеріали" value={Math.round(m.salonMaterialShare)} fmt={fmt} />
-              <MetricCard label="% салону за продажі" value={Math.round(m.salonSalesShare)} fmt={fmt} />
-              <MetricCard label="Всього салону" value={Math.round(m.salonTotal)} fmt={fmt} variant="green" />
+              <MetricCard label="% салону за послуги" value={m.salonServiceShare} fmt={fmt} />
+              <MetricCard label="% салону за матеріали" value={m.salonMaterialShare} fmt={fmt} />
+              <MetricCard label="% салону за продажі" value={m.salonSalesShare} fmt={fmt} />
+              <MetricCard label="Всього салону" value={m.salonTotal} fmt={fmt} variant="green" />
             </div>
 
             {/* Row 2: specialist share */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
-              <MetricCard label="% спеціалісту за послуги" value={Math.round(m.specialistServiceShare)} fmt={fmt} />
-              <MetricCard label="% спеціалісту за матеріали" value={Math.round(m.specialistMaterialShare)} fmt={fmt} />
-              <MetricCard label="% спеціалісту за продажі" value={Math.round(m.specialistSalesShare)} fmt={fmt} />
-              <MetricCard label="Всього оплата спеціалісту" value={Math.round(m.specialistTotal)} fmt={fmt} variant="green-light" />
+              <MetricCard label="% спеціалісту за послуги" value={m.specialistServiceShare} fmt={fmt} />
+              <MetricCard label="% спеціалісту за матеріали" value={m.specialistMaterialShare} fmt={fmt} />
+              <MetricCard label="% спеціалісту за продажі" value={m.specialistSalesShare} fmt={fmt} />
+              <MetricCard label="Всього оплата спеціалісту" value={m.specialistTotal} fmt={fmt} variant="green-light" />
             </div>
 
             {/* Row 3: debts, expenses, payouts, rental, cash */}
@@ -657,34 +657,34 @@ export default function DashboardScreen() {
               <MetricCard
                 label="Борги"
                 sublabel={totalDebt > 0 ? "салон винен · актуально" : totalDebt < 0 ? "нам винні · актуально" : "баланс · актуально"}
-                value={Math.round(totalDebt)}
+                value={totalDebt}
                 fmt={fmt}
                 variant={totalDebt !== 0 ? "negative" : "default"}
               />
-              <MetricCard label="Витрати" sublabel="операційні" value={Math.round(m.expenses)} fmt={fmt} />
-              <MetricCard label="Виплати" sublabel="майстрам і власнику" value={Math.round(m.paidOut)} fmt={fmt} />
-              <MetricCard label="Оренда" sublabel="без матеріалів" value={Math.round(m.rentalSum)} fmt={fmt} />
+              <MetricCard label="Витрати" sublabel="операційні" value={m.expenses} fmt={fmt} />
+              <MetricCard label="Виплати" sublabel="майстрам і власнику" value={m.paidOut} fmt={fmt} />
+              <MetricCard label="Оренда" sublabel="без матеріалів" value={m.rentalSum} fmt={fmt} />
               {/* Рух за період (нетто) — скільки зайшло/вийшло з кас за
                   обраний день/тиждень/місяць. Не плутати з «Залишок у
                   касах» (lifetime, окремою карткою зверху) — тут саме
                   period-delta. Розбивка 💵/💳 теж period-only. */}
               <div
                 className="rounded-xl border p-3.5 transition-transform hover:-translate-y-px bg-white border-black/[0.06]"
-                title={`Виручка − витрати − виплати за ${periodShort}. 💵 ${fmt(Math.round(m.cashByMethod.cash))}  ·  💳 ${fmt(Math.round(m.cashByMethod.card))}${Math.abs(m.cashByMethod.unknown) > 0.5 ? `  ·  ? ${fmt(Math.round(m.cashByMethod.unknown))}` : ""}`}
+                title={`Виручка − витрати − виплати за ${periodShort}. 💵 ${fmt(m.cashByMethod.cash)}  ·  💳 ${fmt(m.cashByMethod.card)}${Math.abs(m.cashByMethod.unknown) > 0.5 ? `  ·  ? ${fmt(m.cashByMethod.unknown)}` : ""}`}
               >
                 <div className="text-[10px] uppercase tracking-wider mb-1 text-gray-400">Рух за {periodShort}</div>
                 <div className="text-[9px] text-gray-400 -mt-0.5 mb-1">виручка − витрати − виплати</div>
                 <div className="text-lg font-semibold tabular-nums text-gray-900">
-                  {fmt(Math.round(m.cashInRegister))}
+                  {fmt(m.cashInRegister)}
                 </div>
                 <div className="text-[10px] text-gray-500 mt-1 tabular-nums flex items-center gap-2 flex-wrap leading-tight">
-                  <span>💵 {fmt(Math.round(m.cashByMethod.cash))}</span>
+                  <span>💵 {fmt(m.cashByMethod.cash)}</span>
                   <span className="text-gray-300">·</span>
-                  <span>💳 {fmt(Math.round(m.cashByMethod.card))}</span>
+                  <span>💳 {fmt(m.cashByMethod.card)}</span>
                   {Math.abs(m.cashByMethod.unknown) > 0.5 && (
                     <>
                       <span className="text-gray-300">·</span>
-                      <span className="text-gray-400" title="Історичні записи без вказаної каси">? {fmt(Math.round(m.cashByMethod.unknown))}</span>
+                      <span className="text-gray-400" title="Історичні записи без вказаної каси">? {fmt(m.cashByMethod.unknown)}</span>
                     </>
                   )}
                 </div>
@@ -697,7 +697,7 @@ export default function DashboardScreen() {
             <MetricCard
               label="Середній чек"
               sublabel="послуги + продажі"
-              value={Math.round(avgCheck)}
+              value={avgCheck}
               fmt={fmt}
               variant="brand-dark"
             />

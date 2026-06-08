@@ -104,13 +104,13 @@ function CashMeta({ cash, card, unknown, money }: {
   if (Math.abs(cash) + Math.abs(card) + Math.abs(unknown) < 1) return null;
   return (
     <div className="text-[10px] text-gray-400 tabular-nums pl-5 flex gap-2 flex-wrap -mt-0.5 mb-1">
-      <span>💵 {money(Math.round(cash))}</span>
+      <span>💵 {money(cash)}</span>
       <span className="text-gray-300">·</span>
-      <span>💳 {money(Math.round(card))}</span>
+      <span>💳 {money(card)}</span>
       {hasUnknown && (
         <>
           <span className="text-gray-300">·</span>
-          <span title="Історичні записи без вказаної каси">? {money(Math.round(unknown))}</span>
+          <span title="Історичні записи без вказаної каси">? {money(unknown)}</span>
         </>
       )}
     </div>

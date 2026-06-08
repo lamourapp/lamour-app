@@ -122,33 +122,33 @@ export default function HeroMetrics({ current, previous, balances, settings, loa
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 mb-3">
       <MetricCard
         label="Оборот"
-        value={money(Math.round(totalRevenue))}
+        value={money(totalRevenue)}
         delta={deltaPct(totalRevenue, prevRevenue)}
         sub={`${current.countRevenue} візитів`}
         loading={loading}
       />
       <MetricCard
         label="Чистий"
-        value={money(Math.round(netProfit))}
+        value={money(netProfit)}
         delta={deltaPct(netProfit, prevNet)}
         accent="emerald"
         loading={loading}
       />
       <MetricCard
         label="Каса"
-        value={balances ? money(Math.round(balances.cashTotal)) : "—"}
+        value={balances ? money(balances.cashTotal) : "—"}
         accent="brand"
         sub={balances ? (
           <>
-            💵 {money(Math.round(balances.cashByMethod.cash))}
+            💵 {money(balances.cashByMethod.cash)}
             <span className="text-gray-300 mx-1.5">·</span>
-            💳 {money(Math.round(balances.cashByMethod.card))}
+            💳 {money(balances.cashByMethod.card)}
           </>
         ) : null}
       />
       <MetricCard
         label="Середній чек"
-        value={money(Math.round(avgCheck))}
+        value={money(avgCheck)}
         delta={deltaPct(avgCheck, avgCheckPrev)}
         loading={loading}
       />
