@@ -54,9 +54,16 @@ export function formatMoney(
     locale = "uk-UA",
   } = opts ?? {};
   const symbol = currencySymbol(currency);
-  const abs = Math.abs(amount).toLocaleString(locale, { maximumFractionDigits, minimumFractionDigits });
-  if (amount < 0) return `−${abs} ${symbol}`;
-  if (signed && amount > 0) return `+${abs} ${symbol}`;
+  // Знак визначаємо по ОКРУГЛЕНОМУ до видимої точності значенню, а не по сирому.
+  // Інакше сума багатьох float-ів типу −0.0000001 (або негативний нуль −0)
+  // показувалась як «−0,00»: технічно < 0, але візуально нуль. Округлення тут
+  // же «прибиває» хвіст, і будь-що, що округлюється до 0, рендериться як чистий
+  // «0,00» без знака.
+  const factor = Math.pow(10, maximumFractionDigits);
+  const rounded = Math.round((amount + Number.EPSILON) * factor) / factor;
+  const abs = Math.abs(rounded).toLocaleString(locale, { maximumFractionDigits, minimumFractionDigits });
+  if (rounded < 0) return `−${abs} ${symbol}`;
+  if (signed && rounded > 0) return `+${abs} ${symbol}`;
   return `${abs} ${symbol}`;
 }
 
