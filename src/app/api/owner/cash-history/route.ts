@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { fetchAllRecords, TABLES } from "@/lib/airtable";
-import { SERVICE_FIELDS } from "@/lib/airtable-fields";
+import { SERVICE_FIELDS, PURCHASE_FIELDS } from "@/lib/airtable-fields";
 import { ROW_METRICS_SOURCE_FIELDS, computeRowMetrics } from "@/lib/service-row";
+import { cashDeltaForServiceRow, cashDeltaForPurchase } from "@/lib/cash";
 
 export const runtime = "nodejs";
 
@@ -72,35 +73,34 @@ export async function GET(request: Request) {
       ? todayParam
       : toISODate(new Date());
 
-    const records = await fetchAllRecords(TABLES.services, {
-      filterByFormula: `NOT({${SERVICE_FIELDS.isCanceled}})`,
-      fields: FIELDS,
-    });
+    const [records, purchaseRecs] = await Promise.all([
+      fetchAllRecords(TABLES.services, {
+        filterByFormula: `NOT({${SERVICE_FIELDS.isCanceled}})`,
+        fields: FIELDS,
+      }),
+      fetchAllRecords(TABLES.purchases, {
+        fields: [PURCHASE_FIELDS.date, PURCHASE_FIELDS.amount],
+      }),
+    ]);
 
-    // 1) deltaByDate: сумарна зміна каси за кожен день.
+    // 1) deltaByDate: сумарна зміна каси за кожен день. Логіка руху — з cash.ts
+    //    (єдине джерело правди, дзеркало /api/owner/balances).
     const deltaByDate = new Map<string, number>();
     for (const r of records) {
       const f = r.fields;
       const date = f[SERVICE_FIELDS.date] as string | undefined;
       if (!date) continue; // без дати не можемо розмістити на таймлайні
-
-      const expense = (f[SERVICE_FIELDS.expenseAmount] as number | undefined) || 0;
-      const debt = (f[SERVICE_FIELDS.debtAmount] as number | undefined) || 0;
-      const comment = ((f[SERVICE_FIELDS.comments] as string | undefined) ?? "").trim();
-      const isAccrual = /^нарахування/i.test(comment);
-
-      let delta = 0;
-      if (expense !== 0) {
-        delta = -Math.abs(expense);
-      } else if (debt !== 0) {
-        if (!isAccrual) delta = debt; // signed
-      } else {
-        const m = computeRowMetrics(f);
-        delta = m.totalServicePrice + m.totalSalePrice;
-      }
+      const delta = cashDeltaForServiceRow(f, computeRowMetrics(f));
       if (delta === 0) continue;
-
       deltaByDate.set(date, (deltaByDate.get(date) || 0) + delta);
+    }
+    // Закупки постачальникам — теж рух каси (відтік). Раніше тренд їх ігнорував,
+    // через що sparkline розходився з фактичним «Залишком у касах».
+    for (const p of purchaseRecs) {
+      const date = ((p.fields[PURCHASE_FIELDS.date] as string | undefined) ?? "").slice(0, 10);
+      const amount = (p.fields[PURCHASE_FIELDS.amount] as number | undefined) || 0;
+      if (!date || amount <= 0) continue;
+      deltaByDate.set(date, (deltaByDate.get(date) || 0) + cashDeltaForPurchase(amount));
     }
 
     if (deltaByDate.size === 0) {

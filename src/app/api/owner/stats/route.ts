@@ -11,6 +11,7 @@ import {
   PURCHASE_FIELDS,
 } from "@/lib/airtable-fields";
 import { ROW_METRICS_SOURCE_FIELDS, computeRowMetrics } from "@/lib/service-row";
+import { cashDeltaForServiceRow, paymentBucket, isAccrualComment } from "@/lib/cash";
 
 export const runtime = "nodejs";
 
@@ -203,9 +204,7 @@ function aggregate(records: Row[], ownerIds?: ReadonlySet<string>): Aggregates {
     const debt = (f[SERVICE_FIELDS.debtAmount] as number | undefined) || 0;
     const salesLinks = f[SERVICE_FIELDS.sales] as string[] | undefined;
     const serviceLinks = f[SERVICE_FIELDS.service] as string[] | undefined;
-    const payment = f[SERVICE_FIELDS.paymentType] as string | undefined;
-    const mk: "cash" | "card" | "unknown" =
-      payment === "готівка" ? "cash" : payment === "карта" ? "card" : "unknown";
+    const mk = paymentBucket(f[SERVICE_FIELDS.paymentType] as string | undefined);
 
     let type: "service" | "sale" | "expense" | "debt" = "service";
     if (expense !== 0) type = "expense";
@@ -214,10 +213,13 @@ function aggregate(records: Row[], ownerIds?: ReadonlySet<string>): Aggregates {
 
     agg.count += 1;
 
+    // Рух каси — єдина логіка з cash.ts (один accrual-детект, одна база виручки).
+    // Тип-специфічні агрегати (revenue/expense split, owner-рух) — нижче.
+    agg.cashByMethod[mk] += cashDeltaForServiceRow(f, metrics);
+
     if (type === "expense") {
       agg.expensesTotal += Math.abs(expense);
       agg.expensesByMethod[mk] += Math.abs(expense);
-      agg.cashByMethod[mk] -= Math.abs(expense);
     } else if (type === "debt") {
       // Борги з майстрами — внутрішні перекази, в оборот/дохід не йдуть.
       // АЛЕ якщо запис прив'язаний до власника, це рух прибутку:
@@ -231,22 +233,15 @@ function aggregate(records: Row[], ownerIds?: ReadonlySet<string>): Aggregates {
         if (masterLinks && masterLinks.some((id) => ownerIds.has(id))) {
           // Нарахування ЗП (debt > 0 + "Нарахування…" у коментарі) для майстра-
           // власника — це liability по його master-частині, а НЕ owner-внесок.
-          const comment = (f[SERVICE_FIELDS.comments] as string | undefined) ?? "";
-          const isAccrual = debt > 0 && comment.startsWith("Нарахування");
+          // Єдиний детект з cash.ts (раніше тут був case-sensitive startsWith).
+          const isAccrual = debt > 0 && isAccrualComment(f[SERVICE_FIELDS.comments] as string | undefined);
           if (!isAccrual) {
             if (debt < 0) agg.ownerWithdrawals += Math.abs(debt);
             else agg.ownerContributions += debt;
           }
         }
       }
-      // Рух коштів: виплата (debt<0) виводить з каси, довнесення (debt>0,
-      // НЕ «Нарахування…») — заводить у касу. Accrual — бухгалтерський рух
-      // без касової операції, в касі не відбивається.
-      const comment = (f[SERVICE_FIELDS.comments] as string | undefined) ?? "";
-      const isAccrual = /^нарахування/i.test(comment.trim());
-      if (!isAccrual) {
-        agg.cashByMethod[mk] += debt < 0 ? -Math.abs(debt) : Math.abs(debt);
-      }
+      // Рух каси для debt уже враховано через cashDeltaForServiceRow вище.
     } else {
       // Service or sale (or combined row): турнувер — з окремих полів,
       // чисті доходи — з формул (= 0, коли відповідної операції немає).
@@ -265,9 +260,9 @@ function aggregate(records: Row[], ownerIds?: ReadonlySet<string>): Aggregates {
       // Накопичена сума "чужих" грошей, що лежать у касі для постачальників.
       agg.materialsCogs += metrics.materialsCogs;
       // Вся виручка запису (те, що клієнт фактично поклав у касу) —
-      // повна вартість послуги + продажів у цьому ж записі.
+      // повна вартість послуги + продажів. Рух каси вже додано вище через
+      // cashDeltaForServiceRow; тут лише розбивка обороту по касах.
       const entryRevenue = metrics.totalServicePrice + metrics.totalSalePrice;
-      agg.cashByMethod[mk] += entryRevenue;
       agg.revenueByMethod[mk] += entryRevenue;
       agg.countRevenue += 1;
     }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useJournal, useSpecialists, useSettings } from "@/lib/hooks";
 import type { JournalEntry } from "@/lib/types";
 import { moneyFormatter } from "@/lib/format";
+import { isAccrualComment } from "@/lib/cash";
 
 type Fmt = (amount: number, opts?: { signed?: boolean; maximumFractionDigits?: number }) => string;
 import CalendarPicker from "./CalendarPicker";
@@ -96,15 +97,16 @@ function computeMetrics(entries: JournalEntry[]) {
   let paidOut = 0; // |debts < 0| — виплати майстрам/власнику
   let contributed = 0; // debts > 0 — довнесення
   let accrued = 0; // нарахування ЗП (liability, НЕ рух готівки)
+  let purchases = 0; // виплати постачальникам (відтік каси, НЕ операційна витрата)
 
-  // Розбивка руху каси за способом оплати. Вхідний потік (виручка) − витрати +
-  // signed borgs-рух. Для історичних записів без paymentType — bucket "unknown".
-  // Сума трьох buckets === cashInRegister (контроль у тестах та дев-режимі).
+  // Розбивка руху каси за способом оплати. Вхідний потік (виручка) − витрати −
+  // закупки + signed borgs-рух. Для історичних записів без paymentType —
+  // bucket "unknown". Сума трьох buckets === cashInRegister.
   type BucketKey = "готівка" | "карта" | "unknown";
-  const byMethod: Record<BucketKey, { revenue: number; expenses: number; debts: number }> = {
-    "готівка": { revenue: 0, expenses: 0, debts: 0 },
-    "карта":   { revenue: 0, expenses: 0, debts: 0 },
-    "unknown": { revenue: 0, expenses: 0, debts: 0 },
+  const byMethod: Record<BucketKey, { revenue: number; expenses: number; debts: number; purchases: number }> = {
+    "готівка": { revenue: 0, expenses: 0, debts: 0, purchases: 0 },
+    "карта":   { revenue: 0, expenses: 0, debts: 0, purchases: 0 },
+    "unknown": { revenue: 0, expenses: 0, debts: 0, purchases: 0 },
   };
 
   let countServices = 0;
@@ -139,8 +141,9 @@ function computeMetrics(entries: JournalEntry[]) {
     } else if (e.type === "debt") {
       // Нарахування ЗП (salary/hourly) — це liability, а НЕ рух готівки. Вони
       // створюються з debtSign="+" щоб збільшити баланс майстра, але кошти не
-      // заходять у касу. Визначаємо за префіксом коментаря (див. StaffScreen).
-      const isAccrual = e.amount > 0 && (e.comment ?? "").startsWith("Нарахування");
+      // заходять у касу. Детект — єдиний з cash.ts (раніше тут був
+      // case-sensitive startsWith → розходився з серверними роутами).
+      const isAccrual = isAccrualComment(e.comment);
       if (isAccrual) {
         accrued += e.amount;
         // НЕ додаємо до debts / contributed — касу це не рухає.
@@ -154,6 +157,12 @@ function computeMetrics(entries: JournalEntry[]) {
           contributed += e.amount;
         }
       }
+    } else if (e.type === "purchase") {
+      // Виплата постачальнику — відтік каси, але НЕ операційна витрата (P&L).
+      // amount у журналі вже від'ємний. Раніше тип "purchase" не оброблявся
+      // взагалі → рух за період ігнорував закупки.
+      purchases += Math.abs(e.amount);
+      byMethod[mk].purchases += Math.abs(e.amount);
     } else if (e.type === "service") {
       countServices++;
       byMethod[mk].revenue += entryRevenue;
@@ -178,12 +187,12 @@ function computeMetrics(entries: JournalEntry[]) {
   //   (клієнт платить всю суму, майстру свою частку виплачуємо окремо).
   // debts signed: + довнесення, − виплата.
   const totalRevenue = salonTotal + specialistTotal;
-  const cashInRegister = totalRevenue + debts - expenses;
+  const cashInRegister = totalRevenue + debts - expenses - purchases;
 
   const cashByMethod = {
-    cash: byMethod["готівка"].revenue + byMethod["готівка"].debts - byMethod["готівка"].expenses,
-    card: byMethod["карта"].revenue + byMethod["карта"].debts - byMethod["карта"].expenses,
-    unknown: byMethod["unknown"].revenue + byMethod["unknown"].debts - byMethod["unknown"].expenses,
+    cash: byMethod["готівка"].revenue + byMethod["готівка"].debts - byMethod["готівка"].expenses - byMethod["готівка"].purchases,
+    card: byMethod["карта"].revenue + byMethod["карта"].debts - byMethod["карта"].expenses - byMethod["карта"].purchases,
+    unknown: byMethod["unknown"].revenue + byMethod["unknown"].debts - byMethod["unknown"].expenses - byMethod["unknown"].purchases,
   };
 
   return {
@@ -199,6 +208,7 @@ function computeMetrics(entries: JournalEntry[]) {
     debts,
     paidOut,
     contributed,
+    purchases,
     totalRevenue,
     cashInRegister,
     cashByMethod,

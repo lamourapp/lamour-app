@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchAllRecords, TABLES } from "@/lib/airtable";
 import { SERVICE_FIELDS, SPECIALIST_FIELDS, PURCHASE_FIELDS } from "@/lib/airtable-fields";
+import { cashDeltaForServiceRow, cashDeltaForPurchase, paymentBucket, isAccrualComment } from "@/lib/cash";
 import { ROW_METRICS_SOURCE_FIELDS, computeRowMetrics } from "@/lib/service-row";
 
 export const runtime = "nodejs";
@@ -85,24 +86,15 @@ export async function GET() {
       const f = r.fields;
       const expense = (f[SERVICE_FIELDS.expenseAmount] as number | undefined) || 0;
       const debt = (f[SERVICE_FIELDS.debtAmount] as number | undefined) || 0;
-      const payment = f[SERVICE_FIELDS.paymentType] as string | undefined;
-      const mk: keyof CashBreakdown =
-        payment === "готівка" ? "cash" : payment === "карта" ? "card" : "unknown";
-      const comment = ((f[SERVICE_FIELDS.comments] as string | undefined) ?? "").trim();
-      const isAccrual = /^нарахування/i.test(comment);
+      const mk = paymentBucket(f[SERVICE_FIELDS.paymentType] as string | undefined);
+      const isAccrual = isAccrualComment(f[SERVICE_FIELDS.comments] as string | undefined);
       const masterLinks = f[SERVICE_FIELDS.master] as string[] | undefined;
       const masterId = masterLinks && masterLinks.length > 0 ? masterLinks[0] : null;
 
       const metrics = computeRowMetrics(f);
 
-      // Cash register movement
-      if (expense !== 0) {
-        cash[mk] -= Math.abs(expense);
-      } else if (debt !== 0) {
-        if (!isAccrual) cash[mk] += debt; // signed: виплата<0, довнесення>0
-      } else {
-        cash[mk] += metrics.totalServicePrice + metrics.totalSalePrice;
-      }
+      // Рух каси — єдина логіка з cash.ts (cashDeltaForServiceRow).
+      cash[mk] += cashDeltaForServiceRow(f, metrics);
 
       // Master liabilities (skip owner-type masters — їх баланс у P&L/owner withdrawals)
       if (masterId) {
@@ -136,10 +128,8 @@ export async function GET() {
     for (const p of purchaseRecs) {
       const amount = (p.fields[PURCHASE_FIELDS.amount] as number) || 0;
       if (amount <= 0) continue;
-      const payment = p.fields[PURCHASE_FIELDS.paymentType] as string | undefined;
-      const mk: keyof CashBreakdown =
-        payment === "готівка" ? "cash" : payment === "карта" ? "card" : "unknown";
-      cash[mk] -= amount;
+      const mk = paymentBucket(p.fields[PURCHASE_FIELDS.paymentType] as string | undefined);
+      cash[mk] += cashDeltaForPurchase(amount);
     }
 
     const owedToMasters: MasterOwed[] = [...masterAgg.entries()]
