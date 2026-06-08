@@ -427,6 +427,9 @@ export default function JournalScreen() {
   );
   const [deleting, setDeleting] = useState<string | null>(null);
   const [createType, setCreateType] = useState<"expense" | "debt" | "sale" | "service" | null>(null);
+  // Створення виплати постачальнику з журналу — раніше це було можливо лише з
+  // дашборду власника (за owner-PIN), хоча платити постачальнику — робота адміна.
+  const [showPurchase, setShowPurchase] = useState(false);
   // Quick-edit для будь-якого типу — редагуємо метадані (дата/майстер/коментар)
   // + прості числа (expense amount, debt amount, supplement). Складні зміни
   // (склад продажу, калькуляція послуги) — через delete+recreate.
@@ -750,6 +753,13 @@ export default function JournalScreen() {
         >
           + Розрахунок
         </button>
+        <button
+          onClick={() => setShowPurchase(true)}
+          className="bg-[#f5f5f7] text-[#3f3f46] rounded-[10px] font-medium text-[11px] sm:text-[13px] px-2.5 sm:px-4 py-2 sm:py-2.5 border border-black/[0.1] cursor-pointer hover:bg-[#e5e5ea] transition-colors"
+          title="Виплата постачальнику за товари/матеріали"
+        >
+          + Постачальник
+        </button>
       </div>
 
       {/* Create Entry Modals */}
@@ -766,6 +776,12 @@ export default function JournalScreen() {
           specialists={specialists}
           onClose={() => setCreateType(null)}
           onCreated={reload}
+        />
+      )}
+      {showPurchase && (
+        <PurchaseModal
+          onClose={() => setShowPurchase(false)}
+          onSaved={() => { setShowPurchase(false); reload(); }}
         />
       )}
 

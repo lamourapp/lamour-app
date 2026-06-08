@@ -328,6 +328,9 @@ export async function GET(request: NextRequest) {
       return {
         id: r.id,
         date: (f[SERVICE_FIELDS.date] as string) || "",
+        // Сирий ISO часу створення — вторинний ключ сортування (за датою+часом).
+        // Не для UI (там форматований `time`), лише для коректного порядку.
+        createdISO: created || "",
         type,
         title,
         specialistId: specialistRecId,
@@ -433,6 +436,7 @@ export async function GET(request: NextRequest) {
           return {
             id: r.id,
             date,
+            createdISO: created || "",
             type: "purchase" as const,
             title: supplier || "Закупка матеріалів",
             amount: -Math.abs(amount),
@@ -447,12 +451,22 @@ export async function GET(request: NextRequest) {
 
       if (purchaseEntries.length > 0) {
         // @ts-expect-error — purchase entries мають підмножину полів JournalEntry
-        entries = entries.concat(purchaseEntries).sort((a, b) => {
-          if (a.date !== b.date) return a.date < b.date ? 1 : -1;
-          return 0;
-        });
+        entries = entries.concat(purchaseEntries);
       }
     }
+
+    // Сортування ВСІХ подій за датою+часом (desc). Раніше Airtable сортував
+    // лише за датою (date-only) → у межах дня порядок недетермінований, а
+    // закупки (підмішані з окремої таблиці) осідали в кінець дня. Тепер
+    // вторинний ключ — createdISO (сирий час створення), тож усі типи лягають
+    // строго хронологічно.
+    entries.sort((a, b) => {
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+      const ax = (a as { createdISO?: string }).createdISO || "";
+      const bx = (b as { createdISO?: string }).createdISO || "";
+      if (ax !== bx) return ax < bx ? 1 : -1;
+      return 0;
+    });
 
     // Client-side specialist filter (Airtable formula doesn't work with record IDs in linked fields)
     if (specialistId) {

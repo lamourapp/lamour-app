@@ -277,7 +277,14 @@ export async function GET(request: NextRequest) {
           amount: total,
           comment,
         });
-      } else if (hasSale) {
+      }
+
+      // Комісія за товар нараховується НЕЗАЛЕЖНО від послуги. Раніше це сиділо
+      // в `else if (hasSale)` → для комбінованого запису «послуга+продаж»
+      // (hasService=true) гілка не виконувалась, і майстер у звіті не отримував
+      // % за супутній продаж, хоча його баланс у Співробітниках/дашборді цей %
+      // включає (через masterPayTotal). Тепер звіт сходиться з балансом.
+      if (salesShare > 0) {
         accruedSales += salesShare;
         countSales += 1;
         entries.push({
@@ -286,6 +293,17 @@ export async function GET(request: NextRequest) {
           type: "sale",
           title: "Продаж товарів",
           amount: salesShare,
+          comment,
+        });
+      } else if (!hasService && hasSale) {
+        // Чистий продаж без комісії майстру — показуємо для повноти (0).
+        countSales += 1;
+        entries.push({
+          id: r.id,
+          date,
+          type: "sale",
+          title: "Продаж товарів",
+          amount: 0,
           comment,
         });
       }

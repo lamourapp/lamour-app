@@ -41,6 +41,10 @@ export default function OwnershipScreen({ onBack }: { onBack: () => void }) {
   // Вилучення прибутку — debt-запис з пресетом мінус. Живе тут (а не в StaffScreen),
   // щоб прибуток власника не світився на екрані команди.
   const [withdrawingOwner, setWithdrawingOwner] = useState<Specialist | null>(null);
+  // Внесок власника в касу (поповнення бізнесу) — debt-запис з пресетом плюс.
+  // Дзеркало «Вилучити». Бекенд це вже рахує (ownerContributions у P&L), просто
+  // досі не було UI щоб створити такий запис.
+  const [contributingOwner, setContributingOwner] = useState<Specialist | null>(null);
 
   const specialistNameById = useMemo(() => {
     const m = new Map<string, string>();
@@ -155,13 +159,21 @@ export default function OwnershipScreen({ onBack }: { onBack: () => void }) {
                         <div className="text-[13px] text-gray-800 truncate">{o.name}</div>
                         {hasMasterSide && (
                           <div className="text-[11px] text-gray-400 tabular-nums">
-                            як майстер: {fmt(Math.round(masterBal))}
+                            як майстер: {fmt(masterBal)}
                           </div>
                         )}
                       </div>
                       <div className="text-[13px] tabular-nums text-brand-700 font-medium">
-                        {fmt(Math.round(ownerBal))}
+                        {fmt(ownerBal)}
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => setContributingOwner(o as Specialist)}
+                        className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 cursor-pointer transition-colors"
+                        title="Зафіксувати внесок власника в касу"
+                      >
+                        Внести
+                      </button>
                       <button
                         type="button"
                         onClick={() => setWithdrawingOwner(o as Specialist)}
@@ -220,6 +232,21 @@ export default function OwnershipScreen({ onBack }: { onBack: () => void }) {
             ) / 100,
             debtSign: "-",
             comment: "Вилучення прибутку",
+          }}
+        />
+      )}
+
+      {contributingOwner && (
+        <CreateEntryModal
+          type="debt"
+          specialists={specialists}
+          onClose={() => setContributingOwner(null)}
+          onCreated={() => { reload(); reloadSpecialists(); }}
+          preset={{
+            specialistId: contributingOwner.id,
+            amount: 0, // суму вводить власник вручну
+            debtSign: "+",
+            comment: "Внесок власника",
           }}
         />
       )}
