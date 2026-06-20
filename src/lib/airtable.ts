@@ -34,7 +34,11 @@ export const TABLES = {
   categories: "tblwzWzFfPsJqep6v",      // Категорії послуг (FK source of truth)
   expenseTypes: "tbljEgUp3xOEi8ajX",    // Види витрат (довідник, керується з Налаштувань)
   ownership: "tblGLXPBSeOy4b35b",       // Розподіл прибутку (append-only ревізії)
-  purchases: "tbliV1Qh8ls5Ak579",       // Закупки матеріалів (виплати постачальникам)
+  // Закупки матеріалів — звертаємось за НАЗВОЮ, не ID. Решта таблиць мають
+  // однакові ID у всіх tenant-базах (вони дублі майстер-бази), а цю таблицю
+  // створювали окремо в кожній базі → ID різні. Airtable API приймає і ID, і
+  // назву; назва стабільна між базами. Це передумова мультитенантності.
+  purchases: "Закупки матеріалів",
 } as const;
 
 interface AirtableRecord {
@@ -114,7 +118,7 @@ export async function fetchRecords(
     params.set("offset", options.offset);
   }
 
-  const url = `${API_URL}/${getBaseId()}/${tableId}?${params.toString()}`;
+  const url = `${API_URL}/${getBaseId()}/${encodeURIComponent(tableId)}?${params.toString()}`;
   const res = await fetchWithRetry(url, {
     headers: {
       Authorization: `Bearer ${getToken()}`,
@@ -157,7 +161,7 @@ export async function createRecord(
   tableId: string,
   fields: Record<string, unknown>,
 ): Promise<{ id: string; fields: Record<string, unknown> }> {
-  const url = `${API_URL}/${getBaseId()}/${tableId}`;
+  const url = `${API_URL}/${getBaseId()}/${encodeURIComponent(tableId)}`;
   const res = await fetchWithRetry(url, {
     method: "POST",
     headers: {
@@ -184,7 +188,7 @@ export async function updateRecord(
   recordId: string,
   fields: Record<string, unknown>,
 ): Promise<{ id: string; fields: Record<string, unknown> }> {
-  const url = `${API_URL}/${getBaseId()}/${tableId}/${recordId}`;
+  const url = `${API_URL}/${getBaseId()}/${encodeURIComponent(tableId)}/${recordId}`;
   const res = await fetchWithRetry(url, {
     method: "PATCH",
     headers: {
@@ -212,7 +216,7 @@ export async function batchCreateRecords(
   const created: { id: string; fields: Record<string, unknown> }[] = [];
   for (let i = 0; i < records.length; i += 10) {
     const batch = records.slice(i, i + 10);
-    const url = `${API_URL}/${getBaseId()}/${tableId}`;
+    const url = `${API_URL}/${getBaseId()}/${encodeURIComponent(tableId)}`;
     const res = await fetchWithRetry(url, {
       method: "POST",
       headers: {
@@ -240,7 +244,7 @@ export async function batchUpdateRecords(
   // Airtable allows max 10 records per batch
   for (let i = 0; i < updates.length; i += 10) {
     const batch = updates.slice(i, i + 10);
-    const url = `${API_URL}/${getBaseId()}/${tableId}`;
+    const url = `${API_URL}/${getBaseId()}/${encodeURIComponent(tableId)}`;
     const res = await fetchWithRetry(url, {
       method: "PATCH",
       headers: {
@@ -260,7 +264,7 @@ export async function batchUpdateRecords(
 // Delete a record
 export async function deleteRecord(tableId: string, recordId: string): Promise<void> {
   // Airtable API: batch delete format with records[] query param
-  const url = `${API_URL}/${getBaseId()}/${tableId}?records[]=${recordId}`;
+  const url = `${API_URL}/${getBaseId()}/${encodeURIComponent(tableId)}?records[]=${recordId}`;
   const res = await fetchWithRetry(url, {
     method: "DELETE",
     headers: {
