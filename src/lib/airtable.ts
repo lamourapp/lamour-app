@@ -19,26 +19,30 @@ function getToken(): string {
 }
 
 // Table IDs
+// Звертаємось до таблиць за НАЗВОЮ, а не за ID — це передумова мультитенантності.
+// Airtable API приймає і tbl-ID, і назву в URL. ID унікальні per-base: вони
+// збігалися лише тому, що tenant-бази були дублями однієї майстер-бази. Свіжий
+// салон, створений з нуля, мав би інші ID — і код за хардкод-ID впав би повністю.
+// Назви ж стабільні між базами (їх задає схема). URL-сегмент кодуємо через
+// encodeURIComponent (кирилиця/пробіли) — для legacy tbl-ID це no-op.
+// Перевірено живим запитом: усі назви резолвляться 200 в обох tenant-базах.
 export const TABLES = {
-  services: "tblbscwomS21IlWy6",       // Послуги (journal)
-  specialists: "tblsfMMvXdTp1DkjY",     // Співробітники
-  servicesCatalog: "tblghXXUuVyGVqSv3", // Список послуг
-  priceList: "tblhW7QGo6svDezGR",       // Прайс
-  calculation: "tbl9NtGOpsE3XbdT4",     // Калькуляція
-  orders: "tbl6WADNSFGrw6abz",          // Замовлення
-  saleDetails: "tblTbJdSfMpMRqU4r",     // Продажі деталі
-  products: "tblthnCZzNrs9gJ1I",        // Товари
-  clients: "tblhwRZKJeduhN7vE",         // Клієнти
-  settings: "tblSTSjnEbV37pWRP",        // Settings (single row "current")
-  specializations: "tbllDjZGNnwXBTMB2", // Спеціалізації (tenant-defined roles)
-  categories: "tblwzWzFfPsJqep6v",      // Категорії послуг (FK source of truth)
-  expenseTypes: "tbljEgUp3xOEi8ajX",    // Види витрат (довідник, керується з Налаштувань)
-  ownership: "tblGLXPBSeOy4b35b",       // Розподіл прибутку (append-only ревізії)
-  // Закупки матеріалів — звертаємось за НАЗВОЮ, не ID. Решта таблиць мають
-  // однакові ID у всіх tenant-базах (вони дублі майстер-бази), а цю таблицю
-  // створювали окремо в кожній базі → ID різні. Airtable API приймає і ID, і
-  // назву; назва стабільна між базами. Це передумова мультитенантності.
+  services: "Послуги",
+  specialists: "Співробітники",
+  servicesCatalog: "Список послуг",
+  priceList: "Прайс",
+  calculation: "Калькуляція",
+  orders: "Замовлення",
+  saleDetails: "Продажі деталі",
+  clients: "Клієнти",
+  settings: "Settings",
+  specializations: "Спеціалізації",
+  categories: "Категорії послуг",
+  expenseTypes: "Види витрат",
+  ownership: "Розподіл прибутку",
   purchases: "Закупки матеріалів",
+  // products: "Товари" — legacy зі старої бази, відсутня в нових, у коді не
+  // використовується. Не вмикаємо, щоб не створювати латентний 404.
 } as const;
 
 interface AirtableRecord {
